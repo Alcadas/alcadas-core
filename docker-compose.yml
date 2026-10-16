@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  api:
+    image: node:24-alpine
+    container_name: alcadas-api
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+
+    command: npx nx serve api --host 0.0.0.0
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
+      - FIRESTORE_EMULATOR_HOST=firebase:8080
+    depends_on:
+      - firebase
+
+  web:
+    image: node:24-alpine
+    container_name: alcadas-web
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+    ports:
+      - "4200:4200"
+
+    command: npx nx serve web --host 0.0.0.0
+    depends_on:
+      - api
+
+
+  firebase:
+    image: node:24-alpine
+    container_name: alcadas-firebase
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "4000:4000" # Firebase Emulator UI
+      - "8080:8080" # Firestore
+      - "9099:9099" # Authentication
+
+    # Instala o Java (necessário pro Firestore), a CLI e sobe os emuladores
+    command: >
+      sh -c "apk add --no-cache openjdk17-jre &&
+             npm install -g firebase-tools &&
+             firebase emulators:start --project demo-alcadas --host 0.0.0.0"
+
+
+

@@ -1,0 +1,33 @@
+name: CI Alçadas (Lint & Build)
+
+on:
+  push:
+    branches: [ "main", "develop", "feat/#3-checkpoint-devops"]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  validate:
+    name: Validação de Código e Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para o Nx affected funcionar corretamente
+
+      - name: Configurar Node.js (v24)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Executar Linting (Frontend e Backend)
+        run: npx nx run-many --target=lint --all --parallel=3
+
+      - name: Executar Build (Frontend e Backend)
+        run: npx nx run-many --target=build --all --parallel=3
