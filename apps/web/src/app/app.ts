@@ -1,13 +1,21 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
-import { NxWelcome } from './nx-welcome';
 
 @Component({
-  imports: [NxWelcome, RouterModule],
+  imports: [RouterModule],
   selector: 'app-root',
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {
-  protected title = 'web';
+export class App implements OnInit {
+  private http = inject(HttpClient);
+  protected status = signal('verificando...');
+
+  ngOnInit() {
+    this.http.get('http://localhost:3000/api').subscribe({
+      next: (data) => this.status.set(JSON.stringify(data)),
+      error: () => this.status.set('API fora do ar'),
+    });
+  }
 }
