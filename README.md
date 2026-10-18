@@ -1,96 +1,183 @@
-# AlcadasCore
+# Alçadas — Repositório Core
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+> **Sistema de Workflow de Alçadas de Aprovação e Rastreabilidade Operacional**  
+> Projeto desenvolvido no âmbito do **Laboratório Makers — Universidade de Brasília (UnB)** em parceria com a **Startop LTDA**.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+[![CI Alçadas](https://github.com/Alcadas/alcadas-core/actions/workflows/ci.yml/badge.svg)](https://github.com/Alcadas/alcadas-core/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Nx](https://img.shields.io/badge/monorepo-Nx%2023-blueviolet.svg)](https://nx.dev)
+[![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](https://nodejs.org)
+[![Angular](https://img.shields.io/badge/Angular-22-dd0031.svg)](https://angular.dev)
+[![NestJS](https://img.shields.io/badge/NestJS-11-e0234e.svg)](https://nestjs.com)
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+---
 
-## Run tasks
+## 🎯 Sobre o Projeto
 
-To run tasks with Nx use:
+O **Alçadas** é uma plataforma corporativa desenvolvida para estruturar, automatizar e blindar a governança de solicitações financeiras (compras, pagamentos e reembolsos). O sistema transforma aprovações informais e regras dispersas em dados auditáveis e rastreáveis, fornecendo:
 
-```sh
-npx nx <target> <project-name>
+- **Alçadas e Tetos Configuráveis:** Validação automática de limites de valor por cargo e centros de custo com escalonamento hierárquico (`RF01`, `RF02`).
+- **Prevenção de Fraudes e Riscos:** Motor nativo de detecção de fracionamento de compras em janelas móveis de 30 dias e duplicidade de lançamentos em 7 dias (`RF05`, `RF06`).
+- **Segregação de Funções (*SoD*):** Bloqueio estrito de autoaprovação e validação de conflito de papéis em delegações temporárias de competência (`RF04`, `RF12`).
+- **Trilha de Auditoria Criptográfica:** Cadeia imutável de elos com *hashes* SHA-256 encadeados, detectando qualquer tentativa de adulteração de dados em menos de 1 segundo (`RF07`, `RF08`).
+- **Sincronização em Tempo Real:** Atualizações instantâneas de status e pendências nos painéis operacionais sem recarregar a página (`RNF01`).
+
+---
+
+## 🏗️ Arquitetura e Monorepo
+
+O repositório é configurado como um monorepo gerenciado pelo [Nx](https://nx.dev), utilizando TypeScript em todas as camadas para garantir consistência de contratos e produtividade:
+
+```text
+alcadas-core/
+├── apps/
+│   ├── api/             # Backend em NestJS (Regras de negócio, máquina de estados, auditoria)
+│   ├── api-e2e/         # Testes de integração e E2E da API
+│   ├── web/             # Frontend em Angular (Reactive Forms, painéis em tempo real)
+│   └── web-e2e/         # Testes ponta a ponta com Playwright
+├── libs/
+│   └── shared/
+│       └── models/      # Interfaces, DTOs e entidades compartilhadas (contratos)
+├── docs/
+│   └── ARCHITECTURE.md  # Detalhamento arquitetural técnico e diagramas
+├── .github/
+│   ├── workflows/       # Pipelines de Integração Contínua (CI) do GitHub Actions
+│   └── ISSUE_TEMPLATE/  # Templates padronizados para Issues e Pull Requests
+├── docker-compose.yml   # Orquestração local de API, Web e Emuladores Firebase
+├── firebase.json        # Configurações das portas dos emuladores locais
+└── package.json         # Dependências do monorepo e scripts unificados
 ```
 
-For example:
+---
 
-```sh
-npx nx build myproject
-```
+## 🚀 Como Executar Localmente
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+### Pré-requisitos
+- [Node.js](https://nodejs.org/) `>= 24.x`
+- [npm](https://www.npmjs.com/) `>= 11.x`
+- [Docker](https://www.docker.com/) e Docker Compose (recomendado para emuladores)
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Add new projects
+### Opção 1: Execução com Docker Compose (Recomendada)
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+Com apenas um comando, todos os serviços (Firebase Emulators, NestJS API e Angular Web) são inicializados:
 
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
-```
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/Alcadas/alcadas-core.git
+   cd alcadas-core
+   ```
 
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+2. **Copie as variáveis de ambiente:**
+   ```bash
+   cp .env.example .env
+   ```
 
-```sh
-# Generate an app
-npx nx g @nx/react:app demo
+3. **Suba o ambiente completo:**
+   ```bash
+   npm run docker:up
+   ```
 
-# Generate a library
-npx nx g @nx/react:lib some-lib
-```
+4. **Acompanhe os logs:**
+   ```bash
+   npm run docker:logs
+   ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+---
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Opção 2: Execução Híbrida / Local
 
-## Set up CI!
+Caso queira rodar o frontend e backend diretamente na máquina física com recarregamento rápido:
 
-### Step 1
+1. **Instale as dependências:**
+   ```bash
+   npm ci
+   ```
 
-To connect to Nx Cloud, run the following command:
+2. **Inicie os emuladores locais do Firebase:**
+   ```bash
+   # Utilizando docker apenas para os emuladores:
+   docker compose up firebase -d
+   ```
 
-```sh
-npx nx connect
-```
+3. **Inicie a API NestJS:**
+   ```bash
+   npm run start:api
+   ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+4. **Em outro terminal, inicie o Frontend Angular:**
+   ```bash
+   npm run start:web
+   ```
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-### Step 2
+## 🌐 Portas e URLs de Acesso
 
-Use the following command to configure a CI workflow for your workspace:
+| Serviço | URL / Porta | Descrição |
+| :--- | :--- | :--- |
+| **Frontend Web** | [http://localhost:4200](http://localhost:4200) | Interface do Solicitante, Aprovador e Auditor |
+| **Backend API** | [http://localhost:3000/api](http://localhost:3000/api) | Endpoints REST protegidos por RBAC e JWT |
+| **Firebase Emulator UI** | [http://localhost:4000](http://localhost:4000) | Painel visual dos emuladores locais |
+| **Firestore Emulator** | `localhost:8080` | Banco NoSQL de documentos em tempo real |
+| **Auth Emulator** | `localhost:9099` | Emulador de identidade e tokens JWT |
 
-```sh
-npx nx g ci-workflow
-```
+---
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 📜 Scripts Disponíveis
 
-## Install Nx Console
+Os comandos abaixo podem ser executados via `npm run <script>` ou `npx nx <target> <project>`:
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+| Script | Descrição |
+| :--- | :--- |
+| `npm run start:web` | Inicia o servidor de desenvolvimento do Angular (`apps/web`) |
+| `npm run start:api` | Inicia o servidor da API NestJS em modo watch (`apps/api`) |
+| `npm run build` | Compila todos os projetos da workspace |
+| `npm run build:web` | Compila o Frontend Angular para produção |
+| `npm run build:api` | Compila o Backend NestJS com webpack |
+| `npm run test` | Executa todos os testes unitários via Jest |
+| `npm run test:web` | Executa os testes unitários do Frontend Angular |
+| `npm run test:api` | Executa os testes unitários da API NestJS |
+| `npm run test:models`| Executa os testes da biblioteca de modelos compartilhados |
+| `npm run lint` | Executa o ESLint em todos os apps e libs |
+| `npm run lint:fix` | Corrige problemas automáticos de linting |
+| `npm run docker:up` | Sobe todos os contêineres do Docker Compose em background |
+| `npm run docker:down`| Encerra e remove os contêineres do Docker Compose |
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Useful links
+## 🤝 Como Contribuir
 
-Learn more:
+Antes de submeter código ou criar uma branch, leia atentamente nosso [**Guia de Contribuição (CONTRIBUTING.md)**](CONTRIBUTING.md) e o [**Código de Conduta (CODE_OF_CONDUCT.md)**](CODE_OF_CONDUCT.md).
 
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Resumo das Regras de Contribuição:
+1. **Nenhum commit direto na `main`:** Crie uma branch com o padrão `feat/#<issue>-nome`, `fix/#<issue>-descricao`, `docs/#<issue>-descricao` ou `chore/#<issue>-descricao`.
+2. **Conventional Commits:** Escreva mensagens semânticas (ex.: `feat(api): adiciona rota de criacao de solicitacao`).
+3. **Qualidade Garantida:** Certifique-se de que `npm run lint`, `npm run test` e `npm run build` passam com sucesso antes de abrir o PR.
+4. **Pull Request:** Preencha o template de PR detalhando as alterações e referenciando a issue relacionada.
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
+
+## 📚 Documentação Técnica Completa
+
+Para aprofundamento na especificação do produto, consulte os seguintes artefatos:
+- [**Arquitetura do Sistema**](docs/ARCHITECTURE.md): Diagramas de sequência, máquina de estados e trilha criptográfica.
+- [**Repositório de Documentação (`alcadas-docs`)**](../alcadas-docs): Requisitos funcionais, regras de negócio e histórias de usuário mantidos no MkDocs.
+
+---
+
+## 👥 Integrantes & Equipe do Projeto
+
+| Integrante | Papel Principal |
+| :--- | :--- |
+| **Matheus Ribeiro Szervinsk** | Project Owner |
+| **Henrique Schneider** | Tech Lead |
+| **Pedro Henrique Gomes** | DevOps |
+| **Luis** | Backend |
+| **Ana Clara** | Frontend |
+| **Leticia** | QA |
+
+---
+
+**Alçadas** — *Laboratório Makers — Universidade de Brasília (UnB)*
