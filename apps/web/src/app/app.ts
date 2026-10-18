@@ -13,8 +13,8 @@ export class App implements OnInit {
   protected status = signal('verificando...');
 
   ngOnInit() {
-    this.http.get('http://localhost:3000/api').subscribe({
-      next: (data) => this.status.set(JSON.stringify(data)),
+    this.http.get('http://localhost:3000/api/status', {responseType:'text'}).subscribe({
+      next: (data) => this.status.set(data),
       error: () => this.status.set('API fora do ar'),
     });
   }
