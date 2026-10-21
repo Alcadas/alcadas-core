@@ -1,7 +1,9 @@
 version: '3.8'
+
 services:
+
   api:
-    image: node:24-alpine
+    image: node:22-alpine
     container_name: alcadas-api
     working_dir: /app
     volumes:
@@ -10,7 +12,7 @@ services:
     ports:
       - "3000:3000"
 
-    command: npx nx serve api --host 0.0.0.0
+    command: sh -c "npm install && npx nx serve api --host 0.0.0.0"
     environment:
       - NODE_ENV=development
       - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
@@ -19,7 +21,7 @@ services:
       - firebase
 
   web:
-    image: node:24-alpine
+    image: node:22-alpine
     container_name: alcadas-web
     working_dir: /app
     volumes:
@@ -29,13 +31,13 @@ services:
     ports:
       - "4200:4200"
 
-    command: npx nx serve web --host 0.0.0.0
+    command: sh -c "npm install && npx nx serve web --host 0.0.0.0"
     depends_on:
       - api
 
 
   firebase:
-    image: node:24-alpine
+    image: node:22-alpine
     container_name: alcadas-firebase
     working_dir: /app
     volumes:
