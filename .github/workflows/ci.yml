@@ -1,14 +1,14 @@
-name: CI Alçadas (Lint & Build)
+name: CI Alçadas (Lint, Test & Build)
 
 on:
   push:
-    branches: [ "main", "develop", "feat/#3-checkpoint-devops"]
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main", "develop" ]
 
 jobs:
   validate:
-    name: Validação de Código e Build
+    name: Validação de Código, Testes e Build
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +28,9 @@ jobs:
 
       - name: Executar Linting (Frontend e Backend)
         run: npx nx run-many --target=lint --all --parallel=3
+
+      - name: Executar Testes Unitários
+        run: npx nx run-many --target=test --all --parallel=3
 
       - name: Executar Build (Frontend e Backend)
         run: npx nx run-many --target=build --all --parallel=3
