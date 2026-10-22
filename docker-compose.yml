@@ -15,6 +15,11 @@ services:
     command: sh -c "npm install && npx nx serve api --host 0.0.0.0"
     environment:
       - NODE_ENV=development
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
+      - FIRESTORE_EMULATOR_HOST=firebase:8080
+      - NX_DAEMON=false
+    depends_on:
+      - firebase
 
   web:
     image: node:22-alpine
@@ -27,6 +32,8 @@ services:
       - "4200:4200"
 
     command: sh -c "npm install && npx nx serve web --host 0.0.0.0"
+    environment:
+      - NX_DAEMON=false
     depends_on:
       - api
 
