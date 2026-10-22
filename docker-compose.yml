@@ -49,9 +49,8 @@ services:
 
     # Instala o Java (necessário pro Firestore), a CLI e sobe os emuladores
     command: >
-      sh -c "apk add --no-cache openjdk17-jre &&
+      sh -c "apk add --no-cache openjdk21-jre bash &&
              npm install -g firebase-tools &&
-             firebase emulators:start --project demo-alcadas --host 0.0.0.0"
-
+             firebase emulators:start --project demo-alcadas"
 
 
