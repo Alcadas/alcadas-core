@@ -69,49 +69,17 @@ Com apenas um comando, todos os serviços (Firebase Emulators, NestJS API e Angu
    cd alcadas-core
    ```
 
-2. **Copie as variáveis de ambiente:**
+
+2. **Suba o ambiente completo:**
    ```bash
-   cp .env.example .env
+   docker compose up --build
    ```
 
-3. **Suba o ambiente completo:**
-   ```bash
-   npm run docker:up
-   ```
+Leva alguns minutos para subir todos os containers
 
-4. **Acompanhe os logs:**
-   ```bash
-   npm run docker:logs
-   ```
 
 ---
 
-### Opção 2: Execução Híbrida / Local
-
-Caso queira rodar o frontend e backend diretamente na máquina física com recarregamento rápido:
-
-1. **Instale as dependências:**
-   ```bash
-   npm ci
-   ```
-
-2. **Inicie os emuladores locais do Firebase:**
-   ```bash
-   # Utilizando docker apenas para os emuladores:
-   docker compose up firebase -d
-   ```
-
-3. **Inicie a API NestJS:**
-   ```bash
-   npm run start:api
-   ```
-
-4. **Em outro terminal, inicie o Frontend Angular:**
-   ```bash
-   npm run start:web
-   ```
-
----
 
 ## 🌐 Portas e URLs de Acesso
 
