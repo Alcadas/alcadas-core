@@ -85,7 +85,7 @@ export class JwtAuthGuard implements CanActivate {
             ? payload['limiteAlcada']
             : typeof payload['maxApprovalLimit'] === 'number'
               ? payload['maxApprovalLimit']
-              : undefined;
+              : headerLimit;
 
         return {
           userId,
@@ -104,52 +104,70 @@ export class JwtAuthGuard implements CanActivate {
       }
     }
 
-    // 2. Suporte a tokens de sessão local/emulador no formato mock do frontend ou test tokens
-    // Formato estruturado: "test:<tenantId>:<role>:<userId>"
+    // 2. Formato estruturado para testes/emulador: "test:<tenantId>:<role>:<userId>:<limiteOpcional>"
     if (token.startsWith('test:')) {
-      const [, tenantId, rawRole, userId = 'usr-test-01'] = token.split(':');
+      const [, tenantId, rawRole, userId = 'usr-aprov-01', rawLimit] = token.split(':');
       if (!tenantId || !rawRole) {
         throw new UnauthorizedException('Token de teste malformado.');
       }
       const role = this.normalizeRole(rawRole);
+      const parsedLimit =
+        rawLimit !== undefined && rawLimit !== '' ? Number(rawLimit) : headerLimit;
+
       return {
         userId,
         tenantId,
         role,
         level: this.inferLevel(role),
+        maxApprovalLimit:
+          parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       };
     }
 
-    // Suporte aos tokens de teste existentes na suíte E2E (ex.: "token-do-usuario-da-empresa-A")
+    // 3. Suporte aos tokens de teste existentes na suíte E2E ("token-do-usuario-da-empresa-A")
     if (token.startsWith('token-do-usuario-da-empresa-')) {
       const suffix = token.replace('token-do-usuario-da-empresa-', '').trim();
       if (!suffix) {
         throw new UnauthorizedException('Token inválido.');
       }
       const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'SOLICITANTE';
+      const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'USER_NORMAL';
       const role = this.normalizeRole(roleHeader);
       return {
         userId: `usr-empresa-${suffix}`,
         tenantId: `empresa-${suffix}`,
         role,
         level: this.inferLevel(role),
+        maxApprovalLimit: headerLimit,
       };
     }
 
-    // Suporte ao mock token do AuthService do frontend ("mock-jwt-token-alcadas-...")
+    // 4. Suporte ao mock token do AuthService do frontend ("mock-jwt-token-alcadas-...")
     if (token.startsWith('mock-jwt-token-alcadas-')) {
       const tenantId = this.getHeaderString(headers, 'x-tenant-id') || 'startop';
-      const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'ADMIN';
+      const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'APROVADOR_N2';
       const role = this.normalizeRole(roleHeader);
       return {
-        userId: 'usr-admin-01',
+        userId: this.getHeaderString(headers, 'x-user-id') || 'usr-aprov-01',
         tenantId,
         role,
         level: this.inferLevel(role),
+        maxApprovalLimit: headerLimit,
       };
     }
 
     throw new UnauthorizedException('Token de autenticação inválido ou não reconhecido.');
+  }
+
+  private parseHeaderLimit(
+    headers: Record<string, string | string[] | undefined>,
+  ): number | undefined {
+    const raw =
+      this.getHeaderString(headers, 'x-approval-limit') ??
+      this.getHeaderString(headers, 'x-limite-alcada');
+    if (!raw) return undefined;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : undefined;
   }
 
   private getHeaderString(
@@ -166,9 +184,15 @@ export class JwtAuthGuard implements CanActivate {
       return upper as UserRole;
     }
     if (upper === 'ADMINISTRADOR') return 'ADMIN';
-    if (upper === 'GERENTE' || upper === 'N2') return 'APROVADOR_N2';
-    if (upper === 'COORDENADOR' || upper === 'SUPERVISOR' || upper === 'N1') return 'APROVADOR_N1';
-    if (upper === 'DIRETOR' || upper === 'CFO' || upper === 'N3') return 'DIRETOR_CFO';
+    if (upper === 'GERENTE' || upper === 'N2' || upper === 'APROVADOR_TITULAR') {
+      return 'APROVADOR_N2';
+    }
+    if (upper === 'COORDENADOR' || upper === 'SUPERVISOR' || upper === 'N1') {
+      return 'APROVADOR_N1';
+    }
+    if (upper === 'DIRETOR' || upper === 'CFO' || upper === 'N3') {
+      return 'DIRETOR_CFO';
+    }
     throw new UnauthorizedException(`Papel de usuário inválido: ${rawRole}`);
   }
 

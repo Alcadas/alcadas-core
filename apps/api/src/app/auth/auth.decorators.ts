@@ -9,7 +9,7 @@ export const ROLES_KEY = 'alcadas_roles';
 export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
 
 /**
- * Decorator para extrair o usuário autenticado (com tenantId e role) da requisição.
+ * Decorator para extrair o usuário autenticado (com tenantId, userId, role e alçada) da requisição.
  */
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): AuthenticatedUser => {

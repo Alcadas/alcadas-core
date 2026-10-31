@@ -18,7 +18,7 @@ interface FirestoreDocument {
 
 /**
  * Serviço de persistência conectado ao Emulador do Google Cloud Firestore (ADR-004 / RNF07 / RNF10).
- * Grava e lê documentos sempre dentro do caminho isolado do tenant: /tenants/{tenantId}/{collection}/{docId}.
+ * Grava e lê documentos sempre dentro do caminho isolado do tenant: /tenants/{tenantId}/{subcollectionPath}/{docId}.
  */
 @Injectable()
 export class FirestoreService {
@@ -58,7 +58,8 @@ export class FirestoreService {
     data: T,
   ): Promise<T> {
     this.assertValidTenant(tenantId);
-    const relativePath = `tenants/${encodeURIComponent(tenantId)}/${subcollection}/${encodeURIComponent(docId)}`;
+    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
+    const relativePath = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
     const record = { ...(data as Record<string, unknown>), tenantId };
 
     this.memoryStore.set(relativePath, record);
@@ -77,15 +78,16 @@ export class FirestoreService {
 
   /**
    * Obtém um documento específico dentro do escopo do tenant:
-   * /tenants/{tenantId}/{subcollection}/{docId}
+   * /tenants/{tenantId}/{subcollectionPath}/{docId}
    */
   async getTenantDocument<T>(
     tenantId: string,
-    subcollection: string,
+    subcollectionPath: string,
     docId: string,
   ): Promise<T | null> {
     this.assertValidTenant(tenantId);
-    const relativePath = `tenants/${encodeURIComponent(tenantId)}/${subcollection}/${encodeURIComponent(docId)}`;
+    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
+    const relativePath = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
 
     try {
       const response = await this.http.get<FirestoreDocument>(`/${relativePath}`);
@@ -96,7 +98,7 @@ export class FirestoreService {
       }
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
-        return null;
+        return (this.memoryStore.get(relativePath) as T) ?? null;
       }
     }
 
@@ -105,12 +107,16 @@ export class FirestoreService {
   }
 
   /**
-   * Lista todos os documentos de uma subcoleção pertencentes exclusivamente ao tenant informado:
-   * /tenants/{tenantId}/{subcollection}
+   * Lista todos os documentos de uma coleção ou subcoleção pertencentes ao tenant informado:
+   * /tenants/{tenantId}/{subcollectionPath}
    */
-  async listTenantCollection<T>(tenantId: string, subcollection: string): Promise<T[]> {
+  async listTenantCollection<T>(
+    tenantId: string,
+    subcollectionPath: string,
+  ): Promise<T[]> {
     this.assertValidTenant(tenantId);
-    const collectionPrefix = `tenants/${encodeURIComponent(tenantId)}/${subcollection}`;
+    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
+    const collectionPrefix = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}`;
 
     try {
       const response = await this.http.get<{ documents?: FirestoreDocument[] }>(
@@ -122,7 +128,7 @@ export class FirestoreService {
       for (const doc of docs) {
         if (doc.fields) {
           const parsed = this.fromFirestoreFields(doc.fields);
-          if (parsed['tenantId'] === tenantId) {
+          if (!parsed['tenantId'] || parsed['tenantId'] === tenantId) {
             const docId = doc.name?.split('/').pop();
             if (docId) {
               this.memoryStore.set(`${collectionPrefix}/${docId}`, parsed);
@@ -131,18 +137,24 @@ export class FirestoreService {
           }
         }
       }
-      return results;
+      if (results.length > 0) {
+        return results;
+      }
     } catch {
-      // Fallback para o store local filtrando estritamente pelo prefixo do tenant e propriedade tenantId
-      const results: T[] = [];
-      const prefixWithSlash = `${collectionPrefix}/`;
-      for (const [key, value] of this.memoryStore.entries()) {
-        if (key.startsWith(prefixWithSlash) && value['tenantId'] === tenantId) {
+      // Fallback para o store em memória quando o emulador não estiver rodando
+    }
+
+    const results: T[] = [];
+    const prefixWithSlash = `${collectionPrefix}/`;
+    for (const [key, value] of this.memoryStore.entries()) {
+      if (key.startsWith(prefixWithSlash)) {
+        const remainder = key.slice(prefixWithSlash.length);
+        if (!remainder.includes('/') && (!value['tenantId'] || value['tenantId'] === tenantId)) {
           results.push(value as T);
         }
       }
-      return results;
     }
+    return results;
   }
 
   private assertValidTenant(tenantId: string): void {

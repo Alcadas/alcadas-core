@@ -48,6 +48,9 @@ export class DashboardComponent {
   protected readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
+  // Estado de Carregamento dos Dados do Dashboard
+  readonly isLoading = signal(true);
+
   readonly selectedPeriod = signal<'dia' | 'semana' | 'mes'>('mes');
   readonly selectedTab = signal<'pendentes' | 'todas' | 'aprovadas'>('pendentes');
   readonly searchQuery = signal('');
@@ -240,5 +243,12 @@ export class DashboardComponent {
 
   setTab(tab: 'pendentes' | 'todas' | 'aprovadas'): void {
     this.selectedTab.set(tab);
+  }
+
+  constructor() {
+    // Simula carregamento de métricas e limites da API
+    setTimeout(() => {
+      this.isLoading.set(false);
+    }, 650);
   }
 }

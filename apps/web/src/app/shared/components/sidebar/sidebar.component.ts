@@ -5,6 +5,15 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 
+export interface SubMenuItem {
+  id: string;
+  route: string;
+  label: string;
+  icon?: string;
+  badge?: string | number | null;
+  badgeColor?: string;
+}
+
 export interface MenuItem {
   id: string;
   route: string;
@@ -13,6 +22,7 @@ export interface MenuItem {
   badge?: string | number | null;
   badgeColor?: string;
   hasSubmenu?: boolean;
+  subItems?: SubMenuItem[];
 }
 
 export interface DepartmentItem {
@@ -57,14 +67,48 @@ export class SidebarComponent {
     return 'dashboard';
   });
 
+  readonly activeSubItem = computed(() => {
+    const url = this.currentUrl();
+    if (url.includes('/alcadas/regras')) return 'minhas-regras';
+    if (url.includes('/alcadas')) return 'meus-fluxos';
+    return null;
+  });
+
+  // Controle de submenus abertos (Alçadas & Tetos aberto por padrão)
+  readonly openSubmenus = signal<Record<string, boolean>>({
+    alcadas: true,
+  });
+
   readonly mainMenuItems = signal<MenuItem[]>([
     { id: 'dashboard', route: '/dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
-    { id: 'aprovacoes', route: '/aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: true },
-    { id: 'solicitacoes', route: '/solicitacoes', label: 'Solicitações', icon: 'description', hasSubmenu: true },
-    { id: 'alcadas', route: '/alcadas', label: 'Alçadas & Tetos', icon: 'shield', hasSubmenu: true },
+    { id: 'aprovacoes', route: '/aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: false },
+    { id: 'solicitacoes', route: '/solicitacoes', label: 'Solicitações', icon: 'description', hasSubmenu: false },
+    {
+      id: 'alcadas',
+      route: '/alcadas/minhas-alcadas',
+      label: 'Alçadas & Tetos',
+      icon: 'shield',
+      hasSubmenu: true,
+      subItems: [
+        {
+          id: 'meus-fluxos',
+          route: '/alcadas/minhas-alcadas',
+          label: 'Meus Fluxos',
+          icon: 'account_tree',
+        },
+        {
+          id: 'minhas-regras',
+          route: '/alcadas/regras',
+          label: 'Minhas Regras',
+          icon: 'rule',
+          badge: 'Modelos',
+          badgeColor: '#644EF3',
+        },
+      ],
+    },
     { id: 'auditoria', route: '/auditoria', label: 'Trilha Criptográfica', icon: 'link', badge: 'SHA', badgeColor: '#10B981', hasSubmenu: false },
     { id: 'riscos', route: '/riscos', label: 'Motor de Riscos', icon: 'security', badge: 'Anti-Fraude', badgeColor: '#F59E0B', hasSubmenu: false },
-    { id: 'delegacoes', route: '/delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: true },
+    { id: 'delegacoes', route: '/delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: false },
   ]);
 
   readonly departments = signal<DepartmentItem[]>([
@@ -79,8 +123,43 @@ export class SidebarComponent {
     this.isCollapsed.update((v) => !v);
   }
 
+  isSubmenuOpen(itemId: string): boolean {
+    return !!this.openSubmenus()[itemId];
+  }
+
+  toggleSubmenu(itemId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.openSubmenus.update((state) => ({
+      ...state,
+      [itemId]: !state[itemId],
+    }));
+  }
+
   selectItem(item: MenuItem): void {
-    this.router.navigate([item.route]);
+    if (item.hasSubmenu && item.subItems && item.subItems.length > 0) {
+      // Se a barra lateral estiver colapsada, expande para exibir as sub-opções
+      if (this.isCollapsed()) {
+        this.isCollapsed.set(false);
+      }
+      // Assegura que o submenu esteja visível
+      this.openSubmenus.update((state) => ({
+        ...state,
+        [item.id]: true,
+      }));
+      // Se não estiver na rota de alçadas, direciona para a primeira sub-opção
+      if (!this.currentUrl().includes('/alcadas')) {
+        this.router.navigate([item.route]);
+      }
+    } else {
+      this.router.navigate([item.route]);
+    }
+  }
+
+  selectSubItem(subItem: SubMenuItem, event: Event): void {
+    event.stopPropagation();
+    this.router.navigate([subItem.route]);
   }
 
   togglePin(id: string, event: Event): void {

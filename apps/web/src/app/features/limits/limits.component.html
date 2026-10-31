@@ -1,0 +1,583 @@
+<!-- 1. Header do Editor de Alçadas (68px alinhado perfeitamente com o Sidebar) -->
+<header class="ops-header">
+  <div class="header-titles">
+    <div class="header-title-row">
+      <button type="button" class="btn-back" (click)="goBack()" title="Voltar para Minhas Alçadas">
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
+      <h1 class="header-main-title">
+        @if (currentRuleId()) {
+          {{ currentRuleTitle() }}
+        } @else {
+          Nova Regra de Alçada
+        }
+      </h1>
+      @if (currentRuleId()) {
+        <span class="rule-id-pill">#{{ currentRuleId() }}</span>
+      }
+      <span class="workflow-status-badge">● Editor Ativo</span>
+    </div>
+    <p class="header-sub-title">
+      Construa visualmente a esteira de governança, limites monetários, quórum de assinaturas e regras de risco.
+    </p>
+  </div>
+
+  <div class="header-actions">
+    <!-- Botão de Toggle da Biblioteca de Modelos (Sidebar Esquerdo) -->
+    <button
+      type="button"
+      class="btn-toggle-library"
+      [class.active]="isLibraryExpanded()"
+      (click)="toggleLibrary()"
+      title="Expandir/Recolher Modelos de Regras"
+    >
+      <span class="material-symbols-rounded">widgets</span>
+      <span>Modelos de Regras</span>
+      <span class="lib-badge">{{ ruleTemplates().length }}</span>
+    </button>
+
+    <!-- Controles de Visualização / Zoom e Pan no Topo Direito -->
+    <div class="canvas-controls">
+      <button type="button" class="btn-ctrl" (click)="zoomOut()" title="Diminuir Zoom">
+        <span class="material-symbols-rounded">remove</span>
+      </button>
+      <button type="button" class="zoom-indicator" (click)="resetZoom()" title="Resetar Zoom">{{ zoomLevel() }}%</button>
+      <button type="button" class="btn-ctrl" (click)="zoomIn()" title="Aumentar Zoom">
+        <span class="material-symbols-rounded">add</span>
+      </button>
+      <button type="button" class="btn-ctrl" (click)="centerCanvas()" title="Centralizar Visualização">
+        <span class="material-symbols-rounded">center_focus_strong</span>
+      </button>
+    </div>
+
+    <button type="button" class="btn-save-workflow" (click)="saveWorkflow()">
+      <span class="material-symbols-rounded">save</span>
+      <span>Salvar Workflow</span>
+    </button>
+  </div>
+</header>
+
+<!-- Tela de Carregamento da Esteira do Fluxo -->
+@if (isLoading()) {
+  <div class="canvas-loading-backdrop" role="status" aria-live="polite">
+    <div class="loading-modal">
+      <div class="spinner-ring"></div>
+      <span class="material-symbols-rounded loading-icon">account_tree</span>
+      <h3 class="loading-title">Carregando Esteira de Alçadas</h3>
+      <p class="loading-subtitle">Sincronizando nós de governança e trilha de auditoria...</p>
+    </div>
+  </div>
+}
+
+<!-- Notificação Flutuante de Sucesso -->
+@if (saveSuccessMessage()) {
+  <div class="toast-success" role="alert">
+    <span class="material-symbols-rounded">check_circle</span>
+    <span>{{ saveSuccessMessage() }}</span>
+  </div>
+}
+
+<!-- Banner informativo flutuante quando há inserção pendente (+) -->
+@if (pendingInsertIndex() !== null) {
+  <div class="toast-insert-hint" role="status">
+    <span class="material-symbols-rounded">add_circle</span>
+    <span>Escolha um modelo de regra para inserir nesta posição da esteira</span>
+    <button type="button" class="btn-cancel-insert" (click)="cancelInsert()">Cancelar</button>
+  </div>
+}
+
+<!-- 2. Estrutura do Editor com Canvas em Tela Cheia e Sidebars Retráteis -->
+<div class="builder-container">
+  <!-- PAINEL ESQUERDO: Catálogo de Modelos (Aparece recolhido, expande quando acionado) -->
+  <aside
+    class="rules-library"
+    [class.expanded]="isLibraryExpanded()"
+    [class.collapsed]="!isLibraryExpanded()"
+    aria-label="Modelos de Regras Disponíveis"
+  >
+    @if (!isLibraryExpanded()) {
+      <!-- Modo Recolhido: Rail Estreito com Ícones e Ação de Expandir -->
+      <div class="library-rail">
+        <button
+          type="button"
+          class="btn-rail-expand"
+          (click)="expandLibrary()"
+          title="Expandir Modelos de Regras"
+        >
+          <span class="material-symbols-rounded">chevron_right</span>
+        </button>
+
+        <div class="rail-divider"></div>
+
+        <div class="rail-items-list">
+          @for (template of ruleTemplates(); track template.title) {
+            <button
+              type="button"
+              class="btn-rail-item"
+              (click)="addNode(template)"
+              [title]="template.title"
+              [style.color]="template.badgeColor"
+            >
+              <span class="material-symbols-rounded">{{ template.icon }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    } @else {
+      <!-- Modo Expandido: Catálogo Completo com Busca e Cards Detalhados -->
+      <div class="library-expanded-content">
+        <div class="library-header">
+          <div class="library-title-wrap">
+            <div class="lib-title-group">
+              <span class="material-symbols-rounded lib-icon">widgets</span>
+              <h2 class="library-title">Modelos de Regras</h2>
+            </div>
+            <button
+              type="button"
+              class="btn-close-lib"
+              (click)="collapseLibrary()"
+              title="Recolher painel"
+            >
+              <span class="material-symbols-rounded">chevron_left</span>
+            </button>
+          </div>
+          <p class="library-subtitle">
+            @if (pendingInsertIndex() !== null) {
+              Clique em uma regra para inserir na posição selecionada.
+            } @else {
+              Selecione para incluir ao final da esteira de aprovação.
+            }
+          </p>
+
+          <div class="library-search">
+            <span class="material-symbols-rounded search-icon">search</span>
+            <input
+              type="text"
+              placeholder="Filtrar modelos de regras..."
+              [value]="templateSearch()"
+              (input)="templateSearch.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+
+        <div class="templates-list">
+          @for (template of filteredTemplates(); track template.title) {
+            <div
+              class="template-card"
+              tabindex="0"
+              role="button"
+              (click)="addNode(template)"
+              (keydown.enter)="addNode(template)"
+              (keydown.space)="addNode(template)"
+            >
+              <div class="template-top">
+                <span class="template-icon-wrap" [style.color]="template.badgeColor">
+                  <span class="material-symbols-rounded">{{ template.icon }}</span>
+                </span>
+                <span class="template-badge" [style.background-color]="template.badgeColor + '18'" [style.color]="template.badgeColor">
+                  {{ template.badge }}
+                </span>
+              </div>
+
+              <h3 class="template-name">{{ template.title }}</h3>
+              <p class="template-desc">{{ template.description }}</p>
+
+              <span class="btn-add-to-flow">
+                <span class="material-symbols-rounded">add</span>
+                <span>
+                  @if (pendingInsertIndex() !== null) {
+                    Inserir Nesta Posição
+                  } @else {
+                    Adicionar ao Fluxo
+                  }
+                </span>
+              </span>
+            </div>
+          }
+
+          <!-- Botão para acessar o catálogo e criar nova regra via IA / Documento / Manual -->
+          <button
+            type="button"
+            class="btn-new-custom-template-link"
+            (click)="goToRulesCatalog()"
+          >
+            <span class="material-symbols-rounded">auto_awesome</span>
+            <span>Criar Nova Regra Personalizada</span>
+          </button>
+        </div>
+      </div>
+    }
+  </aside>
+
+  <!-- PAINEL CENTRAL / FUNDO DE TELA CHEIA: Canvas Interativo Pan & Zoom -->
+  <main
+    class="flow-canvas"
+    [class.dragging]="isDragging()"
+    (mousedown)="onCanvasMouseDown($event)"
+    (mousemove)="onCanvasMouseMove($event)"
+    (mouseup)="onCanvasMouseUp()"
+    (mouseleave)="onCanvasMouseUp()"
+    (wheel)="onCanvasWheel($event)"
+  >
+    <!-- Camada Transladável e Escalável (Pan & Zoom) -->
+    <div
+      class="canvas-pan-layer"
+      [style.transform]="'translate(' + panX() + 'px, ' + panY() + 'px) scale(' + zoomLevel() / 100 + ')'"
+    >
+      <div class="flow-pipeline">
+        @for (node of workflowNodes(); track node.id; let idx = $index; let isLast = $last) {
+          <!-- Card de Etapa do Fluxo (com destaque dashed se for regra nova recém-criada) -->
+          <div
+            class="flow-node-card"
+            [id]="node.id"
+            [class.selected]="selectedNodeId() === node.id"
+            [class.is-new]="node.isNew"
+            tabindex="0"
+            role="button"
+            (click)="selectNode(node.id)"
+            (keydown.enter)="selectNode(node.id)"
+            (keydown.space)="selectNode(node.id)"
+          >
+            <!-- Badge no topo se for nova regra -->
+            @if (node.isNew) {
+              <div class="new-rule-tag">
+                <span class="material-symbols-rounded">fiber_new</span>
+                <span>Nova Regra de Negócio</span>
+              </div>
+            }
+
+            <div class="node-header">
+              <div class="node-type-info">
+                <span class="node-icon" [style.color]="node.tagColor">
+                  <span class="material-symbols-rounded">{{ node.icon }}</span>
+                </span>
+                <span class="node-tag" [style.background-color]="node.tagColor + '18'" [style.color]="node.tagColor">
+                  {{ node.tag }}
+                </span>
+              </div>
+
+              <div class="node-quick-actions">
+                @if (idx > 0 && node.type !== 'TERMINAL') {
+                  <button
+                    type="button"
+                    class="btn-node-action"
+                    title="Mover para cima"
+                    (click)="moveNode(idx, 'up', $event)"
+                  >
+                    <span class="material-symbols-rounded">expand_less</span>
+                  </button>
+                }
+                @if (!isLast && node.type !== 'TRIGGER') {
+                  <button
+                    type="button"
+                    class="btn-node-action"
+                    title="Mover para baixo"
+                    (click)="moveNode(idx, 'down', $event)"
+                  >
+                    <span class="material-symbols-rounded">expand_more</span>
+                  </button>
+                }
+                @if (node.type !== 'TRIGGER' && node.type !== 'TERMINAL') {
+                  <button
+                    type="button"
+                    class="btn-node-action btn-delete"
+                    title="Remover esta regra"
+                    (click)="deleteNode(node.id, $event)"
+                  >
+                    <span class="material-symbols-rounded">delete</span>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <h4 class="node-title">{{ node.title }}</h4>
+            <p class="node-desc">{{ node.subtitle }}</p>
+
+            <!-- Rodapé informativo do Nó -->
+            <div class="node-footer-meta">
+              @if (selectedNodeId() === node.id) {
+                <span class="status-editing">
+                  <span class="pulse-dot"></span>
+                  <span>Editando parâmetros à direita</span>
+                </span>
+              } @else {
+                <span class="click-hint">Clique para abrir parâmetros</span>
+              }
+            </div>
+          </div>
+
+          <!-- Conector / Linha Direcional com Seta e Botão de Inserção Contextual (+) -->
+          @if (!isLast) {
+            <div class="flow-connector">
+              <div class="connector-line"></div>
+              
+              <!-- Botão Quadrado com "+" no conector entre os cards -->
+              <button
+                type="button"
+                class="btn-insert-rule"
+                [class.active]="pendingInsertIndex() === idx + 1"
+                (click)="startInsertBetween(idx, $event)"
+                title="Adicionar regra nesta etapa"
+              >
+                <span class="material-symbols-rounded">add</span>
+              </button>
+
+              <div class="connector-line"></div>
+              <span class="material-symbols-rounded connector-arrow" aria-hidden="true">arrow_downward</span>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- Dica Flutuante de Navegação do Canvas no Canto Inferior -->
+    <div class="canvas-navigation-hud" aria-hidden="true">
+      <span class="material-symbols-rounded hud-icon">pan_tool</span>
+      <span>Arraste para mover • Ctrl + Scroll para Zoom • {{ zoomLevel() }}%</span>
+    </div>
+  </main>
+
+  <!-- PAINEL DIREITO: Inspetor / Formulário (Fica recolhido de branco à direita e expande ao selecionar) -->
+  <aside
+    class="rule-inspector"
+    [class.expanded]="selectedNode() !== null"
+    [class.collapsed]="selectedNode() === null"
+    aria-label="Inspetor de Regras"
+  >
+    @if (!selectedNode()) {
+      <!-- Modo Recolhido: Barra Fina Branca no Canto Direito -->
+      <div class="inspector-rail" title="Selecione um card para editar parâmetros">
+        <span class="material-symbols-rounded rail-icon">tune</span>
+        <span class="rail-vertical-text">Inspetor de Regras</span>
+      </div>
+    } @else {
+      <!-- Modo Expandido: Formulário de Configuração Completo -->
+      <div class="inspector-expanded-content">
+        <div class="inspector-header">
+          <div class="inspector-title-wrap">
+            <span class="inspector-type-badge" [style.color]="selectedNode()!.tagColor" [style.background-color]="selectedNode()!.tagColor + '18'">
+              {{ selectedNode()!.tag }}
+            </span>
+            <h2 class="inspector-title">Configurar Parâmetros</h2>
+          </div>
+          <button
+            type="button"
+            class="btn-close-inspector"
+            title="Recolher painel de configuração"
+            (click)="closeInspector()"
+          >
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        </div>
+
+        <div class="inspector-body">
+          <!-- Nome & Descrição Geral da Regra -->
+          <div class="form-group">
+            <label for="ruleTitle">Nome da Etapa / Regra</label>
+            <input
+              id="ruleTitle"
+              type="text"
+              [value]="selectedNode()!.title"
+              (input)="updateNodeField('title', $any($event.target).value)"
+              placeholder="Ex: Teto Gerência Operacional"
+            />
+          </div>
+
+          <!-- Descrição / Justificativa com altura expandida -->
+          <div class="form-group">
+            <label for="ruleDesc">Descrição / Justificativa</label>
+            <textarea
+              id="ruleDesc"
+              rows="5"
+              [value]="selectedNode()!.subtitle"
+              (input)="updateNodeField('subtitle', $any($event.target).value)"
+              placeholder="Explique detalhadamente a finalidade, embasamento e políticas desta verificação na esteira de alçadas..."
+            ></textarea>
+          </div>
+
+          <hr class="inspector-divider" />
+
+          <!-- 1. Campos Específicos para CONDIÇÃO DE VALOR / TETO -->
+          @if (selectedNode()!.type === 'CONDITION_VALUE') {
+            <div class="config-section">
+              <h3 class="section-label">Parâmetros de Valor Monetário</h3>
+
+              <div class="form-group">
+                <label for="valOperator">Operador Lógico</label>
+                <select
+                  id="valOperator"
+                  [ngModel]="selectedNode()!.config.operator || '<='"
+                  (ngModelChange)="updateConfig('operator', $event)"
+                >
+                  <option value="<=">&le; Menor ou Igual (Teto Máximo)</option>
+                  <option value="<">&lt; Estritamente Menor</option>
+                  <option value=">=">&ge; Maior ou Igual (Piso Mínimo)</option>
+                  <option value=">">&gt; Estritamente Maior</option>
+                  <option value="ENTRE">Entre Faixa de Valores (Intervalo)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="valMax">Valor de Teto da Alçada (R$)</label>
+                <input
+                  id="valMax"
+                  type="number"
+                  [ngModel]="selectedNode()!.config.valueMax || 15000"
+                  (ngModelChange)="updateConfig('valueMax', $event)"
+                  placeholder="Ex: 15000"
+                  step="500"
+                />
+              </div>
+
+              <div class="info-callout">
+                <span class="material-symbols-rounded info-icon">info</span>
+                <p>Qualquer solicitação com valor superior a este limite será automaticamente escalonada para o nível hierárquico subsequente.</p>
+              </div>
+            </div>
+          }
+
+          <!-- 2. Campos Específicos para APROVADORES & QUÓRUM -->
+          @if (selectedNode()!.type === 'APPROVER') {
+            <div class="config-section">
+              <h3 class="section-label">Instância de Decisão & Quórum</h3>
+
+              <div class="form-group">
+                <label for="appRole">Cargo Mínimo com Competência</label>
+                <select
+                  id="appRole"
+                  [ngModel]="selectedNode()!.config.approverRole || 'GERENTE'"
+                  (ngModelChange)="updateConfig('approverRole', $event)"
+                >
+                  <option value="COORDENADOR">Coordenador de Área (N1)</option>
+                  <option value="GERENTE">Gerente do Centro de Custo (N2)</option>
+                  <option value="DIRETOR">Diretor Departamental (N3)</option>
+                  <option value="CFO">Diretor Financeiro (CFO)</option>
+                  <option value="CONSELHO">Conselho de Administração</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="quorumType">Quórum Necessário</label>
+                <select
+                  id="quorumType"
+                  [ngModel]="selectedNode()!.config.quorum || 'UNICO'"
+                  (ngModelChange)="updateConfig('quorum', $event)"
+                >
+                  <option value="UNICO">1 Aprovador (Assinatura Individual)</option>
+                  <option value="DUPLO">2 Aprovadores (Dupla Aprovação Obrigatória)</option>
+                  <option value="UNANIME">Unânime (Todos os diretores cadastrados)</option>
+                </select>
+              </div>
+
+              <div class="checkbox-group">
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    [ngModel]="selectedNode()!.config.enforceSod !== false"
+                    (ngModelChange)="updateConfig('enforceSod', $event)"
+                  />
+                  <span>Segregação de Funções (SoD): Bloquear estritamente que o autor da solicitação aprove o próprio pedido</span>
+                </label>
+              </div>
+            </div>
+          }
+
+          <!-- 3. Campos Específicos para SLA / TEMPO DE RESPOSTA -->
+          @if (selectedNode()!.type === 'SLA_TIMER') {
+            <div class="config-section">
+              <h3 class="section-label">Controle de Tempo e Escalonamento</h3>
+
+              <div class="form-group">
+                <label for="slaHours">Prazo Limite para Deliberação</label>
+                <select
+                  id="slaHours"
+                  [ngModel]="selectedNode()!.config.slaHours || 48"
+                  (ngModelChange)="updateConfig('slaHours', +$event)"
+                >
+                  <option [value]="12">12 Horas (Emergencial)</option>
+                  <option [value]="24">24 Horas (Alta Prioridade)</option>
+                  <option [value]="48">48 Horas (Padrão Corporativo)</option>
+                  <option [value]="72">72 Horas (Ordinário)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="escalateTo">Ação ao Expirar Prazo</label>
+                <select
+                  id="escalateTo"
+                  [ngModel]="selectedNode()!.config.escalateTo || 'SUPERIOR_DIRETO'"
+                  (ngModelChange)="updateConfig('escalateTo', $event)"
+                >
+                  <option value="SUPERIOR_DIRETO">Escalonar para Superior Imediato</option>
+                  <option value="SUBSTITUTO_DELEGADO">Transferir para Substituto Delegado</option>
+                  <option value="NOTIFICAR_CONTROLADORIA">Notificar Controladoria sem escalonar</option>
+                </select>
+              </div>
+            </div>
+          }
+
+          <!-- 4. Campos Específicos para MOTOR DE RISCO -->
+          @if (selectedNode()!.type === 'RISK_CHECK') {
+            <div class="config-section">
+              <h3 class="section-label">Blindagem Anti-Fraude</h3>
+
+              <div class="form-group">
+                <label for="riskWindow">Janela Móvel Anti-Fracionamento</label>
+                <select
+                  id="riskWindow"
+                  [ngModel]="selectedNode()!.config.riskWindowDays || 30"
+                  (ngModelChange)="updateConfig('riskWindowDays', +$event)"
+                >
+                  <option [value]="15">15 Dias de Histórico</option>
+                  <option [value]="30">30 Dias (Padrão de Governança)</option>
+                  <option [value]="60">60 Dias (Auditoria Estrita)</option>
+                </select>
+              </div>
+
+              <div class="checkbox-group">
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    [ngModel]="selectedNode()!.config.checkDuplicate !== false"
+                    (ngModelChange)="updateConfig('checkDuplicate', $event)"
+                  />
+                  <span>Detectar duplicidade de notas/valores na janela de 7 dias</span>
+                </label>
+              </div>
+            </div>
+          }
+
+          <!-- 5. Informações para Gatilho e Conclusão -->
+          @if (selectedNode()!.type === 'TRIGGER' || selectedNode()!.type === 'TERMINAL') {
+            <div class="config-section">
+              <div class="info-callout">
+                <span class="material-symbols-rounded info-icon">verified_user</span>
+                <p>Etapa estrutural do pipeline. Assegura a integridade do processo de auditoria e geração determinística de elos SHA-256.</p>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="inspector-footer">
+          @if (selectedNode()!.type !== 'TRIGGER' && selectedNode()!.type !== 'TERMINAL') {
+            <button
+              type="button"
+              class="btn-delete-rule"
+              (click)="deleteNode(selectedNode()!.id)"
+            >
+              <span class="material-symbols-rounded">delete</span>
+              <span>Remover Regra</span>
+            </button>
+          }
+          <button
+            type="button"
+            class="btn-apply"
+            (click)="closeInspector()"
+          >
+            <span>Concluir Edição</span>
+          </button>
+        </div>
+      </div>
+    }
+  </aside>
+</div>
