@@ -24,7 +24,9 @@ export class FiltroErrosHttp implements ExceptionFilter {
       return;
     }
 
-    this.logger.error(excecao instanceof Error ? excecao.message : 'Erro desconhecido');
+  
+    const tipo = excecao instanceof Error ? excecao.name : typeof excecao;
+    this.logger.error(`Erro interno não tratado (${tipo})`);
     resposta.status(500).json({
       statusCode: 500,
       error: 'Internal Server Error',
