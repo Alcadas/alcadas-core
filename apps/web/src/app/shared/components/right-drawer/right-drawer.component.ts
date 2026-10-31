@@ -23,6 +23,7 @@ export class RightDrawerComponent {
   readonly width = input<string>('540px');
   readonly showClose = input<boolean>(true);
   readonly closeOnBackdrop = input<boolean>(true);
+  readonly positionMode = input<'contained' | 'fixed'>('contained');
   readonly badge = input<DrawerBadge | undefined>(undefined);
 
   readonly closed = output<void>();

@@ -1,6 +1,7 @@
 <div
   class="drawer-wrapper"
   [class.is-open]="isOpen()"
+  [class.is-fixed]="positionMode() === 'fixed'"
   [attr.aria-hidden]="!isOpen()"
 >
   <!-- Backdrop button -->

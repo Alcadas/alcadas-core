@@ -60,56 +60,32 @@ export class SidebarComponent {
     const url = this.currentUrl();
     if (url.includes('/aprovacoes')) return 'aprovacoes';
     if (url.includes('/solicitacoes')) return 'solicitacoes';
-    if (url.includes('/alcadas')) return 'alcadas';
+    if (url.includes('/alcadas/regras')) return 'minhas-regras';
+    if (url.includes('/alcadas')) return 'meus-fluxos';
     if (url.includes('/auditoria')) return 'auditoria';
     if (url.includes('/riscos')) return 'riscos';
     if (url.includes('/delegacoes')) return 'delegacoes';
+    if (url.includes('/infraestrutura')) return 'empresa';
     return 'dashboard';
   });
 
   readonly activeSubItem = computed(() => {
-    const url = this.currentUrl();
-    if (url.includes('/alcadas/regras')) return 'minhas-regras';
-    if (url.includes('/alcadas')) return 'meus-fluxos';
     return null;
   });
 
-  // Controle de submenus abertos (Alçadas & Tetos aberto por padrão)
-  readonly openSubmenus = signal<Record<string, boolean>>({
-    alcadas: true,
-  });
+  // Controle de submenus abertos
+  readonly openSubmenus = signal<Record<string, boolean>>({});
 
   readonly mainMenuItems = signal<MenuItem[]>([
     { id: 'dashboard', route: '/dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
     { id: 'aprovacoes', route: '/aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: false },
     { id: 'solicitacoes', route: '/solicitacoes', label: 'Minhas solicitações', icon: 'description', hasSubmenu: false },
-    {
-      id: 'alcadas',
-      route: '/alcadas/minhas-alcadas',
-      label: 'Alçadas & Tetos',
-      icon: 'shield',
-      hasSubmenu: true,
-      subItems: [
-        {
-          id: 'meus-fluxos',
-          route: '/alcadas/minhas-alcadas',
-          label: 'Meus Fluxos',
-          icon: 'account_tree',
-        },
-        {
-          id: 'minhas-regras',
-          route: '/alcadas/regras',
-          label: 'Minhas Regras',
-          icon: 'rule',
-          badge: 'Modelos',
-          badgeColor: '#644EF3',
-        },
-      ],
-    },
+    { id: 'meus-fluxos', route: '/alcadas/minhas-alcadas', label: 'Meus Fluxos', icon: 'account_tree', hasSubmenu: false },
+    { id: 'minhas-regras', route: '/alcadas/regras', label: 'Minhas Regras', icon: 'rule', hasSubmenu: false },
     { id: 'auditoria', route: '/auditoria', label: 'Trilha Criptográfica', icon: 'link', badge: 'SHA', badgeColor: '#10B981', hasSubmenu: false },
     { id: 'riscos', route: '/riscos', label: 'Motor de Riscos', icon: 'security', badge: 'Anti-Fraude', badgeColor: '#F59E0B', hasSubmenu: false },
     { id: 'delegacoes', route: '/delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: false },
-    { id: 'empresa', route: '/infraestrutura', label: 'Criar empresa', icon: 'group', hasSubmenu: false },
+    { id: 'empresa', route: '/infraestrutura', label: 'Criar empresa', icon: 'business', hasSubmenu: false },
   ]);
 
   readonly departments = signal<DepartmentItem[]>([

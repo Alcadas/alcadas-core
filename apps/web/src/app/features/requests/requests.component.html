@@ -1,181 +1,140 @@
-<!-- Header Principal -->
-<header class="ops-header">
-  <div class="header-titles">
-    <div class="header-badge-row">
-      <span class="header-module-pill">Gestão de Compras & Despesas</span>
-      <span class="header-counter-badge">{{ stats().total }} registradas</span>
-    </div>
-    <h1 class="header-main-title">Minhas Solicitações</h1>
-    <p class="header-sub-title">
-      Acompanhe seus pedidos de compra, contratações e reembolsos em tempo real pelo fluxo de alçadas.
-    </p>
-  </div>
+<!-- ========================================================================= -->
+<!-- 1. HEADER COMPONENTIZADO (Formato idêntico à imagem de referência)        -->
+<!-- ========================================================================= -->
+<app-page-header
+  breadcrumbRoot="Solicitações"
+  breadcrumbCurrent="Minhas Solicitações"
+  searchPlaceholder="Search..."
+  [searchQuery]="searchQuery()"
+  (searchQueryChange)="setSearchQuery($event)"
+  contextIcon="receipt_long"
+  contextTitle="Central de Solicitações"
+  [contextSubtitle]="stats().total + ' pedidos · ' + stats().pendentes + ' em tramitação'"
+  [tabs]="headerTabs()"
+  [activeTab]="currentTab()"
+  (tabChange)="setTab($any($event))"
+  [hasUnreadAlerts]="stats().ajustes > 0"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-actions-dropdown" (click)="toggleKpis()">
+      <span>Métricas</span>
+      <span class="material-symbols-rounded dropdown-chevron">expand_more</span>
+    </button>
 
-  <div class="header-actions">
-    <button type="button" class="btn-secondary" title="Exportar dados das solicitações" (click)="showToast('Exportação de dados iniciada em formato CSV.', 'info')">
-      <span class="material-symbols-rounded btn-icon">file_download</span>
+    <button type="button" class="btn-header-outline" (click)="showToast('Exportando dados em formato CSV...', 'info')">
+      <span class="material-symbols-rounded">file_download</span>
       <span>Exportar</span>
     </button>
-    <button type="button" class="btn-primary" (click)="openCreateDrawer()">
-      <span class="material-symbols-rounded btn-icon">add</span>
+
+    <button type="button" class="btn-header-primary" (click)="openCreateDrawer()">
+      <span class="material-symbols-rounded">add</span>
       <span>Nova Solicitação</span>
     </button>
   </div>
-</header>
 
-<div class="page-content">
-  <!-- Top KPI Summary Cards (Inspirado na referência 2) -->
-  <section class="kpi-grid" aria-label="Indicadores gerais de solicitações">
-    <!-- Card 1: Total de Solicitações -->
-    <article class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Total de Solicitações</span>
-        <span class="material-symbols-rounded kpi-icon">assignment</span>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-value">{{ stats().total }}</span>
-        <div class="kpi-progress-wrapper">
-          <div class="kpi-progress-bar">
-            <div class="kpi-progress-fill fill-primary" [style.width.%]="stats().totalPercentCompleted"></div>
-          </div>
-          <span class="kpi-meta-text">{{ stats().totalPercentCompleted }}% concluídas</span>
-        </div>
-      </div>
-    </article>
-
-    <!-- Card 2: Em Tramitação / Pendentes -->
-    <article class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Em Análise no Fluxo</span>
-        <span class="material-symbols-rounded kpi-icon text-warning">hourglass_top</span>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-value text-warning">{{ stats().pendentes }}</span>
-        <div class="kpi-progress-wrapper">
-          <span class="kpi-sub-amount">{{ stats().pendentesValorTotal | currency:'BRL':'symbol':'1.2-2' }}</span>
-          <span class="kpi-meta-text">em tramitação</span>
-        </div>
-      </div>
-    </article>
-
-    <!-- Card 3: Aprovadas -->
-    <article class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-label">Aprovadas com Sucesso</span>
-        <span class="material-symbols-rounded kpi-icon text-success">verified</span>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-value text-success">{{ stats().aprovadas }}</span>
-        <div class="kpi-progress-wrapper">
-          <div class="kpi-progress-bar">
-            <div class="kpi-progress-fill fill-success" [style.width.%]="stats().taxaAprovacao"></div>
-          </div>
-          <span class="kpi-meta-text">{{ stats().taxaAprovacao }}% taxa de aprovação</span>
-        </div>
-      </div>
-    </article>
-
-    <!-- Card 4: Ajustes Solicitados -->
-    <article class="kpi-card" [class.highlight-warning]="stats().ajustes > 0">
-      <div class="kpi-header">
-        <span class="kpi-label">Requer Sua Atenção</span>
-        <span class="material-symbols-rounded kpi-icon text-adjust">edit_notifications</span>
-      </div>
-      <div class="kpi-body">
-        <span class="kpi-value text-adjust">{{ stats().ajustes }}</span>
-        <div class="kpi-progress-wrapper">
-          <span class="kpi-meta-text" [class.text-adjust]="stats().ajustes > 0">
-            {{ stats().ajustes > 0 ? 'Aguardando revisão ou anexos' : 'Nenhuma pendência pendente' }}
-          </span>
-        </div>
-      </div>
-    </article>
-  </section>
-
-  <!-- Container Principal da Lista / Tabela (Inspirado nas referências 1 e 2) -->
-  <section class="table-container-card">
-    <!-- Barra Superior: Tabs de Navegação por Status -->
-    <div class="table-nav-tabs">
+  <div tier2-actions class="tier2-actions-group">
+    <div class="view-mode-toggle" role="group" aria-label="Modo de visualização">
       <button
         type="button"
-        class="nav-tab-item"
-        [class.is-active]="currentTab() === 'todas'"
-        (click)="setTab('todas')"
+        class="toggle-view-btn"
+        [class.is-active]="viewMode() === 'cards'"
+        (click)="toggleViewMode('cards')"
+        title="Visualização em Cards"
+        aria-label="Ver em Cards"
       >
-        <span>Todas as Solicitações</span>
-        <span class="tab-badge">{{ stats().total }}</span>
+        <span class="material-symbols-rounded">view_agenda</span>
       </button>
-
       <button
         type="button"
-        class="nav-tab-item"
-        [class.is-active]="currentTab() === 'pendentes'"
-        (click)="setTab('pendentes')"
+        class="toggle-view-btn"
+        [class.is-active]="viewMode() === 'table'"
+        (click)="toggleViewMode('table')"
+        title="Visualização em Tabela"
+        aria-label="Ver em Tabela"
       >
-        <span class="tab-dot dot-warning"></span>
-        <span>Em Análise</span>
-        <span class="tab-badge">{{ stats().pendentes }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="nav-tab-item"
-        [class.is-active]="currentTab() === 'aprovadas'"
-        (click)="setTab('aprovadas')"
-      >
-        <span class="tab-dot dot-success"></span>
-        <span>Aprovadas</span>
-        <span class="tab-badge">{{ stats().aprovadas }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="nav-tab-item"
-        [class.is-active]="currentTab() === 'ajustes'"
-        (click)="setTab('ajustes')"
-      >
-        <span class="tab-dot dot-adjust"></span>
-        <span>Ajustes</span>
-        <span class="tab-badge">{{ stats().ajustes }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="nav-tab-item"
-        [class.is-active]="currentTab() === 'rejeitadas'"
-        (click)="setTab('rejeitadas')"
-      >
-        <span class="tab-dot dot-danger"></span>
-        <span>Recusadas</span>
-        <span class="tab-badge">{{ stats().rejeitadas }}</span>
+        <span class="material-symbols-rounded">table_rows</span>
       </button>
     </div>
+  </div>
+</app-page-header>
 
-    <!-- Barra de Ferramentas de Filtro e Busca -->
-    <div class="table-toolbar">
-      <div class="toolbar-search-box">
-        <span class="material-symbols-rounded search-icon">search</span>
-        <input
-          type="text"
-          class="search-input"
-          placeholder="Buscar por código, título, centro de custo ou solicitante..."
-          [ngModel]="searchQuery()"
-          (ngModelChange)="setSearchQuery($event)"
-        />
-        @if (searchQuery()) {
-          <button type="button" class="search-clear-btn" (click)="setSearchQuery('')" title="Limpar busca">
-            <span class="material-symbols-rounded">close</span>
-          </button>
-        }
-      </div>
+<!-- ========================================================================= -->
+<!-- 3. CONTAINER DE CONTEÚDO (Abaixo do Header, onde o drawer lateral fica)    -->
+<!-- ========================================================================= -->
+<div class="requests-body-container">
+  <!-- Conteúdo Rolável da Página -->
+  <main class="page-scrollable-content">
+    <!-- Métricas KPIs (Padrão de quick-cards do dashboard) -->
+    @if (showKpis()) {
+      <section class="quick-cards-grid" aria-label="Indicadores de solicitações">
+        <!-- Card 1: Total -->
+        <article class="quick-card">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-primary">Geral</span>
+            <span class="material-symbols-rounded quick-card-icon">assignment</span>
+          </div>
+          <span class="quick-card-value">{{ stats().total }}</span>
+          <div class="quick-card-progress">
+            <div class="progress-bar">
+              <div class="progress-fill fill-primary" [style.width.%]="stats().totalPercentCompleted"></div>
+            </div>
+            <span class="progress-meta">{{ stats().totalPercentCompleted }}% concluídas</span>
+          </div>
+        </article>
 
-      <div class="toolbar-filter-group">
-        <!-- Filtro por Categoria -->
-        <div class="filter-item">
-          <label for="categoryFilter" class="filter-label">Categoria:</label>
+        <!-- Card 2: Em Tramitação -->
+        <article class="quick-card">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-warning">Em Tramitação</span>
+            <span class="material-symbols-rounded quick-card-icon text-warning">hourglass_top</span>
+          </div>
+          <span class="quick-card-value text-warning">{{ stats().pendentes }}</span>
+          <div class="quick-card-bottom-info">
+            <strong class="bottom-amount">{{ stats().pendentesValorTotal | currency:'BRL':'symbol':'1.2-2' }}</strong>
+            <span class="bottom-desc">aguardando parecer</span>
+          </div>
+        </article>
+
+        <!-- Card 3: Aprovadas -->
+        <article class="quick-card">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-success">Aprovadas</span>
+            <span class="material-symbols-rounded quick-card-icon text-success">verified</span>
+          </div>
+          <span class="quick-card-value text-success">{{ stats().aprovadas }}</span>
+          <div class="quick-card-progress">
+            <div class="progress-bar">
+              <div class="progress-fill fill-success" [style.width.%]="stats().taxaAprovacao"></div>
+            </div>
+            <span class="progress-meta">{{ stats().taxaAprovacao }}% taxa de aprovação</span>
+          </div>
+        </article>
+
+        <!-- Card 4: Requer Atenção -->
+        <article class="quick-card" [class.highlight-warning]="stats().ajustes > 0">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-adjust">Ajustes</span>
+            <span class="material-symbols-rounded quick-card-icon text-adjust">edit_notifications</span>
+          </div>
+          <span class="quick-card-value text-adjust">{{ stats().ajustes }}</span>
+          <div class="quick-card-bottom-info">
+            <span class="bottom-desc" [class.text-adjust]="stats().ajustes > 0">
+              {{ stats().ajustes > 0 ? 'Documentos ou cotações pendentes' : 'Nenhuma pendência ativa' }}
+            </span>
+          </div>
+        </article>
+      </section>
+    }
+
+    <!-- Toolbar Secundária: Filtros por Categoria, Centro de Custo e Ordenação -->
+    <section class="toolbar-section">
+      <div class="filter-dropdowns">
+        <!-- Filtro Categoria -->
+        <div class="select-wrapper">
+          <label for="categorySelectFilter" class="select-label">Categoria:</label>
           <select
-            id="categoryFilter"
-            class="filter-select"
+            id="categorySelectFilter"
+            class="custom-select"
             [ngModel]="selectedCategory()"
             (ngModelChange)="setCategoryFilter($event)"
           >
@@ -186,12 +145,12 @@
           </select>
         </div>
 
-        <!-- Filtro por Centro de Custo -->
-        <div class="filter-item">
-          <label for="costCenterFilter" class="filter-label">Centro de Custo:</label>
+        <!-- Filtro Centro de Custo -->
+        <div class="select-wrapper">
+          <label for="ccSelectFilter" class="select-label">Centro de Custo:</label>
           <select
-            id="costCenterFilter"
-            class="filter-select"
+            id="ccSelectFilter"
+            class="custom-select"
             [ngModel]="selectedCostCenter()"
             (ngModelChange)="setCostCenterFilter($event)"
           >
@@ -203,196 +162,299 @@
         </div>
 
         <!-- Ordenação -->
-        <div class="filter-item">
-          <label for="sortFilter" class="filter-label">Ordenar:</label>
+        <div class="select-wrapper">
+          <label for="sortBySelect" class="select-label">Ordenar:</label>
           <select
-            id="sortFilter"
-            class="filter-select"
+            id="sortBySelect"
+            class="custom-select"
             [ngModel]="sortBy()"
             (ngModelChange)="setSortBy($event)"
           >
             <option value="recentes">Mais Recentes</option>
             <option value="maior_valor">Maior Valor (R$)</option>
             <option value="menor_valor">Menor Valor (R$)</option>
-            <option value="prioridade">Prioridade</option>
+            <option value="prioridade">Maior Prioridade</option>
           </select>
         </div>
       </div>
-    </div>
 
-    <!-- Tabela de Solicitações -->
-    <div class="table-responsive-wrapper">
-      <table class="requests-table">
-        <thead>
-          <tr>
-            <th class="th-checkbox">
-              <input
-                type="checkbox"
-                class="custom-checkbox"
-                [checked]="isAllSelected()"
-                (change)="toggleSelectAll()"
-                title="Selecionar todas as solicitações visíveis"
-                aria-label="Selecionar todas"
-              />
-            </th>
-            <th class="th-code">Código</th>
-            <th class="th-title">Finalidade & Categoria</th>
-            <th class="th-cost-center">Centro de Custo</th>
-            <th class="th-value">Valor</th>
-            <th class="th-workflow">Fluxo de Alçada & Etapa Atual</th>
-            <th class="th-status">Status</th>
-            <th class="th-date">Data</th>
-            <th class="th-actions">Ações</th>
-          </tr>
-        </thead>
+      <div class="counter-indicator">
+        <span>Exibindo <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+      </div>
+    </section>
 
-        <tbody>
-          @if (paginatedRequests().length === 0) {
-            <tr>
-              <td colspan="9" class="td-empty">
-                <div class="empty-state-inner">
-                  <span class="material-symbols-rounded empty-state-icon">search_off</span>
-                  <h4 class="empty-title">Nenhuma solicitação encontrada</h4>
-                  <p class="empty-desc">Tente ajustar seus termos de pesquisa ou remover os filtros aplicados.</p>
-                  <button type="button" class="btn-secondary" (click)="setTab('todas'); setSearchQuery(''); setCategoryFilter('TODAS'); setCostCenterFilter('TODOS')">
-                    Limpar todos os filtros
+    <!-- ========================================================================= -->
+    <!-- VISUALIZAÇÃO EM CARDS (Padrão exato de Minhas Alçadas e Dashboard)        -->
+    <!-- ========================================================================= -->
+    @if (viewMode() === 'cards') {
+      <section class="requests-cards-list">
+        @if (paginatedRequests().length === 0) {
+          <div class="empty-state-box">
+            <span class="material-symbols-rounded empty-icon">search_off</span>
+            <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
+            <p class="empty-desc">Tente alterar os filtros selecionados ou digite outros termos de pesquisa.</p>
+            <button
+              type="button"
+              class="btn-header-outline"
+              (click)="setTab('todas'); setSearchQuery(''); setCategoryFilter('TODAS'); setCostCenterFilter('TODOS')"
+            >
+              Limpar Filtros
+            </button>
+          </div>
+        } @else {
+          @for (req of paginatedRequests(); track req.id) {
+            <article
+              class="request-card"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="'Abrir detalhes da solicitação ' + req.codigo"
+              [style.border-left-color]="getStatusBorderColor(req.status)"
+              (click)="openDetailDrawer(req)"
+              (keydown.enter)="openDetailDrawer(req)"
+            >
+              <!-- Linha 1: Título, Status Pill, Solicitante e Valor -->
+              <div class="card-header-row">
+                <div class="header-left">
+                  <h2 class="card-title">{{ req.titulo }}</h2>
+
+                  <!-- Status Pill com dot semântico -->
+                  <span class="status-pill" [ngClass]="getStatusBadgeClass(req.status)">
+                    <span class="status-dot"></span>
+                    <span>{{ req.statusLabel }}</span>
+                  </span>
+
+                  <!-- Solicitante Pill -->
+                  <span class="meta-pill">
+                    <span class="material-symbols-rounded pill-icon">person</span>
+                    <span>{{ req.solicitante.nome }}</span>
+                  </span>
+
+                  <!-- Categoria Pill -->
+                  <span class="meta-pill" [style.color]="req.categoriaColor">
+                    <span class="material-symbols-rounded pill-icon">{{ req.categoriaIcon }}</span>
+                    <span>{{ req.categoriaLabel }}</span>
+                  </span>
+
+                  <!-- Prioridade Pill -->
+                  <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
+                    {{ req.prioridade }}
+                  </span>
+                </div>
+
+                <div class="header-right">
+                  <span class="value-amount">{{ req.valor | currency:'BRL':'symbol':'1.2-2' }}</span>
+                  <span class="created-date">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
+                  <button
+                    type="button"
+                    class="btn-view-details"
+                    title="Ver detalhes da solicitação e trilha de aprovação"
+                    (click)="openDetailDrawer(req); $event.stopPropagation()"
+                  >
+                    <span>Ver Trilha</span>
+                    <span class="material-symbols-rounded">chevron_right</span>
                   </button>
                 </div>
-              </td>
-            </tr>
-          } @else {
-            @for (req of paginatedRequests(); track req.id) {
-              <tr
-                class="request-table-row"
-                [class.is-selected]="selectedIds().has(req.id)"
-                (click)="openDetailDrawer(req)"
-              >
-                <!-- Checkbox -->
-                <td class="td-checkbox" (click)="$event.stopPropagation()">
+              </div>
+
+              <!-- Linha 2: Metadados Estruturais -->
+              <div class="card-meta-row">
+                <span class="meta-text-item">
+                  <span class="meta-label">ID:</span>
+                  <strong class="code-font">{{ req.codigo }}</strong>
+                </span>
+
+                <span class="meta-separator">•</span>
+
+                <span class="meta-text-item">
+                  <span class="meta-label">Centro de Custo:</span>
+                  <span>{{ req.centroCustoNome }} ({{ req.departamento }})</span>
+                </span>
+
+                <span class="meta-separator">•</span>
+
+                <span class="meta-text-item">
+                  <span class="meta-label">Anexos:</span>
+                  <span>{{ req.anexos.length }} documento(s)</span>
+                </span>
+              </div>
+
+              <!-- Linha 3: Pipeline Stepper do Fluxo de Alçada (Idêntico ao de Minhas Alçadas) -->
+              <div class="pipeline-stepper-row">
+                <div class="pipeline-stepper-track">
+                  @for (step of req.fluxoDestinado.etapas; track step.numero) {
+                    <div
+                      class="stepper-step"
+                      [class.is-done]="step.status === 'CONCLUIDA'"
+                      [class.is-active]="step.status === 'EM_ANALISE' || step.status === 'AJUSTE'"
+                      [class.is-reject]="step.status === 'REJEITADA'"
+                    >
+                      <div class="step-circle" [title]="step.nome + ': ' + step.status">
+                        @if (step.status === 'CONCLUIDA') {
+                          <span class="material-symbols-rounded check-icon">check</span>
+                        } @else {
+                          <span>{{ step.numero }}</span>
+                        }
+                      </div>
+                      <span class="step-label" [title]="step.nome">{{ step.nome }}</span>
+                    </div>
+
+                    @if (step.numero < req.fluxoDestinado.totalEtapas) {
+                      <div class="stepper-connector" [class.is-done]="step.status === 'CONCLUIDA'"></div>
+                    }
+                  }
+                </div>
+
+                <div class="pipeline-current-summary">
+                  <span class="current-label">Etapa Atual:</span>
+                  <strong class="current-stage-name">{{ req.fluxoDestinado.etapaAtualNome }}</strong>
+                </div>
+              </div>
+            </article>
+          }
+        }
+      </section>
+    } @else {
+      <!-- ========================================================================= -->
+      <!-- VISUALIZAÇÃO EM TABELA (Alternativa compacta)                            -->
+      <!-- ========================================================================= -->
+      <section class="table-container-card">
+        <div class="table-responsive-wrapper">
+          <table class="requests-table">
+            <thead>
+              <tr>
+                <th class="th-checkbox">
                   <input
                     type="checkbox"
                     class="custom-checkbox"
-                    [checked]="selectedIds().has(req.id)"
-                    (change)="toggleSelect(req.id)"
-                    aria-label="Selecionar solicitação {{ req.codigo }}"
+                    [checked]="isAllSelected()"
+                    (change)="toggleSelectAll()"
+                    aria-label="Selecionar todas as solicitações"
                   />
-                </td>
-
-                <!-- Código & Prioridade -->
-                <td class="td-code">
-                  <div class="code-column-content">
-                    <span class="req-code">{{ req.codigo }}</span>
-                    <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
-                      {{ req.prioridade }}
-                    </span>
-                  </div>
-                </td>
-
-                <!-- Título & Categoria -->
-                <td class="td-title">
-                  <div class="title-column-content">
-                    <span class="req-title-text" [title]="req.titulo">{{ req.titulo }}</span>
-                    <span class="req-category-tag" [style.color]="req.categoriaColor">
-                      <span class="material-symbols-rounded tag-icon">{{ req.categoriaIcon }}</span>
-                      <span>{{ req.categoriaLabel }}</span>
-                    </span>
-                  </div>
-                </td>
-
-                <!-- Centro de Custo -->
-                <td class="td-cost-center">
-                  <div class="cost-center-info">
-                    <span class="cost-center-name">{{ req.centroCustoNome }}</span>
-                    <span class="department-name">{{ req.departamento }}</span>
-                  </div>
-                </td>
-
-                <!-- Valor -->
-                <td class="td-value">
-                  <span class="value-highlight">
-                    {{ req.valor | currency:'BRL':'symbol':'1.2-2' }}
-                  </span>
-                </td>
-
-                <!-- Fluxo Destinado & Etapa do Processo -->
-                <td class="td-workflow">
-                  <div class="workflow-stepper-cell">
-                    <span class="workflow-name">{{ req.fluxoDestinado.nome }}</span>
-                    <div class="mini-stepper-track">
-                      @for (step of req.fluxoDestinado.etapas; track step.numero) {
-                        <div
-                          class="mini-step-dot"
-                          [class.is-done]="step.status === 'CONCLUIDA'"
-                          [class.is-current]="step.status === 'EM_ANALISE' || step.status === 'AJUSTE'"
-                          [class.is-reject]="step.status === 'REJEITADA'"
-                          [title]="step.nome + ' (' + step.papel + '): ' + step.status"
-                        ></div>
-                        @if (step.numero < req.fluxoDestinado.totalEtapas) {
-                          <div class="mini-step-line" [class.is-done]="step.status === 'CONCLUIDA'"></div>
-                        }
-                      }
-                    </div>
-                    <span class="step-current-label">
-                      {{ req.fluxoDestinado.etapaAtualNome }}
-                    </span>
-                  </div>
-                </td>
-
-                <!-- Status Badge Semântico -->
-                <td class="td-status">
-                  <span class="status-badge" [ngClass]="getStatusBadgeClass(req.status)">
-                    <span class="material-symbols-rounded status-badge-icon">{{ req.statusIcon }}</span>
-                    <span>{{ req.statusLabel }}</span>
-                  </span>
-                </td>
-
-                <!-- Data -->
-                <td class="td-date">
-                  <span class="date-text">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
-                </td>
-
-                <!-- Ações -->
-                <td class="td-actions" (click)="$event.stopPropagation()">
-                  <button
-                    type="button"
-                    class="action-icon-btn"
-                    title="Ver detalhes da solicitação e trilha de aprovação"
-                    (click)="openDetailDrawer(req)"
-                    aria-label="Ver detalhes"
-                  >
-                    <span class="material-symbols-rounded">visibility</span>
-                  </button>
-                </td>
+                </th>
+                <th class="th-code">Código</th>
+                <th class="th-title">Finalidade & Categoria</th>
+                <th class="th-cost-center">Centro de Custo</th>
+                <th class="th-value">Valor</th>
+                <th class="th-workflow">Fluxo de Alçada & Etapa Atual</th>
+                <th class="th-status">Status</th>
+                <th class="th-date">Data</th>
+                <th class="th-actions">Ações</th>
               </tr>
-            }
-          }
-        </tbody>
-      </table>
-    </div>
+            </thead>
 
-    <!-- Rodapé de Paginação (Inspirado na referência 1) -->
-    <div class="table-pagination-footer">
+            <tbody>
+              @if (paginatedRequests().length === 0) {
+                <tr>
+                  <td colspan="9" class="td-empty">
+                    <div class="empty-state-box">
+                      <span class="material-symbols-rounded empty-icon">search_off</span>
+                      <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
+                      <p class="empty-desc">Tente ajustar os filtros selecionados.</p>
+                    </div>
+                  </td>
+                </tr>
+              } @else {
+                @for (req of paginatedRequests(); track req.id) {
+                  <tr
+                    class="request-table-row"
+                    tabindex="0"
+                    [class.is-selected]="selectedIds().has(req.id)"
+                    (click)="openDetailDrawer(req)"
+                    (keydown.enter)="openDetailDrawer(req)"
+                  >
+                    <td class="td-checkbox" (click)="$event.stopPropagation()">
+                      <input
+                        type="checkbox"
+                        class="custom-checkbox"
+                        [checked]="selectedIds().has(req.id)"
+                        (change)="toggleSelect(req.id)"
+                        aria-label="Selecionar solicitação {{ req.codigo }}"
+                      />
+                    </td>
+
+                    <td class="td-code">
+                      <span class="req-code">{{ req.codigo }}</span>
+                      <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
+                        {{ req.prioridade }}
+                      </span>
+                    </td>
+
+                    <td class="td-title">
+                      <span class="req-title-text" [title]="req.titulo">{{ req.titulo }}</span>
+                      <span class="req-category-tag" [style.color]="req.categoriaColor">
+                        <span class="material-symbols-rounded tag-icon">{{ req.categoriaIcon }}</span>
+                        <span>{{ req.categoriaLabel }}</span>
+                      </span>
+                    </td>
+
+                    <td class="td-cost-center">
+                      <span class="cost-center-name">{{ req.centroCustoNome }}</span>
+                      <span class="department-name">{{ req.departamento }}</span>
+                    </td>
+
+                    <td class="td-value">
+                      <strong class="value-highlight">{{ req.valor | currency:'BRL':'symbol':'1.2-2' }}</strong>
+                    </td>
+
+                    <td class="td-workflow">
+                      <span class="workflow-name">{{ req.fluxoDestinado.nome }}</span>
+                      <span class="step-current-label">{{ req.fluxoDestinado.etapaAtualNome }}</span>
+                    </td>
+
+                    <td class="td-status">
+                      <span class="status-badge" [ngClass]="getStatusBadgeClass(req.status)">
+                        <span class="material-symbols-rounded status-badge-icon">{{ req.statusIcon }}</span>
+                        <span>{{ req.statusLabel }}</span>
+                      </span>
+                    </td>
+
+                    <td class="td-date">
+                      <span class="date-text">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
+                    </td>
+
+                    <td class="td-actions" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        class="action-icon-btn"
+                        title="Ver detalhes da solicitação"
+                        (click)="openDetailDrawer(req)"
+                        aria-label="Ver detalhes"
+                      >
+                        <span class="material-symbols-rounded">visibility</span>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    <!-- Rodapé de Paginação -->
+    <footer class="pagination-footer">
       <div class="pagination-info">
-        <span>Mostrando <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+        <span>Página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong> ({{ filteredRequests().length }} no total)</span>
         <div class="page-size-selector">
-          <label for="pageSizeSelect">Itens por página:</label>
+          <label for="pageSizeSelect">Itens:</label>
           <select
             id="pageSizeSelect"
             class="page-size-select"
             [ngModel]="pageSize()"
             (ngModelChange)="setPageSize($event)"
           >
-            <option [value]="5">5</option>
-            <option [value]="10">10</option>
-            <option [value]="20">20</option>
+            <option [value]="5">5 por página</option>
+            <option [value]="10">10 por página</option>
+            <option [value]="20">20 por página</option>
           </select>
         </div>
       </div>
 
-      <div class="pagination-controls">
+      <div class="pagination-nav">
         <button
           type="button"
-          class="page-nav-btn"
+          class="page-btn"
           [disabled]="currentPage() === 1"
           (click)="setPage(1)"
           title="Primeira página"
@@ -403,7 +465,7 @@
 
         <button
           type="button"
-          class="page-nav-btn"
+          class="page-btn"
           [disabled]="currentPage() === 1"
           (click)="setPage(currentPage() - 1)"
           title="Página anterior"
@@ -412,13 +474,11 @@
           <span class="material-symbols-rounded">chevron_left</span>
         </button>
 
-        <span class="pagination-current-page">
-          Página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong>
-        </span>
+        <span class="page-num">{{ currentPage() }}</span>
 
         <button
           type="button"
-          class="page-nav-btn"
+          class="page-btn"
           [disabled]="currentPage() === totalPages()"
           (click)="setPage(currentPage() + 1)"
           title="Próxima página"
@@ -429,7 +489,7 @@
 
         <button
           type="button"
-          class="page-nav-btn"
+          class="page-btn"
           [disabled]="currentPage() === totalPages()"
           (click)="setPage(totalPages())"
           title="Última página"
@@ -438,439 +498,434 @@
           <span class="material-symbols-rounded">last_page</span>
         </button>
       </div>
-    </div>
-  </section>
-</div>
+    </footer>
+  </main>
 
-<!-- ========================================================================= -->
-<!-- DRAWER LATERAL DIREITO: CRIAR NOVA SOLICITAÇÃO (Componente Reutilizável) -->
-<!-- ========================================================================= -->
-<app-right-drawer
-  [isOpen]="isCreateDrawerOpen()"
-  title="Nova Solicitação de Compra"
-  subtitle="Preencha os dados e anexe documentos para envio ao fluxo de alçadas"
-  icon="post_add"
-  width="560px"
-  [badge]="{ text: 'Rascunho', variant: 'primary' }"
-  (closed)="closeCreateDrawer()"
->
-  <form class="create-form" (ngSubmit)="submitNewRequest()" novalidate>
-    <!-- Seção 1: Identificação -->
-    <fieldset class="form-section">
-      <legend class="section-title">
-        <span class="material-symbols-rounded section-icon">info</span>
-        <span>Dados Principais</span>
-      </legend>
+  <!-- ========================================================================= -->
+  <!-- DRAWER LATERAL: CRIAR NOVA SOLICITAÇÃO (NA DIV DEBAIXO DO HEADER)        -->
+  <!-- ========================================================================= -->
+  <app-right-drawer
+    [isOpen]="isCreateDrawerOpen()"
+    title="Nova Solicitação de Compra"
+    subtitle="Preencha os dados e anexe documentos para envio ao fluxo de alçadas"
+    icon="post_add"
+    width="540px"
+    [badge]="{ text: 'Rascunho', variant: 'primary' }"
+    (closed)="closeCreateDrawer()"
+  >
+    <form class="create-form" (ngSubmit)="submitNewRequest()" novalidate>
+      <!-- Seção 1: Identificação -->
+      <fieldset class="form-section">
+        <legend class="section-title">
+          <span class="material-symbols-rounded section-icon">info</span>
+          <span>Dados Principais</span>
+        </legend>
 
-      <div class="form-group">
-        <label for="tituloInput" class="form-label">
-          Título da Solicitação <span class="required">*</span>
-        </label>
-        <input
-          id="tituloInput"
-          type="text"
-          class="form-control"
-          placeholder="Ex: Aquisição de licenças Figma Enterprise para equipe"
-          [ngModel]="formTitulo()"
-          (ngModelChange)="formTitulo.set($event)"
-          name="titulo"
-          [class.has-error]="formErrors()['titulo']"
-        />
-        @if (formErrors()['titulo']) {
-          <span class="error-msg">{{ formErrors()['titulo'] }}</span>
-        }
-      </div>
-
-      <div class="form-row-2">
         <div class="form-group">
-          <label for="centroCustoSelect" class="form-label">
-            Centro de Custo <span class="required">*</span>
+          <label for="tituloInput" class="form-label">
+            Título da Solicitação <span class="required">*</span>
           </label>
-          <select
-            id="centroCustoSelect"
+          <input
+            id="tituloInput"
+            type="text"
             class="form-control"
-            [ngModel]="formCentroCustoId()"
-            (ngModelChange)="formCentroCustoId.set($event)"
-            name="centroCustoId"
-          >
-            @for (cc of requestsService.costCenters; track cc.id) {
-              <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
-            }
-          </select>
+            placeholder="Ex: Aquisição de licenças Figma Enterprise para equipe"
+            [ngModel]="formTitulo()"
+            (ngModelChange)="formTitulo.set($event)"
+            name="titulo"
+            [class.has-error]="formErrors()['titulo']"
+          />
+          @if (formErrors()['titulo']) {
+            <span class="error-msg">{{ formErrors()['titulo'] }}</span>
+          }
         </div>
 
-        <div class="form-group">
-          <label for="categoriaSelect" class="form-label">
-            Categoria de Despesa <span class="required">*</span>
-          </label>
-          <select
-            id="categoriaSelect"
-            class="form-control"
-            [ngModel]="formCategoria()"
-            (ngModelChange)="formCategoria.set($event)"
-            name="categoria"
-          >
-            @for (cat of requestsService.categories; track cat.id) {
-              <option [value]="cat.id">{{ cat.label }}</option>
-            }
-          </select>
-        </div>
-      </div>
-    </fieldset>
-
-    <!-- Seção 2: Valores & Alçada Dinâmica -->
-    <fieldset class="form-section">
-      <legend class="section-title">
-        <span class="material-symbols-rounded section-icon">payments</span>
-        <span>Valores & Regra de Alçada</span>
-      </legend>
-
-      <div class="form-row-2">
-        <div class="form-group">
-          <label for="valorInput" class="form-label">
-            Valor Estimado (R$) <span class="required">*</span>
-          </label>
-          <div class="input-money-prefix">
-            <span class="money-symbol">R$</span>
-            <input
-              id="valorInput"
-              type="number"
-              min="0.01"
-              step="0.01"
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="centroCustoSelect" class="form-label">
+              Centro de Custo <span class="required">*</span>
+            </label>
+            <select
+              id="centroCustoSelect"
               class="form-control"
-              placeholder="0,00"
-              [ngModel]="formValor()"
-              (ngModelChange)="formValor.set($event)"
-              name="valor"
-              [class.has-error]="formErrors()['valor']"
-            />
+              [ngModel]="formCentroCustoId()"
+              (ngModelChange)="formCentroCustoId.set($event)"
+              name="centroCustoId"
+            >
+              @for (cc of requestsService.costCenters; track cc.id) {
+                <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
+              }
+            </select>
           </div>
-          @if (formErrors()['valor']) {
-            <span class="error-msg">{{ formErrors()['valor'] }}</span>
-          }
+
+          <div class="form-group">
+            <label for="categoriaSelect" class="form-label">
+              Categoria de Despesa <span class="required">*</span>
+            </label>
+            <select
+              id="categoriaSelect"
+              class="form-control"
+              [ngModel]="formCategoria()"
+              (ngModelChange)="formCategoria.set($event)"
+              name="categoria"
+            >
+              @for (cat of requestsService.categories; track cat.id) {
+                <option [value]="cat.id">{{ cat.label }}</option>
+              }
+            </select>
+          </div>
         </div>
+      </fieldset>
+
+      <!-- Seção 2: Valores & Alçada Dinâmica -->
+      <fieldset class="form-section">
+        <legend class="section-title">
+          <span class="material-symbols-rounded section-icon">payments</span>
+          <span>Valores & Regra de Alçada</span>
+        </legend>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="valorInput" class="form-label">
+              Valor Estimado (R$) <span class="required">*</span>
+            </label>
+            <div class="input-money-prefix">
+              <span class="money-symbol">R$</span>
+              <input
+                id="valorInput"
+                type="number"
+                min="0.01"
+                step="0.01"
+                class="form-control"
+                placeholder="0,00"
+                [ngModel]="formValor()"
+                (ngModelChange)="formValor.set($event)"
+                name="valor"
+                [class.has-error]="formErrors()['valor']"
+              />
+            </div>
+            @if (formErrors()['valor']) {
+              <span class="error-msg">{{ formErrors()['valor'] }}</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="prioridadeSelect" class="form-label">Prioridade / Urgência</label>
+            <select
+              id="prioridadeSelect"
+              class="form-control"
+              [ngModel]="formPrioridade()"
+              (ngModelChange)="formPrioridade.set($event)"
+              name="prioridade"
+            >
+              <option value="BAIXA">Baixa (Planejamento regular)</option>
+              <option value="MEDIA">Média (Rotina de compras)</option>
+              <option value="ALTA">Alta (Impacto operacional)</option>
+              <option value="CRITICA">Crítica (Interrupção de serviços)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Callout Dinâmico do Fluxo de Aprovação Calculado -->
+        <div class="workflow-preview-callout">
+          <div class="callout-header">
+            <span class="material-symbols-rounded callout-icon">account_tree</span>
+            <div class="callout-titles">
+              <span class="callout-lead">Fluxo de Alçada Identificado</span>
+              <strong class="callout-workflow-name">{{ suggestedWorkflow().nome }}</strong>
+            </div>
+          </div>
+          <p class="callout-desc">
+            Com base no valor de <strong>{{ (formValor() || 0) | currency:'BRL':'symbol':'1.2-2' }}</strong>, o processo exigirá <strong>{{ suggestedWorkflow().totalEtapas }} etapas de aprovação</strong>.
+          </p>
+
+          <div class="preview-stepper-steps">
+            @for (step of suggestedWorkflow().etapas; track step.numero) {
+              <div class="preview-step-item">
+                <span class="step-num">{{ step.numero }}</span>
+                <div class="step-info">
+                  <span class="step-name">{{ step.nome }}</span>
+                  <span class="step-role">{{ step.papel }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Seção 3: Justificativa de Negócio -->
+      <fieldset class="form-section">
+        <legend class="section-title">
+          <span class="material-symbols-rounded section-icon">description</span>
+          <span>Justificativa de Governança</span>
+        </legend>
 
         <div class="form-group">
-          <label for="prioridadeSelect" class="form-label">Prioridade / Urgência</label>
-          <select
-            id="prioridadeSelect"
-            class="form-control"
-            [ngModel]="formPrioridade()"
-            (ngModelChange)="formPrioridade.set($event)"
-            name="prioridade"
-          >
-            <option value="BAIXA">Baixa (Planejamento regular)</option>
-            <option value="MEDIA">Média (Rotina de compras)</option>
-            <option value="ALTA">Alta (Impacto operacional)</option>
-            <option value="CRITICA">Crítica (Interrupção de serviços)</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Callout Dinâmico do Fluxo de Aprovação Calculado -->
-      <div class="workflow-preview-callout">
-        <div class="callout-header">
-          <span class="material-symbols-rounded callout-icon">account_tree</span>
-          <div class="callout-titles">
-            <span class="callout-lead">Fluxo de Alçada Identificado</span>
-            <strong class="callout-workflow-name">{{ suggestedWorkflow().nome }}</strong>
+          <div class="label-with-counter">
+            <label for="justificativaInput" class="form-label">
+              Justificativa / Motivo da Solicitação <span class="required">*</span>
+            </label>
+            <span class="char-counter" [class.is-valid]="formJustificativa().length >= 30">
+              {{ formJustificativa().length }} / min 30 caracteres
+            </span>
           </div>
-        </div>
-        <p class="callout-desc">
-          Com base no valor de <strong>{{ (formValor() || 0) | currency:'BRL':'symbol':'1.2-2' }}</strong>, o processo exigirá <strong>{{ suggestedWorkflow().totalEtapas }} etapas de aprovação</strong>.
-        </p>
-
-        <!-- Mini Stepper da régua de aprovação -->
-        <div class="preview-stepper-steps">
-          @for (step of suggestedWorkflow().etapas; track step.numero) {
-            <div class="preview-step-item">
-              <span class="step-num">{{ step.numero }}</span>
-              <div class="step-info">
-                <span class="step-name">{{ step.nome }}</span>
-                <span class="step-role">{{ step.papel }}</span>
-              </div>
-            </div>
+          <textarea
+            id="justificativaInput"
+            class="form-control form-textarea"
+            rows="4"
+            placeholder="Descreva de forma detalhada o motivo da despesa, os benefícios operacionais e o alinhamento com os objetivos da organização..."
+            [ngModel]="formJustificativa()"
+            (ngModelChange)="formJustificativa.set($event)"
+            name="justificativa"
+            [class.has-error]="formErrors()['justificativa']"
+          ></textarea>
+          @if (formErrors()['justificativa']) {
+            <span class="error-msg">{{ formErrors()['justificativa'] }}</span>
+          } @else {
+            <span class="input-hint">Requisito de conformidade do Comitê de Governança (mínimo de 30 caracteres).</span>
           }
         </div>
-      </div>
-    </fieldset>
+      </fieldset>
 
-    <!-- Seção 3: Justificativa de Negócio -->
-    <fieldset class="form-section">
-      <legend class="section-title">
-        <span class="material-symbols-rounded section-icon">description</span>
-        <span>Justificativa de Governança</span>
-      </legend>
+      <!-- Seção 4: Documentos Comprobatórios & Cotações -->
+      <fieldset class="form-section">
+        <legend class="section-title">
+          <span class="material-symbols-rounded section-icon">attach_file</span>
+          <span>Orçamentos & Anexos</span>
+        </legend>
 
-      <div class="form-group">
-        <div class="label-with-counter">
-          <label for="justificativaInput" class="form-label">
-            Justificativa / Motivo da Solicitação <span class="required">*</span>
-          </label>
-          <span class="char-counter" [class.is-valid]="formJustificativa().length >= 30">
-            {{ formJustificativa().length }} / min 30 caracteres
-          </span>
-        </div>
-        <textarea
-          id="justificativaInput"
-          class="form-control form-textarea"
-          rows="4"
-          placeholder="Descreva de forma detalhada o motivo da despesa, os benefícios operacionais e o alinhamento com os objetivos da organização..."
-          [ngModel]="formJustificativa()"
-          (ngModelChange)="formJustificativa.set($event)"
-          name="justificativa"
-          [class.has-error]="formErrors()['justificativa']"
-        ></textarea>
-        @if (formErrors()['justificativa']) {
-          <span class="error-msg">{{ formErrors()['justificativa'] }}</span>
-        } @else {
-          <span class="input-hint">Requisito de conformidade do Comitê de Governança (mínimo de 30 caracteres).</span>
-        }
-      </div>
-    </fieldset>
-
-    <!-- Seção 4: Documentos Comprobatórios & Cotações -->
-    <fieldset class="form-section">
-      <legend class="section-title">
-        <span class="material-symbols-rounded section-icon">attach_file</span>
-        <span>Orçamentos & Anexos</span>
-      </legend>
-
-      <!-- Dropzone interativa simulada -->
-      <button type="button" class="dropzone-area" (click)="triggerFileInput()">
-        <span class="material-symbols-rounded dropzone-icon">cloud_upload</span>
-        <div class="dropzone-text">
-          <strong>Clique para selecionar ou arraste arquivos aqui</strong>
-          <span>Suporta propostas comerciais, orçamentos e contratos (.PDF, .DOCX, .XLSX até 15MB)</span>
-        </div>
-      </button>
-
-      <!-- Lista de Arquivos Anexados -->
-      <div class="attachments-list">
-        @for (att of formAnexos(); track $index) {
-          <div class="attachment-item">
-            <span class="material-symbols-rounded file-icon">description</span>
-            <div class="attachment-details">
-              <span class="file-name">{{ att.nome }}</span>
-              <span class="file-size">{{ att.tamanho }}</span>
-            </div>
-            <button
-              type="button"
-              class="remove-att-btn"
-              (click)="removeAttachment($index)"
-              title="Remover arquivo"
-              aria-label="Remover anexo"
-            >
-              <span class="material-symbols-rounded">close</span>
-            </button>
+        <button type="button" class="dropzone-area" (click)="triggerFileInput()">
+          <span class="material-symbols-rounded dropzone-icon">cloud_upload</span>
+          <div class="dropzone-text">
+            <strong>Clique para selecionar ou arraste arquivos aqui</strong>
+            <span>Suporta propostas comerciais, orçamentos e contratos (.PDF, .DOCX até 15MB)</span>
           </div>
-        }
-      </div>
-    </fieldset>
-  </form>
+        </button>
 
-  <!-- Botões de Ação no Rodapé do Drawer -->
-  <div drawer-footer class="drawer-footer-actions">
-    <button type="button" class="btn-secondary" (click)="closeCreateDrawer()" [disabled]="isSubmitting()">
-      Cancelar
-    </button>
-    <button
-      type="button"
-      class="btn-primary"
-      (click)="submitNewRequest()"
-      [disabled]="isSubmitting()"
-    >
-      @if (isSubmitting()) {
-        <span class="spinner-small"></span>
-        <span>Submetendo...</span>
-      } @else {
-        <span class="material-symbols-rounded btn-icon">send</span>
-        <span>Submeter ao Fluxo</span>
-      }
-    </button>
-  </div>
-</app-right-drawer>
-
-<!-- ========================================================================= -->
-<!-- DRAWER LATERAL DIREITO: DETALHES DA SOLICITAÇÃO & TRILHA DE APROVAÇÃO    -->
-<!-- ========================================================================= -->
-<app-right-drawer
-  [isOpen]="isDetailDrawerOpen()"
-  [title]="selectedRequest()?.codigo || 'Detalhes da Solicitação'"
-  [subtitle]="selectedRequest()?.titulo"
-  icon="timeline"
-  width="580px"
-  [badge]="selectedRequest() ? { text: selectedRequest()!.statusLabel, variant: selectedRequest()!.status === 'APROVADA' ? 'success' : selectedRequest()!.status === 'PENDENTE' ? 'warning' : 'neutral' } : undefined"
-  (closed)="closeDetailDrawer()"
->
-  @if (selectedRequest(); as req) {
-    <div class="detail-container">
-      <!-- Card de Resumo de Valor e Solicitante -->
-      <div class="detail-summary-card">
-        <div class="summary-top">
-          <div class="summary-value-box">
-            <span class="summary-value-label">Valor da Solicitação</span>
-            <strong class="summary-value-amount">
-              {{ req.valor | currency:'BRL':'symbol':'1.2-2' }}
-            </strong>
-          </div>
-          <span class="status-badge" [ngClass]="getStatusBadgeClass(req.status)">
-            <span class="material-symbols-rounded status-badge-icon">{{ req.statusIcon }}</span>
-            <span>{{ req.statusLabel }}</span>
-          </span>
-        </div>
-
-        <div class="summary-meta-grid">
-          <div class="meta-item">
-            <span class="meta-label">Centro de Custo</span>
-            <span class="meta-val">{{ req.centroCustoNome }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Departamento</span>
-            <span class="meta-val">{{ req.departamento }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Categoria</span>
-            <span class="meta-val">{{ req.categoriaLabel }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Prioridade</span>
-            <span class="meta-val font-semibold">{{ req.prioridade }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Solicitante</span>
-            <span class="meta-val">{{ req.solicitante.nome }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Submetido em</span>
-            <span class="meta-val">{{ req.dataCriacao | date:'dd/MM/yyyy HH:mm' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Trilha de Aprovação das Etapas do Fluxo (Requisito central do usuário) -->
-      <div class="workflow-timeline-section">
-        <div class="timeline-header">
-          <div class="timeline-title-row">
-            <span class="material-symbols-rounded timeline-header-icon">account_tree</span>
-            <div>
-              <h3 class="timeline-heading">Trilha do Fluxo de Alçada</h3>
-              <p class="timeline-subheading">{{ req.fluxoDestinado.nome }} ({{ req.fluxoDestinado.totalEtapas }} etapas)</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="timeline-stepper-vertical">
-          @for (step of req.fluxoDestinado.etapas; track step.numero) {
-            <div
-              class="timeline-step-item"
-              [class.is-done]="step.status === 'CONCLUIDA'"
-              [class.is-current]="step.status === 'EM_ANALISE' || step.status === 'AJUSTE'"
-              [class.is-reject]="step.status === 'REJEITADA'"
-            >
-              <!-- Marcador de status e linha conectora -->
-              <div class="step-indicator-wrapper">
-                <div class="step-indicator-badge">
-                  <span class="material-symbols-rounded indicator-icon">{{ getStepStatusIcon(step) }}</span>
-                </div>
-                @if (step.numero < req.fluxoDestinado.totalEtapas) {
-                  <div class="step-connector-line"></div>
-                }
-              </div>
-
-              <!-- Informações da etapa -->
-              <div class="step-card-content">
-                <div class="step-card-header">
-                  <div class="step-title-group">
-                    <span class="step-stage-badge">Etapa {{ step.numero }}</span>
-                    <strong class="step-stage-name">{{ step.nome }}</strong>
-                  </div>
-                  @if (step.dataHora) {
-                    <span class="step-timestamp">{{ step.dataHora }}</span>
-                  }
-                </div>
-
-                <div class="step-role-row">
-                  <span class="material-symbols-rounded role-icon">person</span>
-                  <span class="role-text">{{ step.papel }}</span>
-                  @if (step.responsavelNome) {
-                    <span class="role-separator">·</span>
-                    <strong class="role-assignee">{{ step.responsavelNome }}</strong>
-                  }
-                </div>
-
-                @if (step.comentario) {
-                  <div class="step-comment-box" [class.comment-adjust]="step.status === 'AJUSTE'">
-                    <span class="material-symbols-rounded comment-quote-icon">format_quote</span>
-                    <p class="comment-text">{{ step.comentario }}</p>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-        </div>
-      </div>
-
-      <!-- Justificativa da Solicitação -->
-      <div class="detail-section">
-        <h4 class="detail-section-title">
-          <span class="material-symbols-rounded">notes</span>
-          <span>Justificativa de Negócio</span>
-        </h4>
-        <div class="justification-text-card">
-          <p>{{ req.descricao }}</p>
-        </div>
-      </div>
-
-      <!-- Documentos e Anexos -->
-      <div class="detail-section">
-        <h4 class="detail-section-title">
-          <span class="material-symbols-rounded">attach_file</span>
-          <span>Documentos e Cotações Anexadas ({{ req.anexos.length }})</span>
-        </h4>
-        <div class="detail-attachments-grid">
-          @for (att of req.anexos; track att.id) {
-            <div class="detail-att-card">
-              <span class="material-symbols-rounded file-doc-icon">{{ att.icone }}</span>
-              <div class="att-name-group">
-                <span class="att-filename" [title]="att.nome">{{ att.nome }}</span>
-                <span class="att-meta-size">{{ att.tamanho }}</span>
+        <div class="attachments-list">
+          @for (att of formAnexos(); track $index) {
+            <div class="attachment-item">
+              <span class="material-symbols-rounded file-icon">description</span>
+              <div class="attachment-details">
+                <span class="file-name">{{ att.nome }}</span>
+                <span class="file-size">{{ att.tamanho }}</span>
               </div>
               <button
                 type="button"
-                class="download-att-btn"
-                title="Visualizar ou baixar arquivo"
-                (click)="showToast('Download do anexo ' + att.nome + ' concluído.', 'info')"
-                aria-label="Baixar anexo"
+                class="remove-att-btn"
+                (click)="removeAttachment($index)"
+                title="Remover arquivo"
+                aria-label="Remover anexo"
               >
-                <span class="material-symbols-rounded">download</span>
+                <span class="material-symbols-rounded">close</span>
               </button>
             </div>
           }
         </div>
-      </div>
-    </div>
-  }
+      </fieldset>
+    </form>
 
-  <!-- Footer com Ações do Detalhe -->
-  <div drawer-footer class="drawer-footer-actions">
-    @if (selectedRequest()?.status === 'PENDENTE' || selectedRequest()?.status === 'AJUSTE_SOLICITADO') {
+    <div drawer-footer class="drawer-footer-actions">
+      <button type="button" class="btn-drawer-cancel" (click)="closeCreateDrawer()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
       <button
         type="button"
-        class="btn-danger-outline"
-        (click)="cancelCurrentRequest()"
+        class="btn-drawer-submit"
+        (click)="submitNewRequest()"
+        [disabled]="isSubmitting()"
       >
-        <span class="material-symbols-rounded btn-icon">cancel</span>
-        <span>Cancelar Solicitação</span>
+        @if (isSubmitting()) {
+          <span class="spinner-small"></span>
+          <span>Submetendo...</span>
+        } @else {
+          <span class="material-symbols-rounded">send</span>
+          <span>Submeter ao Fluxo</span>
+        }
       </button>
-    }
-    <button type="button" class="btn-secondary" (click)="closeDetailDrawer()">
-      Fechar
-    </button>
-  </div>
-</app-right-drawer>
+    </div>
+  </app-right-drawer>
 
-<!-- Toast Flutuante de Feedback -->
+  <!-- ========================================================================= -->
+  <!-- DRAWER LATERAL: DETALHES DA SOLICITAÇÃO (NA DIV DEBAIXO DO HEADER)        -->
+  <!-- ========================================================================= -->
+  <app-right-drawer
+    [isOpen]="isDetailDrawerOpen()"
+    [title]="selectedRequest()?.codigo || 'Detalhes da Solicitação'"
+    [subtitle]="selectedRequest()?.titulo"
+    icon="timeline"
+    width="560px"
+    [badge]="selectedRequest() ? { text: selectedRequest()!.statusLabel, variant: selectedRequest()!.status === 'APROVADA' ? 'success' : selectedRequest()!.status === 'PENDENTE' ? 'warning' : 'neutral' } : undefined"
+    (closed)="closeDetailDrawer()"
+  >
+    @if (selectedRequest(); as req) {
+      <div class="detail-container">
+        <!-- Card de Resumo de Valor e Solicitante -->
+        <div class="detail-summary-card">
+          <div class="summary-top">
+            <div class="summary-value-box">
+              <span class="summary-value-label">Valor da Solicitação</span>
+              <strong class="summary-value-amount">
+                {{ req.valor | currency:'BRL':'symbol':'1.2-2' }}
+              </strong>
+            </div>
+            <span class="status-pill" [ngClass]="getStatusBadgeClass(req.status)">
+              <span class="status-dot"></span>
+              <span>{{ req.statusLabel }}</span>
+            </span>
+          </div>
+
+          <div class="summary-meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Centro de Custo</span>
+              <span class="meta-val">{{ req.centroCustoNome }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Departamento</span>
+              <span class="meta-val">{{ req.departamento }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Categoria</span>
+              <span class="meta-val">{{ req.categoriaLabel }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Prioridade</span>
+              <span class="meta-val font-semibold">{{ req.prioridade }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Solicitante</span>
+              <span class="meta-val">{{ req.solicitante.nome }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Submetido em</span>
+              <span class="meta-val">{{ req.dataCriacao | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trilha de Aprovação das Etapas do Fluxo -->
+        <div class="workflow-timeline-section">
+          <div class="timeline-header">
+            <div class="timeline-title-row">
+              <span class="material-symbols-rounded timeline-header-icon">account_tree</span>
+              <div>
+                <h3 class="timeline-heading">Trilha do Fluxo de Alçada</h3>
+                <p class="timeline-subheading">{{ req.fluxoDestinado.nome }} ({{ req.fluxoDestinado.totalEtapas }} etapas)</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="timeline-stepper-vertical">
+            @for (step of req.fluxoDestinado.etapas; track step.numero) {
+              <div
+                class="timeline-step-item"
+                [class.is-done]="step.status === 'CONCLUIDA'"
+                [class.is-current]="step.status === 'EM_ANALISE' || step.status === 'AJUSTE'"
+                [class.is-reject]="step.status === 'REJEITADA'"
+              >
+                <div class="step-indicator-wrapper">
+                  <div class="step-indicator-badge">
+                    <span class="material-symbols-rounded indicator-icon">{{ getStepStatusIcon(step) }}</span>
+                  </div>
+                  @if (step.numero < req.fluxoDestinado.totalEtapas) {
+                    <div class="step-connector-line"></div>
+                  }
+                </div>
+
+                <div class="step-card-content">
+                  <div class="step-card-header">
+                    <div class="step-title-group">
+                      <span class="step-stage-badge">Etapa {{ step.numero }}</span>
+                      <strong class="step-stage-name">{{ step.nome }}</strong>
+                    </div>
+                    @if (step.dataHora) {
+                      <span class="step-timestamp">{{ step.dataHora }}</span>
+                    }
+                  </div>
+
+                  <div class="step-role-row">
+                    <span class="material-symbols-rounded role-icon">person</span>
+                    <span class="role-text">{{ step.papel }}</span>
+                    @if (step.responsavelNome) {
+                      <span class="role-separator">·</span>
+                      <strong class="role-assignee">{{ step.responsavelNome }}</strong>
+                    }
+                  </div>
+
+                  @if (step.comentario) {
+                    <div class="step-comment-box" [class.comment-adjust]="step.status === 'AJUSTE'">
+                      <span class="material-symbols-rounded comment-quote-icon">format_quote</span>
+                      <p class="comment-text">{{ step.comentario }}</p>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Justificativa da Solicitação -->
+        <div class="detail-section">
+          <h4 class="detail-section-title">
+            <span class="material-symbols-rounded">notes</span>
+            <span>Justificativa de Negócio</span>
+          </h4>
+          <div class="justification-text-card">
+            <p>{{ req.descricao }}</p>
+          </div>
+        </div>
+
+        <!-- Documentos e Anexos -->
+        <div class="detail-section">
+          <h4 class="detail-section-title">
+            <span class="material-symbols-rounded">attach_file</span>
+            <span>Documentos e Cotações Anexadas ({{ req.anexos.length }})</span>
+          </h4>
+          <div class="detail-attachments-grid">
+            @for (att of req.anexos; track att.id) {
+              <div class="detail-att-card">
+                <span class="material-symbols-rounded file-doc-icon">{{ att.icone }}</span>
+                <div class="att-name-group">
+                  <span class="att-filename" [title]="att.nome">{{ att.nome }}</span>
+                  <span class="att-meta-size">{{ att.tamanho }}</span>
+                </div>
+                <button
+                  type="button"
+                  class="download-att-btn"
+                  title="Visualizar ou baixar anexo"
+                  (click)="showToast('Download do anexo ' + att.nome + ' concluído.', 'info')"
+                  aria-label="Baixar anexo"
+                >
+                  <span class="material-symbols-rounded">download</span>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <div drawer-footer class="drawer-footer-actions">
+      @if (selectedRequest()?.status === 'PENDENTE' || selectedRequest()?.status === 'AJUSTE_SOLICITADO') {
+        <button
+          type="button"
+          class="btn-drawer-danger"
+          (click)="cancelCurrentRequest()"
+        >
+          <span class="material-symbols-rounded">cancel</span>
+          <span>Cancelar Solicitação</span>
+        </button>
+      }
+      <button type="button" class="btn-drawer-cancel" (click)="closeDetailDrawer()">
+        Fechar
+      </button>
+    </div>
+  </app-right-drawer>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TOAST FLUTUANTE DE FEEDBACK                                               -->
+<!-- ========================================================================= -->
 @if (toastMessage()) {
   <aside class="floating-toast toast-{{ toastType() }}" role="status" aria-live="polite">
     <div class="toast-content">

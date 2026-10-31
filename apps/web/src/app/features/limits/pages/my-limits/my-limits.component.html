@@ -1,45 +1,31 @@
-<!-- 1. Header Fixo de Gestão de Alçadas (68px alinhado perfeitamente ao Sidebar) -->
-<header class="ops-header">
-  <div class="header-titles">
-    <div class="header-title-row">
-      <h1 class="header-main-title">Minhas Alçadas & Tetos</h1>
-      <span class="active-count-badge">{{ limitsService.filteredRules().length }} Regras</span>
-    </div>
-    <p class="header-sub-title">
-      Gerenciamento central de esteiras de aprovação, limites de competência orçamentária e governança de alçadas.
-    </p>
-  </div>
-
-  <div class="header-actions">
-    <button type="button" class="btn-manage-rules-header" (click)="goToRulesCatalog()">
+<!-- 1. Header Padronizado de Gestão de Alçadas -->
+<app-page-header
+  breadcrumbRoot="Alçadas"
+  breadcrumbCurrent="Meus Fluxos"
+  searchPlaceholder="Buscar por título, ID (#ALC) ou departamento..."
+  [searchQuery]="limitsService.searchQuery()"
+  (searchQueryChange)="onSearchChange($event)"
+  contextIcon="account_tree"
+  contextTitle="Gestão de Alçadas & Tetos"
+  [contextSubtitle]="limitsService.filteredRules().length + ' esteiras de aprovação configuradas na organização'"
+  [tabs]="pageHeaderTabs"
+  [activeTab]="limitsService.activeTab()"
+  (tabChange)="selectTab($event)"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goToRulesCatalog()">
       <span class="material-symbols-rounded">rule</span>
       <span>Catálogo de Regras</span>
     </button>
-    <button type="button" class="btn-create-header" (click)="openCreateModal()">
+    <button type="button" class="btn-header-primary" (click)="openCreateModal()">
       <span class="material-symbols-rounded">add</span>
       <span>Nova Alçada</span>
     </button>
   </div>
-</header>
+</app-page-header>
 
 <!-- Container Principal com scroll interno -->
 <div class="page-container" (click)="closeActionsMenu()" (keydown.escape)="closeActionsMenu()" tabindex="-1">
-  <!-- 2. Abas de Categorias / Status (Idêntico ao anexo de referência) -->
-  <nav class="tabs-nav" aria-label="Filtro de categorias de alçadas">
-    <div class="tabs-scroll">
-      @for (tab of tabs; track tab.id) {
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="limitsService.activeTab() === tab.id"
-          (click)="selectTab(tab.id)"
-        >
-          <span class="material-symbols-rounded tab-icon">{{ tab.icon }}</span>
-          <span>{{ tab.label }}</span>
-        </button>
-      }
-    </div>
-  </nav>
 
   <!-- 3. Barra de Busca e Ação "+ Nova Alçada" -->
   <section class="toolbar-section">

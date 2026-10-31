@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 
 export interface QuickActionCard {
   id: string;
@@ -40,13 +41,17 @@ export interface ApprovalRequest {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PageHeaderComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent {
   protected readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+
+  goToNewRequest(): void {
+    this.router.navigate(['/solicitacoes']);
+  }
 
   // Estado de Carregamento dos Dados do Dashboard
   readonly isLoading = signal(true);

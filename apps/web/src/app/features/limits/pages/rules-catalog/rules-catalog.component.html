@@ -1,33 +1,30 @@
-<!-- 1. Header Fixo do Catálogo de Regras (68px alinhado perfeitamente ao Sidebar) -->
-<header class="ops-header">
-  <div class="header-titles">
-    <div class="header-title-row">
-      <button type="button" class="btn-back" (click)="goBack()" title="Voltar para Minhas Alçadas">
-        <span class="material-symbols-rounded">arrow_back</span>
-      </button>
-      <h1 class="header-main-title">Catálogo de Regras de Negócio</h1>
-      <span class="active-count-badge">{{ limitsService.ruleTemplatesState().length }} Modelos</span>
-    </div>
-    <p class="header-sub-title">
-      Gerencie regras padrão do sistema e crie regras sob medida via Documento Word/Docs, Assistente IA ou Criador Manual.
-    </p>
-  </div>
-
-  <div class="header-actions">
-    <button type="button" class="btn-action-outline btn-models-trigger" (click)="toggleDrawer()">
+<!-- 1. Header Padronizado do Catálogo de Regras -->
+<app-page-header
+  breadcrumbRoot="Alçadas"
+  breadcrumbCurrent="Minhas Regras"
+  searchPlaceholder="Buscar modelos de regras..."
+  [searchQuery]="searchQuery()"
+  (searchQueryChange)="searchQuery.set($event)"
+  contextIcon="rule"
+  contextTitle="Catálogo de Regras de Negócio"
+  [contextSubtitle]="limitsService.ruleTemplatesState().length + ' modelos disponíveis · 3 métodos de criação de regras'"
+  [showTier2]="true"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="toggleDrawer()">
       <span class="material-symbols-rounded">layers</span>
-      <span>{{ isDrawerExpanded() ? 'Recolher Modelos' : 'Ver Modelos Disponíveis (' + limitsService.ruleTemplatesState().length + ')' }}</span>
+      <span>{{ isDrawerExpanded() ? 'Recolher Modelos' : 'Ver Modelos (' + limitsService.ruleTemplatesState().length + ')' }}</span>
     </button>
-    <button type="button" class="btn-action-outline" (click)="goBack()">
+    <button type="button" class="btn-header-outline" (click)="goBack()">
       <span class="material-symbols-rounded">shield</span>
       <span>Meus Fluxos</span>
     </button>
-    <button type="button" class="btn-action-primary" (click)="goToEditor()">
+    <button type="button" class="btn-header-primary" (click)="goToEditor()">
       <span class="material-symbols-rounded">account_tree</span>
       <span>Editor de Fluxo</span>
     </button>
   </div>
-</header>
+</app-page-header>
 
 <!-- Notificação Flutuante de Sucesso -->
 @if (successMessage()) {

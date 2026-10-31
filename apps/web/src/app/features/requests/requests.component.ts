@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
+import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
 import { RequestsService } from './services/requests.service';
 import {
   ApprovalStep,
@@ -17,7 +18,7 @@ export type RequestTab = 'todas' | 'pendentes' | 'aprovadas' | 'ajustes' | 'reje
 @Component({
   selector: 'app-requests',
   standalone: true,
-  imports: [CommonModule, FormsModule, RightDrawerComponent],
+  imports: [CommonModule, FormsModule, RightDrawerComponent, PageHeaderComponent],
   templateUrl: './requests.component.html',
   styleUrl: './requests.component.scss',
 })
@@ -30,6 +31,20 @@ export class RequestsComponent {
   readonly selectedCategory = signal<string>('TODAS');
   readonly selectedCostCenter = signal<string>('TODOS');
   readonly sortBy = signal<'recentes' | 'maior_valor' | 'menor_valor' | 'prioridade'>('recentes');
+  readonly viewMode = signal<'cards' | 'table'>('cards');
+  readonly showKpis = signal<boolean>(true);
+
+  // Abas do PageHeader
+  readonly headerTabs = computed<PageHeaderTab[]>(() => {
+    const s = this.requestsService.stats();
+    return [
+      { id: 'todas', label: 'Todas', icon: 'apps', badge: s.total },
+      { id: 'pendentes', label: 'Em Análise', icon: 'hourglass_top', badge: s.pendentes, badgeVariant: 'warning' },
+      { id: 'aprovadas', label: 'Aprovadas', icon: 'verified', badge: s.aprovadas, badgeVariant: 'success' },
+      { id: 'ajustes', label: 'Ajustes', icon: 'edit_note', badge: s.ajustes, badgeVariant: 'adjust' },
+      { id: 'rejeitadas', label: 'Recusadas', icon: 'cancel', badge: s.rejeitadas, badgeVariant: 'danger' },
+    ];
+  });
 
   // Seleção e Paginação
   readonly selectedIds = signal<Set<string>>(new Set());
@@ -369,6 +384,30 @@ export class RequestsComponent {
         return 'priority-medium';
       case 'BAIXA':
         return 'priority-low';
+    }
+  }
+
+  toggleViewMode(mode: 'cards' | 'table'): void {
+    this.viewMode.set(mode);
+  }
+
+  toggleKpis(): void {
+    this.showKpis.update((v) => !v);
+  }
+
+  getStatusBorderColor(status: RequestStatus): string {
+    switch (status) {
+      case 'APROVADA':
+        return '#10b981';
+      case 'PENDENTE':
+        return '#644ef3';
+      case 'AJUSTE_SOLICITADO':
+        return '#f59e0b';
+      case 'REJEITADA':
+      case 'CANCELADA':
+        return '#ef4444';
+      default:
+        return '#94a3b8';
     }
   }
 

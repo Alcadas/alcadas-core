@@ -1,24 +1,25 @@
-<!-- 1. Header do Centro de Operações (Alinhado exatamente à mesma linha de 68px do Sidebar Header) -->
-<header class="ops-header">
-  <div class="header-titles">
-    <h1 class="header-main-title">Centro de Operações de Alçadas</h1>
-    <p class="header-sub-title">
-      Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real.
-    </p>
-  </div>
-
-  <div class="header-actions">
-    <button type="button" class="btn-action btn-outline">
-      <span class="material-symbols-rounded btn-icon">file_download</span>
-      <span>Exportar Dados</span>
+<!-- 1. Header do Centro de Operações (Componente Padronizado) -->
+<app-page-header
+  breadcrumbRoot="Visão Geral"
+  breadcrumbCurrent="Dashboard de Operações"
+  searchPlaceholder="Buscar métricas, requisições ou centros de custo..."
+  contextIcon="dashboard"
+  contextTitle="Centro de Operações de Alçadas"
+  contextSubtitle="Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real"
+  [showTier2]="true"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goToNewRequest()">
+      <span class="material-symbols-rounded">file_download</span>
+      <span>Exportar</span>
     </button>
 
-    <button type="button" class="btn-action btn-primary">
-      <span class="material-symbols-rounded btn-icon">add</span>
+    <button type="button" class="btn-header-primary" (click)="goToNewRequest()">
+      <span class="material-symbols-rounded">add</span>
       <span>Nova Solicitação</span>
     </button>
   </div>
-</header>
+</app-page-header>
 
 @if (isLoading()) {
   <!-- Skeleton Loading State do Dashboard -->

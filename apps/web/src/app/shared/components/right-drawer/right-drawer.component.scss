@@ -3,12 +3,17 @@
 }
 
 .drawer-wrapper {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 1050;
+  z-index: 50;
   pointer-events: none;
   visibility: hidden;
   transition: visibility 0.25s ease;
+
+  &.is-fixed {
+    position: fixed;
+    z-index: 1050;
+  }
 
   &.is-open {
     pointer-events: auto;

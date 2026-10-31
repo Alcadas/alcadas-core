@@ -2,12 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { PageHeaderComponent, PageHeaderTab } from '../../../../shared/components/page-header/page-header.component';
 import { LimitsService } from '../../services/limits.service';
 
 @Component({
   selector: 'app-my-limits',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   templateUrl: './my-limits.component.html',
   styleUrl: './my-limits.component.scss',
 })
@@ -29,12 +30,12 @@ export class MyLimitsComponent {
   readonly newRuleQuorum = signal('2 Aprovadores (Quórum Duplo)');
 
   // Tabs do topo
-  readonly tabs = [
-    { id: 'all', label: 'Todas as Alçadas', icon: 'shield' },
-    { id: 'active', label: 'Ativas', icon: 'check_circle' },
-    { id: 'draft', label: 'Rascunhos', icon: 'edit_note' },
+  readonly pageHeaderTabs: PageHeaderTab[] = [
+    { id: 'all', label: 'Todas', icon: 'shield', badge: 7 },
+    { id: 'active', label: 'Ativas', icon: 'check_circle', badge: 5, badgeVariant: 'success' },
+    { id: 'draft', label: 'Rascunhos', icon: 'edit_note', badge: 2, badgeVariant: 'warning' },
     { id: 'completed', label: 'Homologadas', icon: 'task_alt' },
-    { id: 'ti', label: 'Tecnologia & Infra', icon: 'devices' },
+    { id: 'templates', label: 'Modelos', icon: 'auto_awesome' },
   ];
 
   selectTab(tabId: string): void {
