@@ -31,10 +31,41 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'alcadas',
-    loadComponent: () =>
-      import('./features/limits/limits.component').then(
-        (m) => m.LimitsComponent
-      ),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'minhas-alcadas',
+      },
+      {
+        path: 'minhas-alcadas',
+        loadComponent: () =>
+          import('./features/limits/pages/my-limits/my-limits.component').then(
+            (m) => m.MyLimitsComponent
+          ),
+      },
+      {
+        path: 'regras',
+        loadComponent: () =>
+          import(
+            './features/limits/pages/rules-catalog/rules-catalog.component'
+          ).then((m) => m.RulesCatalogComponent),
+      },
+      {
+        path: 'editor/:id',
+        loadComponent: () =>
+          import('./features/limits/limits.component').then(
+            (m) => m.LimitsComponent
+          ),
+      },
+      {
+        path: 'novo',
+        loadComponent: () =>
+          import('./features/limits/limits.component').then(
+            (m) => m.LimitsComponent
+          ),
+      },
+    ],
   },
   {
     path: 'auditoria',

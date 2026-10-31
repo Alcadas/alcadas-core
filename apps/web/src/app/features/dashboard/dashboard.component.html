@@ -20,8 +20,40 @@
   </div>
 </header>
 
-<div class="dashboard-scrollable">
-  <!-- 2. Cards de Ações Rápidas de Governança -->
+@if (isLoading()) {
+  <!-- Skeleton Loading State do Dashboard -->
+  <div class="dashboard-scrollable skeleton-container" aria-busy="true" aria-label="Carregando Centro de Operações">
+    <!-- Quick Cards Skeletons -->
+    <section class="quick-cards-grid">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="quick-card skeleton-card">
+          <div class="skeleton-shimmer skeleton-tag"></div>
+          <div class="skeleton-shimmer skeleton-title-bar"></div>
+          <div class="skeleton-shimmer skeleton-line"></div>
+          <div class="skeleton-shimmer skeleton-line short"></div>
+        </div>
+      }
+    </section>
+
+    <!-- Usage Card Skeleton -->
+    <section class="usage-card skeleton-card">
+      <div class="skeleton-shimmer skeleton-badge"></div>
+      <div class="skeleton-shimmer skeleton-title-bar medium"></div>
+      <div class="skeleton-shimmer skeleton-bar"></div>
+      <div class="skeleton-shimmer skeleton-metrics-row"></div>
+    </section>
+
+    <!-- Table Skeleton -->
+    <section class="approvals-card skeleton-card">
+      <div class="skeleton-shimmer skeleton-table-header"></div>
+      @for (row of [1, 2, 3]; track row) {
+        <div class="skeleton-shimmer skeleton-row"></div>
+      }
+    </section>
+  </div>
+} @else {
+  <div class="dashboard-scrollable">
+    <!-- 2. Cards de Ações Rápidas de Governança -->
   <section class="quick-cards-grid">
     @for (card of quickCards(); track card.id) {
       <div class="quick-card">
@@ -268,3 +300,4 @@
     </div>
   </section>
 </div>
+}
