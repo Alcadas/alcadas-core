@@ -1,7 +1,9 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { RuleTemplateItem, WorkflowNode } from './limits.models';
+import { LimitsService } from './services/limits.service';
 
 @Component({
   selector: 'app-limits',
@@ -11,8 +13,31 @@ import { RuleTemplateItem, WorkflowNode } from './limits.models';
   styleUrl: './limits.component.scss',
 })
 export class LimitsComponent {
-  // Zoom do Canvas de Fluxo
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly limitsService = inject(LimitsService);
+
+  // Identificação da Alçada Atual
+  readonly currentRuleId = signal<string | null>(null);
+  readonly currentRuleTitle = signal<string>('Configuração de Alçadas & Tetos');
+
+  // Zoom e Pan do Canvas de Fluxo
   readonly zoomLevel = signal(100);
+  readonly panX = signal(0);
+  readonly panY = signal(0);
+  readonly isDragging = signal(false);
+
+  // Posições para o cálculo de drag com o mouse
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private initialPanX = 0;
+  private initialPanY = 0;
+
+  // Inserção contextual de nós (+ entre cards)
+  readonly pendingInsertIndex = signal<number | null>(null);
+
+  // Sidebar Esquerdo de Modelos de Regras (começa recolhido, porém visível na tela)
+  readonly isLibraryExpanded = signal(false);
 
   // Notificação de Salvo
   readonly saveSuccessMessage = signal<string | null>(null);
@@ -88,46 +113,52 @@ export class LimitsComponent {
       },
     },
     {
-      type: 'TERMINAL',
-      title: 'Aprovação & Elo SHA-256',
-      description: 'Conclusão da esteira, gravação do hash criptográfico e empenho financeiro.',
-      icon: 'verified',
-      badge: 'Conclusão',
-      badgeColor: '#059669',
-      defaultConfig: {},
+      type: 'TRIGGER',
+      title: 'Gatilho de Centro de Custo',
+      description: 'Aplica a alçada quando a despesa estiver associada a um departamento.',
+      icon: 'account_tree',
+      badge: 'Gatilho de Entrada',
+      badgeColor: '#3B82F6',
+      defaultConfig: {
+        costCenter: 'CC-104 - TI e Infra',
+        category: 'Hardware & Equipamentos',
+      },
     },
   ]);
 
-  // Modelos filtrados pela busca
+  // Modelos filtrados pela barra de busca
   readonly filteredTemplates = computed(() => {
-    const q = this.templateSearch().toLowerCase().trim();
-    if (!q) return this.ruleTemplates();
+    const query = this.templateSearch().trim().toLowerCase();
+    if (!query) return this.ruleTemplates();
     return this.ruleTemplates().filter(
-      (t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+      (t) =>
+        t.title.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        t.badge.toLowerCase().includes(query)
     );
   });
 
-  // 2. Fluxo Atual de Alçadas Configurado no Canvas Central
+  // 2. Nós do Fluxo Sequencial Atual (Pipeline)
   readonly workflowNodes = signal<WorkflowNode[]>([
     {
       id: 'node-1',
       type: 'TRIGGER',
-      title: 'Submissão de Solicitação',
-      subtitle: 'Entrada de compra, reembolso ou contrato de serviço',
-      tag: 'Ponto de Partida',
-      tagColor: '#64748b',
-      icon: 'input',
+      title: 'Início: Solicitação Criada',
+      subtitle: 'Disparado pelo Portal de Requisições ou ERP integrado',
+      tag: 'Origem',
+      tagColor: '#3B82F6',
+      icon: 'play_arrow',
       config: {
-        costCenter: 'TODOS',
-        category: 'TODAS',
+        costCenter: 'CC-104 - TI e Infra',
+        category: 'Licenciamento & Cloud',
       },
     },
     {
       id: 'node-2',
       type: 'RISK_CHECK',
-      title: 'Motor de Riscos & Fraudes',
-      subtitle: 'Anti-fracionamento (30d) e bloqueio estrito de autoaprovação',
-      tag: 'SoD Ativo',
+      title: 'Triagem de Risco & Segregação (SoD)',
+      subtitle: 'Bloqueio de autorrequisição e verificação anti-fracionamento em 30 dias',
+      tag: 'Motor de Risco',
       tagColor: '#EC4899',
       icon: 'security',
       config: {
@@ -139,8 +170,8 @@ export class LimitsComponent {
     {
       id: 'node-3',
       type: 'CONDITION_VALUE',
-      title: 'Faixa 1: Até R$ 15.000,00',
-      subtitle: 'Solicitações de rotina operacional de baixo impacto',
+      title: 'Teto Gerência Operacional (<= R$ 15.000)',
+      subtitle: 'Solicitações abaixo de R$ 15.000 são liberadas por 1 Gerente',
       tag: 'Valor <= R$ 15.000',
       tagColor: '#644EF3',
       icon: 'calculate',
@@ -154,8 +185,8 @@ export class LimitsComponent {
     {
       id: 'node-4',
       type: 'APPROVER',
-      title: 'Aprovação: Gerente da Área',
-      subtitle: 'Aprovador único titular do centro de custo',
+      title: 'Aprovação Individual do Gerente',
+      subtitle: 'Assinatura digital com chave privada do Gerente do Centro de Custo',
       tag: '1 Assinatura',
       tagColor: '#10B981',
       icon: 'person_check',
@@ -190,8 +221,8 @@ export class LimitsComponent {
     },
   ]);
 
-  // Nó atualmente selecionado para edição no painel direito
-  readonly selectedNodeId = signal<string | null>('node-3');
+  // Começa com NENHUM nó selecionado (conforme solicitado pelo usuário!)
+  readonly selectedNodeId = signal<string | null>(null);
 
   // Objeto do nó selecionado
   readonly selectedNode = computed(() => {
@@ -208,6 +239,30 @@ export class LimitsComponent {
     this.selectedNodeId.set(null);
   }
 
+  // Controle da Biblioteca de Modelos (Sidebar Retrátil Esquerdo)
+  toggleLibrary(): void {
+    this.isLibraryExpanded.update((v) => !v);
+  }
+
+  expandLibrary(): void {
+    this.isLibraryExpanded.set(true);
+  }
+
+  collapseLibrary(): void {
+    this.isLibraryExpanded.set(false);
+  }
+
+  // Início de inserção contextual (+) entre cards
+  startInsertBetween(index: number, event: Event): void {
+    event.stopPropagation();
+    this.pendingInsertIndex.set(index + 1);
+    this.isLibraryExpanded.set(true); // Expande a biblioteca para que o usuário escolha o modelo
+  }
+
+  cancelInsert(): void {
+    this.pendingInsertIndex.set(null);
+  }
+
   // Adiciona novo nó no fluxo baseado num modelo da esquerda
   addNode(template: RuleTemplateItem): void {
     const newId = 'node-' + (Date.now() % 10000);
@@ -219,21 +274,29 @@ export class LimitsComponent {
       tag: template.badge,
       tagColor: template.badgeColor,
       icon: template.icon,
+      isNew: true, // Borda dashed e indicação clara de nova regra em criação
       config: { ...template.defaultConfig },
     };
 
-    // Insere antes do nó terminal final se existir
+    const insertIdx = this.pendingInsertIndex();
     this.workflowNodes.update((nodes) => {
-      const lastIndex = nodes.length - 1;
-      if (lastIndex >= 0 && nodes[lastIndex].type === 'TERMINAL') {
-        const copy = [...nodes];
-        copy.splice(lastIndex, 0, newNode);
-        return copy;
+      const copy = [...nodes];
+      if (insertIdx !== null && insertIdx >= 0 && insertIdx <= copy.length) {
+        copy.splice(insertIdx, 0, newNode);
+      } else {
+        const lastIndex = copy.length - 1;
+        if (lastIndex >= 0 && copy[lastIndex].type === 'TERMINAL') {
+          copy.splice(lastIndex, 0, newNode);
+        } else {
+          copy.push(newNode);
+        }
       }
-      return [...nodes, newNode];
+      return copy;
     });
 
-    this.selectedNodeId.set(newId);
+    this.pendingInsertIndex.set(null);
+    this.isLibraryExpanded.set(false); // Recolhe a biblioteca para focar no inspetor
+    this.selectedNodeId.set(newId); // Expande a barra lateral direita para a regra recém-criada
   }
 
   // Remove um nó do fluxo
@@ -300,21 +363,88 @@ export class LimitsComponent {
     );
   }
 
-  // Controles de Zoom
+  // Pan & Drag Handlers com o Mouse
+  onCanvasMouseDown(event: MouseEvent): void {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        '.flow-node-card, .btn-insert-rule, .rules-library, .rule-inspector, .canvas-controls, .ops-header, button, input, select, textarea'
+      )
+    ) {
+      return;
+    }
+
+    this.isDragging.set(true);
+    this.dragStartX = event.clientX;
+    this.dragStartY = event.clientY;
+    this.initialPanX = this.panX();
+    this.initialPanY = this.panY();
+  }
+
+  onCanvasMouseMove(event: MouseEvent): void {
+    if (!this.isDragging()) return;
+    const dx = event.clientX - this.dragStartX;
+    const dy = event.clientY - this.dragStartY;
+    this.panX.set(this.initialPanX + dx);
+    this.panY.set(this.initialPanY + dy);
+  }
+
+  onCanvasMouseUp(): void {
+    this.isDragging.set(false);
+  }
+
+  // Zoom dinâmico com Ctrl + Scroll
+  onCanvasWheel(event: WheelEvent): void {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const delta = event.deltaY < 0 ? 8 : -8;
+      this.zoomLevel.update((z) => Math.min(Math.max(z + delta, 40), 200));
+    }
+  }
+
+  // Controles de Zoom e Câmera
   zoomIn(): void {
-    this.zoomLevel.update((z) => Math.min(z + 10, 150));
+    this.zoomLevel.update((z) => Math.min(z + 10, 180));
   }
 
   zoomOut(): void {
-    this.zoomLevel.update((z) => Math.max(z - 10, 60));
+    this.zoomLevel.update((z) => Math.max(z - 10, 40));
   }
 
   resetZoom(): void {
     this.zoomLevel.set(100);
   }
 
+  centerCanvas(): void {
+    this.panX.set(0);
+    this.panY.set(0);
+    this.zoomLevel.set(100);
+  }
+
+  constructor() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.currentRuleId.set(id);
+      const rule = this.limitsService.getRuleById(id);
+      if (rule) {
+        this.currentRuleTitle.set(rule.title);
+      } else {
+        this.currentRuleTitle.set(`Alçada #${id}`);
+      }
+    }
+  }
+
+  goBack(): void {
+    this.router.navigate(['/alcadas/minhas-alcadas']);
+  }
+
   saveWorkflow(): void {
-    this.saveSuccessMessage.set('Workflow de alçadas atualizado e versionado com sucesso!');
+    // Remove o indicador isNew de todos os nós após o salvamento
+    this.workflowNodes.update((nodes) =>
+      nodes.map((n) => ({ ...n, isNew: false }))
+    );
+    this.saveSuccessMessage.set('Workflow de alçadas salvo e versionado com sucesso!');
     setTimeout(() => {
       this.saveSuccessMessage.set(null);
     }, 3500);

@@ -8,6 +8,7 @@ export interface WorkflowNode {
   tag: string;
   tagColor: string;
   icon: string;
+  isNew?: boolean; // Indica se é uma regra recém-criada (borda dashed)
   // Configurações específicas
   config: {
     // Para Condição de Valor
@@ -41,3 +42,33 @@ export interface RuleTemplateItem {
   badgeColor: string;
   defaultConfig: WorkflowNode['config'];
 }
+
+// Modelos para o Gerenciamento de Alçadas (Minhas Alçadas)
+export type LimitRuleStatus = 'ACTIVE' | 'DRAFT' | 'COMPLETED' | 'INACTIVE';
+
+export interface LimitStep {
+  name: string;
+  status: 'completed' | 'active' | 'pending' | 'rejected';
+  icon?: string;
+}
+
+export interface LimitRuleItem {
+  id: string;
+  title: string;
+  department: string;
+  assignedTo: string;
+  employmentType?: string;
+  locationOrCenter: string;
+  channelOrOrigin: string;
+  status: LimitRuleStatus;
+  statusLabel: string;
+  ceilingAmount: number;
+  quorumLabel: string;
+  slaHours: number;
+  sodEnforced: boolean;
+  createdAt: string;
+  accentColor: string;
+  steps: LimitStep[];
+  currentStepLabel?: string;
+}
+

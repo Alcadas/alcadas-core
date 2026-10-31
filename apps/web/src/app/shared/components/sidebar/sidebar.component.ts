@@ -61,7 +61,7 @@ export class SidebarComponent {
     { id: 'dashboard', route: '/dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
     { id: 'aprovacoes', route: '/aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: true },
     { id: 'solicitacoes', route: '/solicitacoes', label: 'Solicitações', icon: 'description', hasSubmenu: true },
-    { id: 'alcadas', route: '/alcadas', label: 'Alçadas & Tetos', icon: 'shield', hasSubmenu: true },
+    { id: 'alcadas', route: '/alcadas/minhas-alcadas', label: 'Alçadas & Tetos', icon: 'shield', hasSubmenu: true },
     { id: 'auditoria', route: '/auditoria', label: 'Trilha Criptográfica', icon: 'link', badge: 'SHA', badgeColor: '#10B981', hasSubmenu: false },
     { id: 'riscos', route: '/riscos', label: 'Motor de Riscos', icon: 'security', badge: 'Anti-Fraude', badgeColor: '#F59E0B', hasSubmenu: false },
     { id: 'delegacoes', route: '/delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: true },
