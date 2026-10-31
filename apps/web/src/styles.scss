@@ -1,1 +1,133 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --primary: #644EF3;
+  --primary-light: #BDB4FC;
+  --primary-dark: #4e3ac9;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --bg-page: #ffffff;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Material Symbols Rounded Standard */
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* Background Animated Shapes (#644EF3 e #BDB4FC) */
+.shapes-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+
+  .shape {
+    position: absolute;
+    will-change: transform, border-radius;
+  }
+
+  .shape-blob-1 {
+    top: -18%;
+    left: -15%;
+    width: 780px;
+    height: 780px;
+    background: radial-gradient(circle at 35% 35%, #644EF3 0%, #BDB4FC 70%, transparent 100%);
+    filter: blur(90px);
+    opacity: 0.58;
+    animation: float-blob-1 22s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  }
+
+  .shape-blob-2 {
+    bottom: -22%;
+    right: -16%;
+    width: 860px;
+    height: 860px;
+    background: radial-gradient(circle at 65% 65%, #BDB4FC 10%, #644EF3 75%, transparent 100%);
+    filter: blur(105px);
+    opacity: 0.52;
+    animation: float-blob-2 26s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  }
+}
+
+@keyframes float-blob-1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    border-radius: 60% 40% 70% 30% / 40% 50% 60% 50%;
+  }
+  33% {
+    transform: translate(90px, 70px) rotate(45deg) scale(1.12);
+    border-radius: 40% 60% 35% 65% / 55% 35% 65% 45%;
+  }
+  66% {
+    transform: translate(150px, 25px) rotate(90deg) scale(0.96);
+    border-radius: 65% 35% 50% 50% / 45% 60% 40% 55%;
+  }
+  100% {
+    transform: translate(100px, 110px) rotate(135deg) scale(1.08);
+    border-radius: 50% 50% 65% 35% / 60% 40% 50% 50%;
+  }
+}
+
+@keyframes float-blob-2 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%;
+  }
+  33% {
+    transform: translate(-100px, -80px) rotate(-45deg) scale(1.14);
+    border-radius: 70% 30% 60% 40% / 40% 60% 40% 60%;
+  }
+  66% {
+    transform: translate(-160px, -35px) rotate(-90deg) scale(0.92);
+    border-radius: 35% 65% 45% 55% / 55% 45% 65% 35%;
+  }
+  100% {
+    transform: translate(-70px, -120px) rotate(-135deg) scale(1.06);
+    border-radius: 60% 40% 55% 45% / 45% 55% 40% 60%;
+  }
+}
+
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
