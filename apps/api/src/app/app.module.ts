@@ -1,10 +1,16 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { SolicitacoesModule } from './solicitacoes/solicitacoes.module';
+import { APP_FILTER } from '@nestjs/core';
+import { FiltroErrosHttp } from './common/filtro-erros-http';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [SolicitacoesModule],
+  controllers: [],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: FiltroErrosHttp,
+    },
+  ],
 })
 export class AppModule {}

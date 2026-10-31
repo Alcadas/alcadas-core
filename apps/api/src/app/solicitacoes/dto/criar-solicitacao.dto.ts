@@ -1,4 +1,4 @@
-import { IsString, IsNumber, Min, IsDefined, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsNumber, Min, IsDefined, IsOptional } from 'class-validator';
 
 export class CriarSolicitacaoDto {
   @IsString({ message: 'O centroCustoId deve ser uma string.' })
