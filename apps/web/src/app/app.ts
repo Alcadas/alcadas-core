@@ -28,7 +28,7 @@ export class App {
     '/login',
     '/register',
     '/verificarCodigo',
-    '/nova-senha',
+    '/novaSenha',
   ];
 
   readonly isPublicRoute = computed(() => {

@@ -1,0 +1,60 @@
+<main class="auth">
+  <div class="blob" aria-hidden="true"></div>
+  <div class="blob-soft" aria-hidden="true"></div>
+
+  <section class="card">
+   <header class="brand">
+      <img
+        src="logoV.png"
+        alt="Alçadas"
+        style="display:block; width:150px; max-width:100%; height:auto; margin:0 auto;"
+      />
+      </header>
+
+    <ng-container *ngIf="!concluido; else pronto">
+      <h1>Criar nova senha</h1>
+      <p class="sub">Escolha uma senha forte para entrar na Alçadas.</p>
+
+      <form [formGroup]="form" (ngSubmit)="enviar()" novalidate>
+        <div class="campo">
+          <label for="senha">Nova senha</label>
+          <input
+            id="senha"
+            type="password"
+            formControlName="senha"
+            autocomplete="new-password"
+            aria-describedby="requisitos"
+          />
+        </div>
+
+        <ul class="requisitos" id="requisitos">
+          <li [class.ok]="req.tamanho">Mínimo 8 caracteres</li>
+        </ul>
+
+        <div class="campo">
+          <label for="confirmar">Confirmar senha</label>
+          <input
+            id="confirmar"
+            type="password"
+            formControlName="confirmar"
+            autocomplete="new-password"
+            [class.invalido]="diferentes"
+          />
+          <span class="erro" role="alert" *ngIf="diferentes">As senhas não coincidem.</span>
+        </div>
+
+        <button class="botao" type="submit" [disabled]="form.invalid || carregando">
+          Salvar nova senha
+        </button>
+      </form>
+    </ng-container>
+
+    <ng-template #pronto>
+      <div class="concluido" role="status">
+        <h1>Senha alterada!</h1>
+        <p class="sub">Agora você já pode entrar com a nova senha.</p>
+        <a class="botao" routerLink="/login">Ir para o login</a>
+      </div>
+    </ng-template>
+  </section>
+</main>

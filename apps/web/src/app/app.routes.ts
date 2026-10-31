@@ -23,6 +23,13 @@ export const appRoutes: Route[] = [
     ),
   },
   {
+  path: 'novaSenha',
+  loadComponent: () =>
+    import('./features/auth/pages/nova-senha/nova-senha').then(
+      (m) => m.NovaSenha
+    ),
+  },
+  {
     path: 'dashboard',
     loadComponent: () =>
       import('./features/dashboard/dashboard.component').then(
