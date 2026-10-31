@@ -31,7 +31,7 @@ export class RequestsComponent {
   readonly selectedCategory = signal<string>('TODAS');
   readonly selectedCostCenter = signal<string>('TODOS');
   readonly sortBy = signal<'recentes' | 'maior_valor' | 'menor_valor' | 'prioridade'>('recentes');
-  readonly viewMode = signal<'cards' | 'table'>('cards');
+  readonly viewMode = signal<'cards' | 'table'>('table');
   readonly showKpis = signal<boolean>(true);
 
   // Abas do PageHeader

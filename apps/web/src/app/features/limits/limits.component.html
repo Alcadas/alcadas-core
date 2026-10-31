@@ -1,42 +1,135 @@
-<!-- 1. Header do Editor de Alçadas (68px alinhado perfeitamente com o Sidebar) -->
-<header class="ops-header">
-  <div class="header-titles">
-    <div class="header-title-row">
-      <button type="button" class="btn-back" (click)="goBack()" title="Voltar para Minhas Alçadas">
-        <span class="material-symbols-rounded">arrow_back</span>
-      </button>
-      <h1 class="header-main-title">
-        @if (currentRuleId()) {
-          {{ currentRuleTitle() }}
-        } @else {
-          Nova Regra de Alçada
-        }
-      </h1>
-      @if (currentRuleId()) {
-        <span class="rule-id-pill">#{{ currentRuleId() }}</span>
-      }
-      <span class="workflow-status-badge">● Editor Ativo</span>
-    </div>
-    <p class="header-sub-title">
-      Construa visualmente a esteira de governança, limites monetários, quórum de assinaturas e regras de risco.
-    </p>
-  </div>
+<!-- 1. Header Global Componentizado em Dois Níveis -->
+<app-page-header
+  breadcrumbRoot="Alçadas & Tetos"
+  breadcrumbCurrent="Editor de Fluxo"
+  searchPlaceholder="Buscar nós no fluxo..."
+  contextIcon="account_tree"
+  [contextTitle]="currentRuleTitle()"
+  [contextSubtitle]="'Fluxo de Governança · ' + workflowNodes().length + ' etapas de validação'"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para Minhas Alçadas">
+      <span class="material-symbols-rounded">arrow_back</span>
+      <span>Voltar</span>
+    </button>
 
-  <div class="header-actions">
-    <!-- Botão de Toggle da Biblioteca de Modelos (Sidebar Esquerdo) -->
     <button
       type="button"
-      class="btn-toggle-library"
+      class="btn-header-outline"
       [class.active]="isLibraryExpanded()"
       (click)="toggleLibrary()"
       title="Expandir/Recolher Modelos de Regras"
     >
       <span class="material-symbols-rounded">widgets</span>
-      <span>Modelos de Regras</span>
+      <span>Modelos</span>
       <span class="lib-badge">{{ ruleTemplates().length }}</span>
     </button>
 
-    <!-- Controles de Visualização / Zoom e Pan no Topo Direito -->
+    <button type="button" class="btn-header-primary" (click)="saveWorkflow()">
+      <span class="material-symbols-rounded">save</span>
+      <span>Salvar Fluxo</span>
+    </button>
+  </div>
+</app-page-header>
+
+<!-- 2. Barra de Metadados e Edição Rápida do Fluxo (Abaixo do Header, Acima dos Painéis) -->
+<div class="flow-meta-toolbar" role="toolbar" aria-label="Edição e Metadados do Fluxo">
+  <!-- Lado Esquerdo: Nome do Fluxo Editável Inline e ID -->
+  <div class="toolbar-left-group">
+    <div class="flow-title-edit-wrap">
+      <span class="material-symbols-rounded edit-flow-icon">edit_document</span>
+      <input
+        type="text"
+        class="flow-name-input"
+        [ngModel]="currentRuleTitle()"
+        (ngModelChange)="currentRuleTitle.set($event)"
+        placeholder="Digite o nome do fluxo..."
+        title="Clique para editar o nome do fluxo"
+      />
+    </div>
+    <span class="flow-code-chip">#{{ currentRuleId() || 'FLX-104' }}</span>
+    <span class="version-chip">{{ flowVersion() }}</span>
+  </div>
+
+  <!-- Centro: Seletores de Departamento, Empresa e Categoria -->
+  <div class="toolbar-center-group">
+    <!-- Departamento -->
+    <div class="meta-field">
+      <label for="flowDeptSelect" class="meta-field-label">
+        <span class="material-symbols-rounded meta-icon">domain</span>
+        <span>Departamento:</span>
+      </label>
+      <select
+        id="flowDeptSelect"
+        class="meta-select"
+        [ngModel]="flowDepartment()"
+        (ngModelChange)="flowDepartment.set($event)"
+      >
+        @for (dept of departmentsList; track dept) {
+          <option [value]="dept">{{ dept }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- Empresa / Unidade -->
+    <div class="meta-field">
+      <label for="flowCompSelect" class="meta-field-label">
+        <span class="material-symbols-rounded meta-icon">apartment</span>
+        <span>Unidade:</span>
+      </label>
+      <select
+        id="flowCompSelect"
+        class="meta-select"
+        [ngModel]="flowCompany()"
+        (ngModelChange)="flowCompany.set($event)"
+      >
+        @for (comp of companiesList; track comp) {
+          <option [value]="comp">{{ comp }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- Categoria / Finalidade -->
+    <div class="meta-field">
+      <label for="flowCatSelect" class="meta-field-label">
+        <span class="material-symbols-rounded meta-icon">category</span>
+        <span>Categoria:</span>
+      </label>
+      <select
+        id="flowCatSelect"
+        class="meta-select"
+        [ngModel]="flowCategory()"
+        (ngModelChange)="flowCategory.set($event)"
+      >
+        @for (cat of categoriesList; track cat) {
+          <option [value]="cat">{{ cat }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- Status do Fluxo -->
+    <div class="meta-field">
+      <label for="flowStatusSelect" class="meta-field-label">
+        <span class="material-symbols-rounded meta-icon">tune</span>
+        <span>Status:</span>
+      </label>
+      <select
+        id="flowStatusSelect"
+        class="meta-select status-select"
+        [class.is-active]="flowStatus() === 'ATIVO'"
+        [class.is-draft]="flowStatus() === 'RASCUNHO'"
+        [ngModel]="flowStatus()"
+        (ngModelChange)="flowStatus.set($event)"
+      >
+        <option value="ATIVO">● Ativo</option>
+        <option value="RASCUNHO">● Rascunho</option>
+        <option value="HOMOLOGACAO">● Homologação</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Lado Direito: Controles do Canvas (Zoom e Pan) -->
+  <div class="toolbar-right-group">
     <div class="canvas-controls">
       <button type="button" class="btn-ctrl" (click)="zoomOut()" title="Diminuir Zoom">
         <span class="material-symbols-rounded">remove</span>
@@ -49,13 +142,8 @@
         <span class="material-symbols-rounded">center_focus_strong</span>
       </button>
     </div>
-
-    <button type="button" class="btn-save-workflow" (click)="saveWorkflow()">
-      <span class="material-symbols-rounded">save</span>
-      <span>Salvar Workflow</span>
-    </button>
   </div>
-</header>
+</div>
 
 <!-- Tela de Carregamento da Esteira do Fluxo -->
 @if (isLoading()) {

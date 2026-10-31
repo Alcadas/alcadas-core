@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RuleTemplateItem, WorkflowNode } from './limits.models';
 import { LimitsService } from './services/limits.service';
+import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 
 @Component({
   selector: 'app-limits',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   templateUrl: './limits.component.html',
   styleUrl: './limits.component.scss',
 })
@@ -17,9 +18,40 @@ export class LimitsComponent {
   private readonly router = inject(Router);
   private readonly limitsService = inject(LimitsService);
 
-  // Identificação da Alçada Atual
+  // Identificação e Metadados de Edição do Fluxo
   readonly currentRuleId = signal<string | null>(null);
-  readonly currentRuleTitle = signal<string>('Configuração de Alçadas & Tetos');
+  readonly currentRuleTitle = signal<string>('Fluxo de Compras & Capex de TI');
+  readonly flowDepartment = signal<string>('Tecnologia da Informação');
+  readonly flowCompany = signal<string>('Matriz Corporativa SP');
+  readonly flowCategory = signal<string>('Licenciamento & Cloud');
+  readonly flowStatus = signal<'ATIVO' | 'RASCUNHO' | 'HOMOLOGACAO'>('ATIVO');
+  readonly flowThreshold = signal<number>(150000);
+  readonly flowVersion = signal<string>('v2.4');
+
+  // Departamentos e Unidades para Seleção
+  readonly departmentsList = [
+    'Tecnologia da Informação',
+    'Compras & Suprimentos',
+    'Finanças & Controladoria',
+    'Recursos Humanos',
+    'Jurídico & Compliance',
+    'Operações & Logística',
+  ];
+
+  readonly companiesList = [
+    'Matriz Corporativa SP',
+    'Filial Rio de Janeiro',
+    'Filial Curitiba',
+    'Todas as Unidades (Global)',
+  ];
+
+  readonly categoriesList = [
+    'Licenciamento & Cloud',
+    'Equipamentos & Hardware',
+    'Serviços & Terceirização',
+    'Despesas Operacionais (OPEX)',
+    'Investimentos de Capital (CAPEX)',
+  ];
 
   // Estado de Carregamento da Esteira
   readonly isLoading = signal(true);

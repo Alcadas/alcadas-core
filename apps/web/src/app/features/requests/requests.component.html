@@ -33,27 +33,9 @@
   </div>
 
   <div tier2-actions class="tier2-actions-group">
-    <div class="view-mode-toggle" role="group" aria-label="Modo de visualização">
-      <button
-        type="button"
-        class="toggle-view-btn"
-        [class.is-active]="viewMode() === 'cards'"
-        (click)="toggleViewMode('cards')"
-        title="Visualização em Cards"
-        aria-label="Ver em Cards"
-      >
-        <span class="material-symbols-rounded">view_agenda</span>
-      </button>
-      <button
-        type="button"
-        class="toggle-view-btn"
-        [class.is-active]="viewMode() === 'table'"
-        (click)="toggleViewMode('table')"
-        title="Visualização em Tabela"
-        aria-label="Ver em Tabela"
-      >
-        <span class="material-symbols-rounded">table_rows</span>
-      </button>
+    <div class="table-records-counter">
+      <span class="material-symbols-rounded count-icon">table_rows</span>
+      <span><strong>{{ filteredRequests().length }}</strong> registros</span>
     </div>
   </div>
 </app-page-header>
@@ -184,253 +166,142 @@
     </section>
 
     <!-- ========================================================================= -->
-    <!-- VISUALIZAÇÃO EM CARDS (Padrão exato de Minhas Alçadas e Dashboard)        -->
+    <!-- VISUALIZAÇÃO EM TABELA SAAS (Única e exclusiva conforme solicitado)         -->
     <!-- ========================================================================= -->
-    @if (viewMode() === 'cards') {
-      <section class="requests-cards-list">
-        @if (paginatedRequests().length === 0) {
-          <div class="empty-state-box">
-            <span class="material-symbols-rounded empty-icon">search_off</span>
-            <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
-            <p class="empty-desc">Tente alterar os filtros selecionados ou digite outros termos de pesquisa.</p>
-            <button
-              type="button"
-              class="btn-header-outline"
-              (click)="setTab('todas'); setSearchQuery(''); setCategoryFilter('TODAS'); setCostCenterFilter('TODOS')"
-            >
-              Limpar Filtros
-            </button>
-          </div>
-        } @else {
-          @for (req of paginatedRequests(); track req.id) {
-            <article
-              class="request-card"
-              role="button"
-              tabindex="0"
-              [attr.aria-label]="'Abrir detalhes da solicitação ' + req.codigo"
-              [style.border-left-color]="getStatusBorderColor(req.status)"
-              (click)="openDetailDrawer(req)"
-              (keydown.enter)="openDetailDrawer(req)"
-            >
-              <!-- Linha 1: Título, Status Pill, Solicitante e Valor -->
-              <div class="card-header-row">
-                <div class="header-left">
-                  <h2 class="card-title">{{ req.titulo }}</h2>
+    <section class="table-container-card">
+      <div class="table-responsive-wrapper">
+        <table class="requests-table">
+          <thead>
+            <tr>
+              <th class="th-checkbox">
+                <input
+                  type="checkbox"
+                  class="custom-checkbox"
+                  [checked]="isAllSelected()"
+                  (change)="toggleSelectAll()"
+                  aria-label="Selecionar todas as solicitações"
+                />
+              </th>
+              <th class="th-code">Código</th>
+              <th class="th-title">Finalidade & Categoria</th>
+              <th class="th-requester">Solicitante</th>
+              <th class="th-cost-center">Centro de Custo</th>
+              <th class="th-value">Valor</th>
+              <th class="th-workflow">Fluxo & Etapa Atual</th>
+              <th class="th-status">Status</th>
+              <th class="th-date">Data</th>
+              <th class="th-actions">Ações</th>
+            </tr>
+          </thead>
 
-                  <!-- Status Pill com dot semântico -->
-                  <span class="status-pill" [ngClass]="getStatusBadgeClass(req.status)">
-                    <span class="status-dot"></span>
-                    <span>{{ req.statusLabel }}</span>
-                  </span>
-
-                  <!-- Solicitante Pill -->
-                  <span class="meta-pill">
-                    <span class="material-symbols-rounded pill-icon">person</span>
-                    <span>{{ req.solicitante.nome }}</span>
-                  </span>
-
-                  <!-- Categoria Pill -->
-                  <span class="meta-pill" [style.color]="req.categoriaColor">
-                    <span class="material-symbols-rounded pill-icon">{{ req.categoriaIcon }}</span>
-                    <span>{{ req.categoriaLabel }}</span>
-                  </span>
-
-                  <!-- Prioridade Pill -->
-                  <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
-                    {{ req.prioridade }}
-                  </span>
-                </div>
-
-                <div class="header-right">
-                  <span class="value-amount">{{ req.valor | currency:'BRL':'symbol':'1.2-2' }}</span>
-                  <span class="created-date">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
-                  <button
-                    type="button"
-                    class="btn-view-details"
-                    title="Ver detalhes da solicitação e trilha de aprovação"
-                    (click)="openDetailDrawer(req); $event.stopPropagation()"
-                  >
-                    <span>Ver Trilha</span>
-                    <span class="material-symbols-rounded">chevron_right</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Linha 2: Metadados Estruturais -->
-              <div class="card-meta-row">
-                <span class="meta-text-item">
-                  <span class="meta-label">ID:</span>
-                  <strong class="code-font">{{ req.codigo }}</strong>
-                </span>
-
-                <span class="meta-separator">•</span>
-
-                <span class="meta-text-item">
-                  <span class="meta-label">Centro de Custo:</span>
-                  <span>{{ req.centroCustoNome }} ({{ req.departamento }})</span>
-                </span>
-
-                <span class="meta-separator">•</span>
-
-                <span class="meta-text-item">
-                  <span class="meta-label">Anexos:</span>
-                  <span>{{ req.anexos.length }} documento(s)</span>
-                </span>
-              </div>
-
-              <!-- Linha 3: Pipeline Stepper do Fluxo de Alçada (Idêntico ao de Minhas Alçadas) -->
-              <div class="pipeline-stepper-row">
-                <div class="pipeline-stepper-track">
-                  @for (step of req.fluxoDestinado.etapas; track step.numero) {
-                    <div
-                      class="stepper-step"
-                      [class.is-done]="step.status === 'CONCLUIDA'"
-                      [class.is-active]="step.status === 'EM_ANALISE' || step.status === 'AJUSTE'"
-                      [class.is-reject]="step.status === 'REJEITADA'"
-                    >
-                      <div class="step-circle" [title]="step.nome + ': ' + step.status">
-                        @if (step.status === 'CONCLUIDA') {
-                          <span class="material-symbols-rounded check-icon">check</span>
-                        } @else {
-                          <span>{{ step.numero }}</span>
-                        }
-                      </div>
-                      <span class="step-label" [title]="step.nome">{{ step.nome }}</span>
-                    </div>
-
-                    @if (step.numero < req.fluxoDestinado.totalEtapas) {
-                      <div class="stepper-connector" [class.is-done]="step.status === 'CONCLUIDA'"></div>
-                    }
-                  }
-                </div>
-
-                <div class="pipeline-current-summary">
-                  <span class="current-label">Etapa Atual:</span>
-                  <strong class="current-stage-name">{{ req.fluxoDestinado.etapaAtualNome }}</strong>
-                </div>
-              </div>
-            </article>
-          }
-        }
-      </section>
-    } @else {
-      <!-- ========================================================================= -->
-      <!-- VISUALIZAÇÃO EM TABELA (Alternativa compacta)                            -->
-      <!-- ========================================================================= -->
-      <section class="table-container-card">
-        <div class="table-responsive-wrapper">
-          <table class="requests-table">
-            <thead>
+          <tbody>
+            @if (paginatedRequests().length === 0) {
               <tr>
-                <th class="th-checkbox">
-                  <input
-                    type="checkbox"
-                    class="custom-checkbox"
-                    [checked]="isAllSelected()"
-                    (change)="toggleSelectAll()"
-                    aria-label="Selecionar todas as solicitações"
-                  />
-                </th>
-                <th class="th-code">Código</th>
-                <th class="th-title">Finalidade & Categoria</th>
-                <th class="th-cost-center">Centro de Custo</th>
-                <th class="th-value">Valor</th>
-                <th class="th-workflow">Fluxo de Alçada & Etapa Atual</th>
-                <th class="th-status">Status</th>
-                <th class="th-date">Data</th>
-                <th class="th-actions">Ações</th>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box">
+                    <span class="material-symbols-rounded empty-icon">search_off</span>
+                    <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
+                    <p class="empty-desc">Tente alterar os filtros selecionados ou digite outros termos de pesquisa.</p>
+                    <button
+                      type="button"
+                      class="btn-header-outline"
+                      (click)="setTab('todas'); setSearchQuery(''); setCategoryFilter('TODAS'); setCostCenterFilter('TODOS')"
+                    >
+                      Limpar Filtros
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
+            } @else {
+              @for (req of paginatedRequests(); track req.id) {
+                <tr
+                  class="request-table-row"
+                  tabindex="0"
+                  [class.is-selected]="selectedIds().has(req.id)"
+                  (click)="openDetailDrawer(req)"
+                  (keydown.enter)="openDetailDrawer(req)"
+                >
+                  <td class="td-checkbox" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      class="custom-checkbox"
+                      [checked]="selectedIds().has(req.id)"
+                      (change)="toggleSelect(req.id)"
+                      aria-label="Selecionar solicitação {{ req.codigo }}"
+                    />
+                  </td>
 
-            <tbody>
-              @if (paginatedRequests().length === 0) {
-                <tr>
-                  <td colspan="9" class="td-empty">
-                    <div class="empty-state-box">
-                      <span class="material-symbols-rounded empty-icon">search_off</span>
-                      <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
-                      <p class="empty-desc">Tente ajustar os filtros selecionados.</p>
+                  <td class="td-code">
+                    <span class="req-code">{{ req.codigo }}</span>
+                    <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
+                      {{ req.prioridade }}
+                    </span>
+                  </td>
+
+                  <td class="td-title">
+                    <span class="req-title-text" [title]="req.titulo">{{ req.titulo }}</span>
+                    <span class="req-category-tag" [style.color]="req.categoriaColor">
+                      <span class="material-symbols-rounded tag-icon">{{ req.categoriaIcon }}</span>
+                      <span>{{ req.categoriaLabel }}</span>
+                    </span>
+                  </td>
+
+                  <td class="td-requester">
+                    <div class="requester-cell">
+                      <span class="requester-name">{{ req.solicitante.nome }}</span>
+                      <span class="requester-role">{{ req.solicitante.cargo }}</span>
                     </div>
                   </td>
-                </tr>
-              } @else {
-                @for (req of paginatedRequests(); track req.id) {
-                  <tr
-                    class="request-table-row"
-                    tabindex="0"
-                    [class.is-selected]="selectedIds().has(req.id)"
-                    (click)="openDetailDrawer(req)"
-                    (keydown.enter)="openDetailDrawer(req)"
-                  >
-                    <td class="td-checkbox" (click)="$event.stopPropagation()">
-                      <input
-                        type="checkbox"
-                        class="custom-checkbox"
-                        [checked]="selectedIds().has(req.id)"
-                        (change)="toggleSelect(req.id)"
-                        aria-label="Selecionar solicitação {{ req.codigo }}"
-                      />
-                    </td>
 
-                    <td class="td-code">
-                      <span class="req-code">{{ req.codigo }}</span>
-                      <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
-                        {{ req.prioridade }}
-                      </span>
-                    </td>
+                  <td class="td-cost-center">
+                    <span class="cost-center-name">{{ req.centroCustoNome }}</span>
+                    <span class="department-name">{{ req.departamento }}</span>
+                  </td>
 
-                    <td class="td-title">
-                      <span class="req-title-text" [title]="req.titulo">{{ req.titulo }}</span>
-                      <span class="req-category-tag" [style.color]="req.categoriaColor">
-                        <span class="material-symbols-rounded tag-icon">{{ req.categoriaIcon }}</span>
-                        <span>{{ req.categoriaLabel }}</span>
-                      </span>
-                    </td>
+                  <td class="td-value">
+                    <strong class="value-highlight">{{ req.valor | currency:'BRL':'symbol':'1.2-2' }}</strong>
+                  </td>
 
-                    <td class="td-cost-center">
-                      <span class="cost-center-name">{{ req.centroCustoNome }}</span>
-                      <span class="department-name">{{ req.departamento }}</span>
-                    </td>
-
-                    <td class="td-value">
-                      <strong class="value-highlight">{{ req.valor | currency:'BRL':'symbol':'1.2-2' }}</strong>
-                    </td>
-
-                    <td class="td-workflow">
+                  <td class="td-workflow">
+                    <div class="workflow-cell">
                       <span class="workflow-name">{{ req.fluxoDestinado.nome }}</span>
-                      <span class="step-current-label">{{ req.fluxoDestinado.etapaAtualNome }}</span>
-                    </td>
-
-                    <td class="td-status">
-                      <span class="status-badge" [ngClass]="getStatusBadgeClass(req.status)">
-                        <span class="material-symbols-rounded status-badge-icon">{{ req.statusIcon }}</span>
-                        <span>{{ req.statusLabel }}</span>
+                      <span class="step-current-pill">
+                        <span class="step-dot"></span>
+                        <span>{{ req.fluxoDestinado.etapaAtualNome }}</span>
                       </span>
-                    </td>
+                    </div>
+                  </td>
 
-                    <td class="td-date">
-                      <span class="date-text">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
-                    </td>
+                  <td class="td-status">
+                    <span class="status-pill" [ngClass]="getStatusBadgeClass(req.status)">
+                      <span class="status-dot"></span>
+                      <span>{{ req.statusLabel }}</span>
+                    </span>
+                  </td>
 
-                    <td class="td-actions" (click)="$event.stopPropagation()">
-                      <button
-                        type="button"
-                        class="action-icon-btn"
-                        title="Ver detalhes da solicitação"
-                        (click)="openDetailDrawer(req)"
-                        aria-label="Ver detalhes"
-                      >
-                        <span class="material-symbols-rounded">visibility</span>
-                      </button>
-                    </td>
-                  </tr>
-                }
+                  <td class="td-date">
+                    <span class="date-text">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
+                  </td>
+
+                  <td class="td-actions" (click)="$event.stopPropagation()">
+                    <button
+                      type="button"
+                      class="btn-view-trilha"
+                      title="Ver detalhes da solicitação e trilha de aprovação"
+                      (click)="openDetailDrawer(req)"
+                      aria-label="Ver detalhes da solicitação {{ req.codigo }}"
+                    >
+                      <span>Trilha</span>
+                      <span class="material-symbols-rounded">chevron_right</span>
+                    </button>
+                  </td>
+                </tr>
               }
-            </tbody>
-          </table>
-        </div>
-      </section>
-    }
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- Rodapé de Paginação -->
     <footer class="pagination-footer">

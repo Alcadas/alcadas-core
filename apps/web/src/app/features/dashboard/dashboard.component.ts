@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import {
+  RequestBarChartComponent,
+  RequestChartDataPoint,
+} from './components/request-bar-chart/request-bar-chart.component';
 
 export interface QuickActionCard {
   id: string;
@@ -41,7 +45,7 @@ export interface ApprovalRequest {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent],
+  imports: [CommonModule, PageHeaderComponent, RequestBarChartComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -52,6 +56,90 @@ export class DashboardComponent {
   goToNewRequest(): void {
     this.router.navigate(['/solicitacoes']);
   }
+
+  // Dados para o Gráfico Shadcn de Valores por Solicitação com Linha de Média Aceita
+  readonly chartRequests = signal<RequestChartDataPoint[]>([
+    {
+      id: 'req-1',
+      code: 'SOL-104',
+      title: 'Expansão de Clusters Kubernetes AWS',
+      department: 'Tecnologia da Informação',
+      deptCode: 'TI',
+      value: 38500,
+      requester: 'Lucas Siqueira',
+      date: 'Hoje',
+    },
+    {
+      id: 'req-2',
+      code: 'SOL-103',
+      title: 'Auditoria de Conformidade e Pentest',
+      department: 'Controladoria & Finanças',
+      deptCode: 'FIN',
+      value: 48900,
+      requester: 'Mariana Duarte',
+      date: 'Hoje',
+    },
+    {
+      id: 'req-3',
+      code: 'SOL-102',
+      title: 'Contratação de Sondagem de Terreno',
+      department: 'Engenharia & Obras',
+      deptCode: 'ENG',
+      value: 18200,
+      requester: 'Carlos Eduardo',
+      date: 'Ontem',
+    },
+    {
+      id: 'req-4',
+      code: 'SOL-098',
+      title: 'Licenciamento de Softwares CAD/BIM',
+      department: 'Arquitetura & Projetos',
+      deptCode: 'ARQ',
+      value: 29400,
+      requester: 'Beatriz Lima',
+      date: '28 Out',
+    },
+    {
+      id: 'req-5',
+      code: 'SOL-095',
+      title: 'Renovação de Links Fibra Óptica',
+      department: 'Operações & Logística',
+      deptCode: 'OP',
+      value: 12500,
+      requester: 'Roberto Alencar',
+      date: '27 Out',
+    },
+    {
+      id: 'req-6',
+      code: 'SOL-091',
+      title: 'Subscrições Datadog APM & Logs',
+      department: 'Tecnologia da Informação',
+      deptCode: 'TI',
+      value: 58000,
+      requester: 'Guilherme Santos',
+      date: '25 Out',
+    },
+    {
+      id: 'req-7',
+      code: 'SOL-089',
+      title: 'Consultoria Estratégica McKinsey',
+      department: 'Diretoria Executiva',
+      deptCode: 'DIR',
+      value: 92000,
+      requester: 'Fernanda Martins',
+      date: '24 Out',
+    },
+    {
+      id: 'req-8',
+      code: 'SOL-085',
+      title: 'Renovação de Seguros Patrimoniais',
+      department: 'Compliance & Riscos',
+      deptCode: 'JUR',
+      value: 36000,
+      requester: 'Ana Clara Torres',
+      date: '22 Out',
+    },
+  ]);
 
   // Estado de Carregamento dos Dados do Dashboard
   readonly isLoading = signal(true);
