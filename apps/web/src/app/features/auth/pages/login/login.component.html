@@ -1,0 +1,79 @@
+<div class="login-page">
+  <!-- Moving Background Shapes (#644EF3 e #BDB4FC) -->
+  <div class="shapes-container" aria-hidden="true">
+    <div class="shape shape-blob-1"></div>
+    <div class="shape shape-blob-2"></div>
+  </div>
+
+  <!-- Foreground Content -->
+  <main class="login-card-container">
+    <div class="login-card">
+      <header class="login-header">
+        <div class="logo-wrapper">
+          <img src="/alcadas-banner.png" alt="Logotipo Alçadas" class="logo-img" />
+        </div>
+        <p class="login-subtitle">Governança de aprovações e workflows financeiros</p>
+      </header>
+
+      @if (errorMessage()) {
+        <div class="alert-error" role="alert">
+          <svg class="alert-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+          </svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate class="login-form">
+        <div class="form-field">
+          <label for="email">E-mail corporativo</label>
+          <div class="input-wrapper">
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              placeholder="exemplo@organizacao.com"
+              autocomplete="username"
+            />
+          </div>
+          @if (loginForm.controls.email.touched && loginForm.controls.email.invalid) {
+            <span class="field-error">Informe um e-mail válido</span>
+          }
+        </div>
+
+        <div class="form-field">
+          <div class="field-header">
+            <label for="password">Senha</label>
+            <a href="javascript:void(0)" class="forgot-link">Esqueceu a senha?</a>
+          </div>
+          <div class="input-wrapper">
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="btn-submit"
+          [disabled]="isLoading()"
+        >
+          @if (isLoading()) {
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Acessando...</span>
+          } @else {
+            <span>Entrar na plataforma</span>
+          }
+        </button>
+      </form>
+
+      <footer class="login-footer">
+        <p>Acesso restrito e auditado • Trilha de integridade SHA-256</p>
+      </footer>
+    </div>
+  </main>
+</div>
