@@ -82,7 +82,7 @@ export class SidebarComponent {
   readonly mainMenuItems = signal<MenuItem[]>([
     { id: 'dashboard', route: '/dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
     { id: 'aprovacoes', route: '/aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: false },
-    { id: 'solicitacoes', route: '/solicitacoes', label: 'Solicitações', icon: 'description', hasSubmenu: false },
+    { id: 'solicitacoes', route: '/solicitacoes', label: 'Minhas solicitações', icon: 'description', hasSubmenu: false },
     {
       id: 'alcadas',
       route: '/alcadas/minhas-alcadas',
@@ -109,6 +109,7 @@ export class SidebarComponent {
     { id: 'auditoria', route: '/auditoria', label: 'Trilha Criptográfica', icon: 'link', badge: 'SHA', badgeColor: '#10B981', hasSubmenu: false },
     { id: 'riscos', route: '/riscos', label: 'Motor de Riscos', icon: 'security', badge: 'Anti-Fraude', badgeColor: '#F59E0B', hasSubmenu: false },
     { id: 'delegacoes', route: '/delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: false },
+    { id: 'empresa', route: '/infraestrutura', label: 'Criar empresa', icon: 'group', hasSubmenu: false },
   ]);
 
   readonly departments = signal<DepartmentItem[]>([
