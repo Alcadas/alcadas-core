@@ -16,6 +16,13 @@ export const appRoutes: Route[] = [
     ),
   },
   {
+    path: 'profile',
+    loadComponent: () =>
+      import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+    title: 'Perfil | Alçadas',
+    // canActivate: [authGuard], // descomente quando o guard do Firebase Auth existir
+  },
+  {
   path: 'verificarCodigo',
   loadComponent: () =>
     import('./features/auth/pages/verificar-codigo/verificar-codigo').then(

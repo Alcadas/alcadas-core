@@ -1,0 +1,130 @@
+<header class="topbar">
+  <div class="brand">Alçadas</div>
+  <button type="button" class="btn" (click)="logout()">Sair</button>
+</header>
+
+<div class="layout">
+  <aside class="card sidebar">
+    <div class="avatar">{{ initials }}</div>
+    <h1>{{ user.fullName }}</h1>
+    <p class="job-title">{{ user.jobTitle }}</p>
+
+    @if (user.isActive) {
+      <span class="badge">Conta ativa</span>
+    }
+
+    <div class="roles">
+      <h3>Papéis no sistema</h3>
+      @for (role of user.roles; track role) {
+        <span class="chip">{{ role }}</span>
+      }
+    </div>
+
+    @if (!isEditing) {
+      <button type="button" class="btn primary" (click)="startEdit()">Editar perfil</button>
+    }
+  </aside>
+
+  <main class="content">
+    <section class="card">
+      <h2>Dados do colaborador</h2>
+
+      <form [formGroup]="form" (ngSubmit)="save()">
+        <dl class="grid">
+          <div>
+            <dt><label for="fullName">Nome completo</label></dt>
+            <dd>
+              @if (isEditing) {
+                <input id="fullName" formControlName="fullName" />
+                @if (form.controls.fullName.touched && form.controls.fullName.invalid) {
+                  <small class="error">Informe o nome.</small>
+                }
+              } @else {
+                {{ user.fullName }}
+              }
+            </dd>
+          </div>
+
+          <div>
+            <dt><label for="email">E-mail corporativo</label></dt>
+            <dd>
+              @if (isEditing) {
+                <input id="email" type="email" formControlName="email" />
+                @if (form.controls.email.touched && form.controls.email.invalid) {
+                  <small class="error">Informe um e-mail válido.</small>
+                }
+              } @else {
+                {{ user.email }}
+              }
+            </dd>
+          </div>
+
+          <div>
+            <dt>Empresa</dt>
+            <dd>{{ user.company }}</dd>
+          </div>
+
+          <div>
+            <dt>CNPJ</dt>
+            <dd>{{ user.cnpj }}</dd>
+          </div>
+
+          <div>
+            <dt>Cargo</dt>
+            <dd>{{ user.jobTitle }}</dd>
+          </div>
+
+          <div>
+            <dt>Departamento</dt>
+            <dd>{{ user.department }}</dd>
+          </div>
+
+          <div>
+            <dt><label for="phone">Telefone</label></dt>
+            <dd>
+              @if (isEditing) {
+                <input id="phone" formControlName="phone" />
+              } @else {
+                {{ user.phone }}
+              }
+            </dd>
+          </div>
+
+          <div>
+            <dt>Matrícula</dt>
+            <dd>{{ user.employeeId }}</dd>
+          </div>
+        </dl>
+
+        @if (isEditing) {
+          <div class="actions">
+            <button type="submit" class="btn primary">Salvar alterações</button>
+            <button type="button" class="btn" (click)="cancelEdit()">Cancelar</button>
+          </div>
+        }
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Alçada de aprovação</h2>
+      <dl class="grid">
+        <div>
+          <dt>Limite por solicitação</dt>
+          <dd>{{ formattedLimit }}</dd>
+        </div>
+        <div>
+          <dt>Centros de custo</dt>
+          <dd>{{ user.costCenters.join(', ') }}</dd>
+        </div>
+        <div>
+          <dt>Delegação ativa</dt>
+          <dd>{{ user.activeDelegation ?? 'Nenhuma' }}</dd>
+        </div>
+        <div>
+          <dt>Último acesso</dt>
+          <dd>{{ formattedLastAccess }}</dd>
+        </div>
+      </dl>
+    </section>
+  </main>
+</div>
