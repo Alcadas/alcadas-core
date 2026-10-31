@@ -1,0 +1,76 @@
+<div
+  class="drawer-wrapper"
+  [class.is-open]="isOpen()"
+  [class.is-fixed]="positionMode() === 'fixed'"
+  [attr.aria-hidden]="!isOpen()"
+>
+  <!-- Backdrop button -->
+  <button
+    type="button"
+    class="drawer-backdrop"
+    [class.is-visible]="isOpen()"
+    (click)="onBackdropClick()"
+    tabindex="-1"
+    aria-label="Fechar painel lateral"
+  ></button>
+
+  <!-- Sliding panel -->
+  <aside
+    class="drawer-panel"
+    [class.is-open]="isOpen()"
+    [style.width]="width()"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="title()"
+  >
+    <!-- Header -->
+    <header class="drawer-header">
+      <div class="header-main-info">
+        @if (icon()) {
+          <div class="header-icon-box">
+            <span class="material-symbols-rounded">{{ icon() }}</span>
+          </div>
+        }
+        <div class="header-text-group">
+          <div class="header-title-row">
+            <h2 class="drawer-title">{{ title() }}</h2>
+            @if (badge()) {
+              <span class="drawer-badge badge-{{ badge()?.variant || 'primary' }}">
+                {{ badge()?.text }}
+              </span>
+            }
+          </div>
+          @if (subtitle()) {
+            <p class="drawer-subtitle">{{ subtitle() }}</p>
+          }
+        </div>
+      </div>
+
+      <div class="header-actions-area">
+        <ng-content select="[drawer-header-actions]"></ng-content>
+
+        @if (showClose()) {
+          <button
+            type="button"
+            class="drawer-close-btn"
+            (click)="closed.emit()"
+            title="Fechar (Esc)"
+            aria-label="Fechar painel"
+          >
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        }
+      </div>
+    </header>
+
+    <!-- Body content -->
+    <div class="drawer-body">
+      <ng-content></ng-content>
+    </div>
+
+    <!-- Optional Footer -->
+    <footer class="drawer-footer">
+      <ng-content select="[drawer-footer]"></ng-content>
+    </footer>
+  </aside>
+</div>

@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { LimitsService } from '../../services/limits.service';
 import { NodeType, RuleTemplateItem } from '../../limits.models';
 
@@ -10,7 +11,7 @@ export type RuleCreationMode = 'none' | 'ai' | 'document' | 'manual';
 @Component({
   selector: 'app-rules-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   templateUrl: './rules-catalog.component.html',
   styleUrl: './rules-catalog.component.scss',
 })

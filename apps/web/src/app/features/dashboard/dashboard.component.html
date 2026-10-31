@@ -1,24 +1,25 @@
-<!-- 1. Header do Centro de Operações (Alinhado exatamente à mesma linha de 68px do Sidebar Header) -->
-<header class="ops-header">
-  <div class="header-titles">
-    <h1 class="header-main-title">Centro de Operações de Alçadas</h1>
-    <p class="header-sub-title">
-      Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real.
-    </p>
-  </div>
-
-  <div class="header-actions">
-    <button type="button" class="btn-action btn-outline">
-      <span class="material-symbols-rounded btn-icon">file_download</span>
-      <span>Exportar Dados</span>
+<!-- 1. Header do Centro de Operações (Componente Padronizado) -->
+<app-page-header
+  breadcrumbRoot="Visão Geral"
+  breadcrumbCurrent="Dashboard de Operações"
+  searchPlaceholder="Buscar métricas, requisições ou centros de custo..."
+  contextIcon="dashboard"
+  contextTitle="Centro de Operações de Alçadas"
+  contextSubtitle="Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real"
+  [showTier2]="true"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goToNewRequest()">
+      <span class="material-symbols-rounded">file_download</span>
+      <span>Exportar</span>
     </button>
 
-    <button type="button" class="btn-action btn-primary">
-      <span class="material-symbols-rounded btn-icon">add</span>
+    <button type="button" class="btn-header-primary" (click)="goToNewRequest()">
+      <span class="material-symbols-rounded">add</span>
       <span>Nova Solicitação</span>
     </button>
   </div>
-</header>
+</app-page-header>
 
 @if (isLoading()) {
   <!-- Skeleton Loading State do Dashboard -->
@@ -153,130 +154,37 @@
     </div>
   </section>
 
-  <!-- 4. Seção Inferior: Tabela de Alçadas e Painel de Monitoramento -->
+  <!-- 4. Seção Inferior: Gráfico de Valores por Solicitação com Linha na Média Aceita (Substituindo a tabela) -->
   <section class="bottom-split-grid">
-    <!-- Coluna Esquerda: Tabela de Solicitações -->
-    <div class="card table-card">
-      <div class="table-toolbar">
-        <div class="tabs-filter">
-          <button
-            type="button"
-            class="tab-btn"
-            [class.active]="selectedTab() === 'pendentes'"
-            (click)="setTab('pendentes')"
-          >
-            Minhas Pendências (3)
-          </button>
-          <button
-            type="button"
-            class="tab-btn"
-            [class.active]="selectedTab() === 'todas'"
-            (click)="setTab('todas')"
-          >
-            Todas as Alçadas
-          </button>
-          <button
-            type="button"
-            class="tab-btn"
-            [class.active]="selectedTab() === 'aprovadas'"
-            (click)="setTab('aprovadas')"
-          >
-            Aprovadas
-          </button>
-        </div>
-
-        <div class="table-search-wrap">
-          <span class="material-symbols-rounded search-mini-icon">search</span>
-          <input
-            type="text"
-            placeholder="Filtrar por código ou descrição..."
-            [value]="searchQuery()"
-            (input)="searchQuery.set($any($event.target).value)"
-          />
-        </div>
-      </div>
-
-      <div class="table-responsive">
-        <table class="requests-table">
-          <thead>
-            <tr>
-              <th>Código & Descrição</th>
-              <th>Departamento</th>
-              <th>Alçada Requerida</th>
-              <th>Valor Total</th>
-              <th>Status</th>
-              <th class="th-actions">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (req of filteredRequests(); track req.id) {
-              <tr>
-                <td>
-                  <div class="req-title-cell">
-                    <span class="req-code">{{ req.code }}</span>
-                    <span class="req-desc">{{ req.description }}</span>
-                  </div>
-                </td>
-                <td>
-                  <span class="dept-badge" [style.color]="req.deptColor" [style.background-color]="req.deptColor + '18'">
-                    {{ req.deptCode }} • {{ req.department }}
-                  </span>
-                </td>
-                <td>
-                  <span class="tier-label">{{ req.requiredTier }}</span>
-                </td>
-                <td>
-                  <strong class="value-cell">{{ req.valueFormatted }}</strong>
-                </td>
-                <td>
-                  @if (req.status === 'PENDENTE') {
-                    <span class="status-pill status-pending">● Pendente</span>
-                  } @else if (req.status === 'APROVADA') {
-                    <span class="status-pill status-approved">● Aprovada</span>
-                  }
-                </td>
-                <td class="td-actions">
-                  @if (req.status === 'PENDENTE') {
-                    <button
-                      type="button"
-                      class="btn-quick-approve"
-                      (click)="approveRequest(req, $event)"
-                    >
-                      <span class="material-symbols-rounded approve-mini-icon">check</span>
-                      <span>Aprovar</span>
-                    </button>
-                  } @else {
-                    <span class="approved-check">
-                      <span class="material-symbols-rounded check-icon">check_circle</span>
-                      <span>Concluído</span>
-                    </span>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+    <!-- Coluna Esquerda: Gráfico de Barras Shadcn UI com Linha na Média Aceita -->
+    <div class="chart-main-column">
+      <app-request-bar-chart
+        [data]="chartRequests()"
+        [acceptedAverage]="45000"
+      ></app-request-bar-chart>
     </div>
 
-    <!-- Coluna Direita: Monitor de Fraudes & Trilha -->
+    <!-- Coluna Direita: Monitor de Fraudes & Governança Compacto -->
     <div class="card monitor-card">
       <div class="monitor-header">
-        <h3>Conformidade & Governança</h3>
-        <span class="status-pill-green">● Sistema Operacional</span>
+        <div class="monitor-title-group">
+          <span class="material-symbols-rounded shield-icon">verified_user</span>
+          <h3>Governança & Risco</h3>
+        </div>
+        <span class="status-pill-green">● Operacional</span>
       </div>
 
       <div class="monitor-metrics-list">
         <div class="monitor-metric-box">
           <div class="metric-box-top">
             <span class="box-label">Motor Anti-Fracionamento</span>
-            <span class="box-tag">Janela 30d</span>
+            <span class="box-tag">30d</span>
           </div>
           <p class="box-value">0 Violações</p>
           <div class="box-sub-progress">
             <div class="mini-bar-fill" style="width: 100%"></div>
           </div>
-          <span class="box-foot">Nenhuma compra fracionada detectada</span>
+          <span class="box-foot">Sem compras fracionadas</span>
         </div>
 
         <div class="monitor-metric-box">
@@ -291,10 +199,10 @@
         <div class="monitor-metric-box">
           <div class="metric-box-top">
             <span class="box-label">Segregação de Funções (SoD)</span>
-            <span class="box-tag">Bloqueio Ativo</span>
+            <span class="box-tag">Ativo</span>
           </div>
           <p class="box-value">100% Protegido</p>
-          <span class="box-foot">Autoaprovação terminantemente bloqueada</span>
+          <span class="box-foot">Autoaprovação bloqueada</span>
         </div>
       </div>
     </div>
