@@ -8,7 +8,7 @@ interface RequestComUsuario {
   user: { tenantId: string; uid: string };
 }
 
-@Controller('api/solicitacoes')
+@Controller('solicitacoes')
 @UseGuards(FirebaseAuthGuard)
 export class SolicitacoesController {
   constructor(
