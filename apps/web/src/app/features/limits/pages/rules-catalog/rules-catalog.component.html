@@ -1,0 +1,655 @@
+<!-- 1. Header Fixo do Catálogo de Regras (68px alinhado perfeitamente ao Sidebar) -->
+<header class="ops-header">
+  <div class="header-titles">
+    <div class="header-title-row">
+      <button type="button" class="btn-back" (click)="goBack()" title="Voltar para Minhas Alçadas">
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
+      <h1 class="header-main-title">Catálogo de Regras de Negócio</h1>
+      <span class="active-count-badge">{{ limitsService.ruleTemplatesState().length }} Modelos</span>
+    </div>
+    <p class="header-sub-title">
+      Gerencie regras padrão do sistema e crie regras sob medida via Documento Word/Docs, Assistente IA ou Criador Manual.
+    </p>
+  </div>
+
+  <div class="header-actions">
+    <button type="button" class="btn-action-outline btn-models-trigger" (click)="toggleDrawer()">
+      <span class="material-symbols-rounded">layers</span>
+      <span>{{ isDrawerExpanded() ? 'Recolher Modelos' : 'Ver Modelos Disponíveis (' + limitsService.ruleTemplatesState().length + ')' }}</span>
+    </button>
+    <button type="button" class="btn-action-outline" (click)="goBack()">
+      <span class="material-symbols-rounded">shield</span>
+      <span>Meus Fluxos</span>
+    </button>
+    <button type="button" class="btn-action-primary" (click)="goToEditor()">
+      <span class="material-symbols-rounded">account_tree</span>
+      <span>Editor de Fluxo</span>
+    </button>
+  </div>
+</header>
+
+<!-- Notificação Flutuante de Sucesso -->
+@if (successMessage()) {
+  <div class="toast-success" role="alert">
+    <span class="material-symbols-rounded">check_circle</span>
+    <span>{{ successMessage() }}</span>
+  </div>
+}
+
+<!-- Container Principal com Scroll -->
+<div class="page-container">
+  <!-- 2. Seção das 3 Formas de Criar Novas Regras (Cards Seletores Estilo Voxle / Imagem 0) -->
+  <section class="creation-methods-section">
+    <div class="section-intro">
+      <h2 class="section-title">Como você deseja criar uma nova regra?</h2>
+      <p class="section-subtitle">Escolha entre o assistente conversacional por IA, importação de documento oficial ou preenchimento guiado.</p>
+    </div>
+
+    <div class="methods-grid">
+      <!-- Card 1: Assistente IA com Prompt -->
+      <button
+        type="button"
+        class="method-card"
+        [class.active]="activeMode() === 'ai'"
+        (click)="setMode('ai')"
+      >
+        <div class="method-icon-wrap ai-gradient">
+          <span class="material-symbols-rounded">auto_awesome</span>
+        </div>
+        <div class="method-body">
+          <div class="method-header-row">
+            <h3 class="method-title">Assistente IA com Prompt</h3>
+            <span class="method-pill recommended">Recomendado</span>
+          </div>
+          <p class="method-desc">
+            Descreva a regra em linguagem natural e nossa IA converte em instâncias de alçada, tetos e quórum.
+          </p>
+        </div>
+      </button>
+
+      <!-- Card 2: Template de Documento (Docs/Word) -->
+      <button
+        type="button"
+        class="method-card"
+        [class.active]="activeMode() === 'document'"
+        (click)="setMode('document')"
+      >
+        <div class="method-icon-wrap doc-gradient">
+          <span class="material-symbols-rounded">description</span>
+        </div>
+        <div class="method-body">
+          <div class="method-header-row">
+            <h3 class="method-title">Importar Documento (Word / Docs)</h3>
+            <span class="method-pill">Cláusulas</span>
+          </div>
+          <p class="method-desc">
+            Importe a política corporativa ou regimento interno em Word ou PDF para extrair regras automaticamente.
+          </p>
+        </div>
+      </button>
+
+      <!-- Card 3: Criador Manual Guiado -->
+      <button
+        type="button"
+        class="method-card"
+        [class.active]="activeMode() === 'manual'"
+        (click)="setMode('manual')"
+      >
+        <div class="method-icon-wrap manual-gradient">
+          <span class="material-symbols-rounded">tune</span>
+        </div>
+        <div class="method-body">
+          <div class="method-header-row">
+            <h3 class="method-title">Criador Manual Estruturado</h3>
+            <span class="method-pill">Visual Builder</span>
+          </div>
+          <p class="method-desc">
+            Configure na mão operadores matemáticos, faixas de valor, hierarquias de aprovação e prazos de SLA.
+          </p>
+        </div>
+      </button>
+    </div>
+  </section>
+
+  <!-- 3. Painel Interativo da Modalidade de Criação Selecionada -->
+  <section class="interactive-creator-panel">
+    <!-- MODALIDADE 1: ASSISTENTE IA (Inspirado nas Imagens 0 e 1) -->
+    @if (activeMode() === 'ai') {
+      <div class="ai-assistant-container">
+        <div class="ai-hero">
+          <div class="ai-avatar-ring">
+            <span class="material-symbols-rounded">auto_awesome</span>
+          </div>
+          <h3 class="ai-greeting-title">Assistente de Governança & Regras</h3>
+          <p class="ai-greeting-sub">Qual regra ou política de alçadas você gostaria de cadastrar hoje?</p>
+        </div>
+
+        <!-- Sugestões Prontas de Prompt (Imagem 0) -->
+        <div class="prompt-suggestions-row">
+          <span class="suggestions-label">Sugestões rápidas:</span>
+          @for (suggestion of promptSuggestions; track suggestion) {
+            <button
+              type="button"
+              class="suggestion-pill"
+              (click)="useSuggestion(suggestion)"
+            >
+              <span class="material-symbols-rounded">magic_button</span>
+              <span>{{ suggestion }}</span>
+            </button>
+          }
+        </div>
+
+        <!-- Chat History (Imagem 1) -->
+        @if (aiChatHistory().length > 0) {
+          <div class="ai-chat-thread">
+            @for (msg of aiChatHistory(); track msg.text) {
+              <div class="chat-bubble-wrap" [class.user-wrap]="msg.sender === 'user'" [class.assistant-wrap]="msg.sender === 'assistant'">
+                <div class="chat-avatar">
+                  @if (msg.sender === 'user') {
+                    <span class="material-symbols-rounded">person</span>
+                  } @else {
+                    <span class="material-symbols-rounded ai-spark">auto_awesome</span>
+                  }
+                </div>
+                <div class="chat-content">
+                  <p class="chat-text">{{ msg.text }}</p>
+
+                  <!-- Card da Regra Gerada pela IA dentro do balão de resposta -->
+                  @if (msg.rulePreview) {
+                    <div class="ai-generated-card-preview">
+                      <div class="preview-badge-row">
+                        <span class="preview-tag" [style.color]="msg.rulePreview.badgeColor" [style.background-color]="msg.rulePreview.badgeColor + '18'">
+                          {{ msg.rulePreview.badge }}
+                        </span>
+                        <span class="ai-label-pill">● Estruturado por IA</span>
+                      </div>
+                      <h4 class="preview-title">{{ msg.rulePreview.title }}</h4>
+                      <p class="preview-desc">{{ msg.rulePreview.description }}</p>
+
+                      <div class="preview-actions">
+                        <button
+                          type="button"
+                          class="btn-save-ai-rule"
+                          (click)="saveAiRule(msg.rulePreview)"
+                        >
+                          <span class="material-symbols-rounded">add_task</span>
+                          <span>Adicionar ao Catálogo de Regras</span>
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Prompt Bar de Entrada (Imagem 0) -->
+        <div class="ai-prompt-box">
+          <textarea
+            rows="2"
+            placeholder="Descreva a regra de negócio... Ex: 'Compras acima de R$ 50.000 precisam de aprovação de dois diretores e prazo máximo de 24h'"
+            [ngModel]="aiPrompt()"
+            (ngModelChange)="aiPrompt.set($event)"
+            (keydown.enter)="$event.preventDefault(); generateRuleWithAi()"
+          ></textarea>
+
+          <div class="prompt-box-footer">
+            <div class="prompt-meta-hints">
+              <span class="material-symbols-rounded hint-icon">lightbulb</span>
+              <span>Pressione Enter para enviar para o modelo de governança</span>
+            </div>
+
+            <button
+              type="button"
+              class="btn-send-ai"
+              [disabled]="!aiPrompt().trim() || isAiGenerating()"
+              (click)="generateRuleWithAi()"
+            >
+              @if (isAiGenerating()) {
+                <span class="material-symbols-rounded spin-icon">sync</span>
+                <span>Estruturando...</span>
+              } @else {
+                <span class="material-symbols-rounded">send</span>
+                <span>Gerar Regra</span>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- MODALIDADE 2: IMPORTAR TEMPLATE DE DOCUMENTO (Docs / Word) -->
+    @if (activeMode() === 'document') {
+      <div class="doc-import-container">
+        <div class="doc-hero">
+          <h3 class="doc-hero-title">Importação de Políticas Corporativas</h3>
+          <p class="doc-hero-sub">Envie seu documento de normas internas (.docx, .pdf, .txt) para extração automatizada de alçadas e limites.</p>
+        </div>
+
+        <div class="doc-dropzone" (dragover)="$event.preventDefault()" (drop)="onFileDrop($event)">
+          <span class="material-symbols-rounded drop-icon">cloud_upload</span>
+          <h4 class="drop-title">Arraste seu documento aqui ou procure nos arquivos</h4>
+          <p class="drop-hint">Formatos suportados: Microsoft Word (.docx), PDF (.pdf) ou Texto (.txt)</p>
+
+          <label class="btn-browse-file">
+            <input type="file" accept=".docx,.pdf,.txt" (change)="onFileSelected($event)" hidden />
+            <span class="material-symbols-rounded">attach_file</span>
+            <span>Selecionar Arquivo</span>
+          </label>
+        </div>
+
+        <div class="doc-helper-bar">
+          <div class="template-download-card">
+            <span class="material-symbols-rounded doc-icon">download</span>
+            <div class="download-info">
+              <strong>Precisa de um modelo padrão?</strong>
+              <span>Baixe nosso template corporativo pronto para preenchimento.</span>
+            </div>
+            <button type="button" class="btn-download-sample">Baixar Modelo .docx</button>
+          </div>
+
+          <button
+            type="button"
+            class="btn-simulate-upload"
+            (click)="simulateDocUpload('Regimento_Interno_Compras_2026.docx')"
+          >
+            <span class="material-symbols-rounded">play_circle</span>
+            <span>Simular Importação de Teste</span>
+          </button>
+        </div>
+
+        <!-- Regras Extraídas do Documento -->
+        @if (isDocProcessing()) {
+          <div class="doc-processing-card">
+            <span class="material-symbols-rounded spin-icon">sync</span>
+            <h4>Processando e extraindo cláusulas de governança do arquivo...</h4>
+          </div>
+        }
+
+        @if (extractedDocRules().length > 0) {
+          <div class="extracted-rules-box">
+            <div class="extracted-header">
+              <span class="material-symbols-rounded">auto_stories</span>
+              <h4>Regras Extraídas do Arquivo: "{{ uploadedFileName() }}"</h4>
+            </div>
+
+            <div class="extracted-grid">
+              @for (rule of extractedDocRules(); track rule.title) {
+                <div class="extracted-item-card">
+                  <div class="item-top">
+                    <span class="item-tag" [style.color]="rule.badgeColor" [style.background-color]="rule.badgeColor + '18'">
+                      {{ rule.badge }}
+                    </span>
+                    <span class="item-origin">Origem: {{ rule.createdBy }}</span>
+                  </div>
+                  <h5 class="item-title">{{ rule.title }}</h5>
+                  <p class="item-desc">{{ rule.description }}</p>
+
+                  <button
+                    type="button"
+                    class="btn-homologate-rule"
+                    (click)="saveExtractedRule(rule)"
+                  >
+                    <span class="material-symbols-rounded">check</span>
+                    <span>Homologar e Adicionar ao Catálogo</span>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- MODALIDADE 3: CRIADOR MANUAL GUIADO (Split-View Imagem 2) -->
+    @if (activeMode() === 'manual') {
+      <div class="manual-creator-container">
+        <!-- Lado Esquerdo: Formulário Estruturado -->
+        <div class="manual-form-side">
+          <h3 class="form-side-title">Parâmetros da Nova Regra</h3>
+
+          <div class="form-group">
+            <label for="manType">Tipo de Regra</label>
+            <select id="manType" [ngModel]="manualType()" (ngModelChange)="manualType.set($event)">
+              <option value="APPROVER">Instância de Decisão / Aprovador</option>
+              <option value="CONDITION_VALUE">Teto Orçamentário / Valor Monetário</option>
+              <option value="SLA_TIMER">Controle de Tempo / SLA</option>
+              <option value="RISK_CHECK">Blindagem Anti-Fraude & SoD</option>
+              <option value="TRIGGER">Gatilho de Entrada / Departamento</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="manTitle">Nome da Regra</label>
+            <input
+              id="manTitle"
+              type="text"
+              placeholder="Ex: Teto Gerência Operacional"
+              [ngModel]="manualTitle()"
+              (ngModelChange)="manualTitle.set($event)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="manDesc">Descrição / Justificativa</label>
+            <textarea
+              id="manDesc"
+              rows="3"
+              placeholder="Descreva a finalidade desta regra..."
+              [ngModel]="manualDesc()"
+              (ngModelChange)="manualDesc.set($event)"
+            ></textarea>
+          </div>
+
+          @if (manualType() === 'CONDITION_VALUE') {
+            <div class="form-row">
+              <div class="form-group">
+                <label for="manOp">Operador Lógico</label>
+                <select id="manOp" [ngModel]="manualOperator()" (ngModelChange)="manualOperator.set($event)">
+                  <option value="<=">&le; Menor ou Igual (Teto)</option>
+                  <option value="<">&lt; Estritamente Menor</option>
+                  <option value=">=">&ge; Maior ou Igual (Piso)</option>
+                  <option value=">">&gt; Estritamente Maior</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="manVal">Valor Teto (R$)</label>
+                <input
+                  id="manVal"
+                  type="number"
+                  step="1000"
+                  [ngModel]="manualAmount()"
+                  (ngModelChange)="manualAmount.set(+$event)"
+                />
+              </div>
+            </div>
+          }
+
+          @if (manualType() === 'APPROVER') {
+            <div class="form-row">
+              <div class="form-group">
+                <label for="manRole">Cargo Mínimo</label>
+                <select id="manRole" [ngModel]="manualRole()" (ngModelChange)="manualRole.set($event)">
+                  <option value="COORDENADOR">Coordenador (N1)</option>
+                  <option value="GERENTE">Gerente (N2)</option>
+                  <option value="DIRETOR">Diretor (N3)</option>
+                  <option value="CFO">Diretor Financeiro (CFO)</option>
+                  <option value="CONSELHO">Conselho de Administração</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="manQuorum">Quórum Necessário</label>
+                <select id="manQuorum" [ngModel]="manualQuorum()" (ngModelChange)="manualQuorum.set($event)">
+                  <option value="UNICO">1 Assinatura Individual</option>
+                  <option value="DUPLO">2 Aprovadores (Quórum Duplo)</option>
+                  <option value="UNANIME">Unânime (Todos)</option>
+                </select>
+              </div>
+            </div>
+          }
+
+          @if (manualType() === 'SLA_TIMER') {
+            <div class="form-group">
+              <label for="manSla">Prazo Máximo de SLA (Horas)</label>
+              <select id="manSla" [ngModel]="manualSlaHours()" (ngModelChange)="manualSlaHours.set(+$event)">
+                <option [value]="12">12 Horas (Emergencial)</option>
+                <option [value]="24">24 Horas (Alta Prioridade)</option>
+                <option [value]="48">48 Horas (Padrão Corporativo)</option>
+                <option [value]="72">72 Horas (Ordinário)</option>
+              </select>
+            </div>
+          }
+
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [ngModel]="manualSod()"
+                (ngModelChange)="manualSod.set($event)"
+              />
+              <span>Segregação de Funções (SoD): Impedir estritamente autoaprovação do requisitante</span>
+            </label>
+          </div>
+
+          <button type="button" class="btn-save-manual" (click)="saveManualRule()">
+            <span class="material-symbols-rounded">save</span>
+            <span>Salvar Nova Regra no Catálogo</span>
+          </button>
+        </div>
+
+        <!-- Lado Direito: Live Preview (Imagem 2) -->
+        <div class="manual-preview-side">
+          <div class="preview-header-bar">
+            <span class="preview-side-title">Pré-visualização em Tempo Real</span>
+            <span class="preview-mode-tag">Como aparecerá no Canvas</span>
+          </div>
+
+          <div class="preview-card-showcase">
+            <div class="template-card preview-active-card">
+              <div class="template-top">
+                <span class="template-icon-wrap" [style.color]="manualType() === 'APPROVER' ? '#10B981' : '#644EF3'">
+                  <span class="material-symbols-rounded">
+                    @if (manualType() === 'APPROVER') { group }
+                    @else if (manualType() === 'CONDITION_VALUE') { calculate }
+                    @else if (manualType() === 'SLA_TIMER') { schedule }
+                    @else { security }
+                  </span>
+                </span>
+                <span class="template-badge">
+                  @if (manualType() === 'CONDITION_VALUE') {
+                    Teto {{ manualOperator() }} R$ {{ manualAmount().toLocaleString('pt-BR') }}
+                  } @else if (manualType() === 'APPROVER') {
+                    {{ manualQuorum() === 'DUPLO' ? 'Quórum Duplo' : '1 Assinatura' }}
+                  } @else if (manualType() === 'SLA_TIMER') {
+                    SLA {{ manualSlaHours() }}h
+                  } @else {
+                    Blindagem Anti-Fraude
+                  }
+                </span>
+              </div>
+
+              <h4 class="template-name">{{ manualTitle() || 'Título da Regra' }}</h4>
+              <p class="template-desc">{{ manualDesc() || 'Sem descrição informada.' }}</p>
+
+              <div class="preview-meta-chips">
+                <span class="meta-chip">Cargo: {{ manualRole() }}</span>
+                <span class="meta-chip">SoD: {{ manualSod() ? 'Ativo' : 'Inativo' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </section>
+</div>
+
+<!-- Backdrop Overlay quando a gaveta estiver expandida -->
+@if (isDrawerExpanded()) {
+  <button
+    type="button"
+    class="drawer-backdrop"
+    (click)="closeDrawer()"
+    aria-label="Recolher painel de modelos disponíveis"
+  ></button>
+}
+
+<!-- 4. GAVETA INFERIOR: Modelos disponíveis que se esticam para cima quando selecionada -->
+<section
+  class="bottom-rules-drawer"
+  [class.expanded]="isDrawerExpanded()"
+>
+  <!-- Barra de Puxar / Header Interativo da Gaveta -->
+  <div class="drawer-header-bar">
+    <div class="handle-pill-wrap">
+      <button
+        type="button"
+        class="handle-pill-btn"
+        (click)="toggleDrawer()"
+        [attr.aria-expanded]="isDrawerExpanded()"
+        aria-label="Expandir ou recolher painel de modelos de regras"
+      >
+        <span class="handle-pill"></span>
+      </button>
+    </div>
+
+    <div class="drawer-summary-row">
+      <button
+        type="button"
+        class="drawer-title-btn"
+        (click)="toggleDrawer()"
+        [attr.aria-expanded]="isDrawerExpanded()"
+        title="Clique para expandir/recolher modelos"
+      >
+        <div class="drawer-icon-wrap">
+          <span class="material-symbols-rounded">dashboard_customize</span>
+        </div>
+        <div class="drawer-text-group">
+          <div class="drawer-heading-row">
+            <h3 class="drawer-heading">Modelos e Regras Disponíveis</h3>
+            <span class="drawer-badge-count">{{ limitsService.ruleTemplatesState().length }} Modelos</span>
+            @if (!isDrawerExpanded()) {
+              <span class="drawer-breakdown-hint">({{ standardCount() }} Nativas · {{ customCount() }} Personalizadas)</span>
+            }
+          </div>
+          <p class="drawer-caption">
+            @if (!isDrawerExpanded()) {
+              Clique para esticar e visualizar todas as regras nativas e personalizadas para os fluxos
+            } @else {
+              Modelos de governança e tetos prontos para serem vinculados às etapas de aprovação
+            }
+          </p>
+        </div>
+      </button>
+
+      <!-- Controles da Gaveta (Busca, Filtros e Botão de Ação) -->
+      <div class="drawer-controls">
+        @if (isDrawerExpanded()) {
+          <!-- Busca Rápida -->
+          <div class="drawer-search-wrap">
+            <span class="material-symbols-rounded search-icon">search</span>
+            <input
+              type="text"
+              placeholder="Buscar regra ou modelo..."
+              [ngModel]="searchQuery()"
+              (ngModelChange)="searchQuery.set($event)"
+            />
+            @if (searchQuery()) {
+              <button type="button" class="btn-clear-search" (click)="searchQuery.set('')">
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            }
+          </div>
+
+          <!-- Filtros por Categoria -->
+          <div class="drawer-filter-tabs">
+            <button
+              type="button"
+              class="tab-filter-btn"
+              [class.active]="selectedFilter() === 'all'"
+              (click)="setFilter('all')"
+            >
+              <span>Todas ({{ limitsService.ruleTemplatesState().length }})</span>
+            </button>
+            <button
+              type="button"
+              class="tab-filter-btn"
+              [class.active]="selectedFilter() === 'standard'"
+              (click)="setFilter('standard')"
+            >
+              <span>Nativas ({{ standardCount() }})</span>
+            </button>
+            <button
+              type="button"
+              class="tab-filter-btn"
+              [class.active]="selectedFilter() === 'custom'"
+              (click)="setFilter('custom')"
+            >
+              <span>Personalizadas ({{ customCount() }})</span>
+            </button>
+          </div>
+        }
+
+        <!-- Botão Toggle de Expandir / Recolher -->
+        <button
+          type="button"
+          class="btn-drawer-toggle"
+          (click)="toggleDrawer()"
+          [title]="isDrawerExpanded() ? 'Recolher painel de modelos' : 'Expandir para ver modelos de regras'"
+        >
+          <span>{{ isDrawerExpanded() ? 'Recolher Painel' : 'Ver Modelos Disponíveis' }}</span>
+          <span class="material-symbols-rounded toggle-arrow" [class.rotated]="isDrawerExpanded()">
+            keyboard_arrow_up
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conteúdo Rolável da Gaveta (Grid de Cards) -->
+  @if (isDrawerExpanded()) {
+    <div class="drawer-body-scrollable">
+      @if (filteredRules().length === 0) {
+        <div class="empty-rules-state">
+          <span class="material-symbols-rounded empty-icon">search_off</span>
+          <h4>Nenhum modelo encontrado</h4>
+          <p>Não encontramos regras com o filtro ou busca informada. Tente limpar os filtros para ver todas as regras.</p>
+          <button type="button" class="btn-reset-filters" (click)="setFilter('all'); searchQuery.set('')">
+            Limpar Filtros e Busca
+          </button>
+        </div>
+      } @else {
+        <div class="rules-grid">
+          @for (rule of filteredRules(); track rule.title) {
+            <article class="rule-catalog-card" [class.is-custom]="rule.category === 'CUSTOM'">
+              <div class="card-top">
+                <span class="rule-icon-box" [style.color]="rule.badgeColor" [style.background-color]="rule.badgeColor + '18'">
+                  <span class="material-symbols-rounded">{{ rule.icon }}</span>
+                </span>
+
+                <div class="badges-group">
+                  <span class="rule-badge" [style.background-color]="rule.badgeColor + '18'" [style.color]="rule.badgeColor">
+                    {{ rule.badge }}
+                  </span>
+
+                  @if (rule.category === 'STANDARD') {
+                    <span class="category-tag standard">Nativa</span>
+                  } @else {
+                    <span class="category-tag custom">Personalizada</span>
+                  }
+                </div>
+              </div>
+
+              <h4 class="rule-name">{{ rule.title }}</h4>
+              <p class="rule-description">{{ rule.description }}</p>
+
+              <div class="rule-origin-info">
+                <span class="origin-label">Criado por:</span>
+                <span class="origin-value">{{ rule.createdBy || 'Sistema' }}</span>
+              </div>
+
+              <div class="card-footer-actions">
+                <span class="usage-stat">
+                  <span class="material-symbols-rounded">account_tree</span>
+                  <span>Usada em {{ rule.usageCount || 0 }} fluxos</span>
+                </span>
+
+                @if (rule.category === 'CUSTOM') {
+                  <button
+                    type="button"
+                    class="btn-delete-custom-rule"
+                    title="Excluir regra personalizada"
+                    (click)="deleteRule(rule, $event)"
+                  >
+                    <span class="material-symbols-rounded">delete</span>
+                  </button>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </div>
+  }
+</section>

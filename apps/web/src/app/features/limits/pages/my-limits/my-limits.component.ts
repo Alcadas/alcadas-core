@@ -15,6 +15,9 @@ export class MyLimitsComponent {
   private readonly router = inject(Router);
   protected readonly limitsService = inject(LimitsService);
 
+  // Estado de Carregamento da Lista
+  readonly isLoading = signal(true);
+
   // Controle de menu contextual de ações
   readonly openMenuId = signal<string | null>(null);
 
@@ -55,6 +58,10 @@ export class MyLimitsComponent {
     this.router.navigate(['/alcadas/editor', ruleId]);
   }
 
+  goToRulesCatalog(): void {
+    this.router.navigate(['/alcadas/regras']);
+  }
+
   openCreateModal(): void {
     this.newRuleTitle.set('');
     this.newRuleAmount.set(25000);
@@ -89,5 +96,12 @@ export class MyLimitsComponent {
     event.stopPropagation();
     this.closeActionsMenu();
     this.limitsService.deleteRule(id);
+  }
+
+  constructor() {
+    // Simula carregamento de regras e políticas da API
+    setTimeout(() => {
+      this.isLoading.set(false);
+    }, 500);
   }
 }

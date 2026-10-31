@@ -11,6 +11,10 @@
   </div>
 
   <div class="header-actions">
+    <button type="button" class="btn-manage-rules-header" (click)="goToRulesCatalog()">
+      <span class="material-symbols-rounded">rule</span>
+      <span>Catálogo de Regras</span>
+    </button>
     <button type="button" class="btn-create-header" (click)="openCreateModal()">
       <span class="material-symbols-rounded">add</span>
       <span>Nova Alçada</span>
@@ -58,7 +62,26 @@
 
   <!-- 4. Lista de Alçadas Cadastradas (Cards com Borda Lateral e Pipeline Stepper) -->
   <section class="rules-list-section">
-    @for (rule of limitsService.filteredRules(); track rule.id) {
+    @if (isLoading()) {
+      <!-- Skeletons das Alçadas -->
+      @for (item of [1, 2, 3]; track item) {
+        <article class="limit-card skeleton-limit-card">
+          <div class="skeleton-header-row">
+            <div class="skeleton-shimmer skeleton-card-title"></div>
+            <div class="skeleton-shimmer skeleton-badge"></div>
+          </div>
+          <div class="skeleton-meta-row">
+            <div class="skeleton-shimmer skeleton-meta-pill"></div>
+            <div class="skeleton-shimmer skeleton-meta-pill"></div>
+            <div class="skeleton-shimmer skeleton-meta-pill"></div>
+          </div>
+          <div class="skeleton-stepper-row">
+            <div class="skeleton-shimmer skeleton-stepper-bar"></div>
+          </div>
+        </article>
+      }
+    } @else {
+      @for (rule of limitsService.filteredRules(); track rule.id) {
       <article class="limit-card" [style.border-left-color]="rule.accentColor">
         <!-- Topo do Card: Título, Status, Atribuição e Menu Três Pontos -->
         <div class="card-header-row">
@@ -188,6 +211,7 @@
         </button>
       </div>
     }
+  }
   </section>
 </div>
 

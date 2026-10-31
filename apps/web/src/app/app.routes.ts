@@ -45,6 +45,13 @@ export const appRoutes: Route[] = [
           ),
       },
       {
+        path: 'regras',
+        loadComponent: () =>
+          import(
+            './features/limits/pages/rules-catalog/rules-catalog.component'
+          ).then((m) => m.RulesCatalogComponent),
+      },
+      {
         path: 'editor/:id',
         loadComponent: () =>
           import('./features/limits/limits.component').then(

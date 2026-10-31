@@ -34,12 +34,18 @@ export interface WorkflowNode {
 }
 
 export interface RuleTemplateItem {
+  id?: string;
   type: NodeType;
   title: string;
   description: string;
   icon: string;
   badge: string;
   badgeColor: string;
+  category?: 'STANDARD' | 'CUSTOM';
+  creationMethod?: 'STANDARD' | 'DOCUMENT' | 'AI_PROMPT' | 'MANUAL';
+  createdBy?: string;
+  createdAt?: string;
+  usageCount?: number;
   defaultConfig: WorkflowNode['config'];
 }
 

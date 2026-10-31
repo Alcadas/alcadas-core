@@ -1,10 +1,184 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { LimitRuleItem } from '../limits.models';
+import { LimitRuleItem, RuleTemplateItem } from '../limits.models';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LimitsService {
+  // Catálogo Central de Modelos de Regras (Padrões + Customizadas)
+  readonly ruleTemplatesState = signal<RuleTemplateItem[]>([
+    {
+      type: 'CONDITION_VALUE',
+      title: 'Teto de Valor (<, >, =)',
+      description: 'Define limites monetários para disparar alçada ou escalonar aprovação.',
+      icon: 'calculate',
+      badge: 'Regra de Teto',
+      badgeColor: '#644EF3',
+      category: 'STANDARD',
+      creationMethod: 'STANDARD',
+      createdBy: 'Sistema Nativo',
+      createdAt: 'Padrão do Sistema',
+      usageCount: 14,
+      defaultConfig: {
+        operator: '<=',
+        valueMin: 0,
+        valueMax: 15000,
+        currency: 'BRL',
+      },
+    },
+    {
+      type: 'APPROVER',
+      title: 'Aprovador Único',
+      description: 'Exige assinatura individual de um cargo ou hierarquia específica.',
+      icon: 'person_check',
+      badge: '1 Assinatura',
+      badgeColor: '#10B981',
+      category: 'STANDARD',
+      creationMethod: 'STANDARD',
+      createdBy: 'Sistema Nativo',
+      createdAt: 'Padrão do Sistema',
+      usageCount: 22,
+      defaultConfig: {
+        approverRole: 'GERENTE',
+        quorum: 'UNICO',
+        enforceSod: true,
+      },
+    },
+    {
+      type: 'APPROVER',
+      title: 'Dupla Aprovação (2 Pessoas)',
+      description: 'Exige duas assinaturas mútuas independentes para liberação.',
+      icon: 'group',
+      badge: 'Quórum Duplo',
+      badgeColor: '#8B5CF6',
+      category: 'STANDARD',
+      creationMethod: 'STANDARD',
+      createdBy: 'Sistema Nativo',
+      createdAt: 'Padrão do Sistema',
+      usageCount: 9,
+      defaultConfig: {
+        approverRole: 'DIRETOR',
+        quorum: 'DUPLO',
+        enforceSod: true,
+      },
+    },
+    {
+      type: 'SLA_TIMER',
+      title: 'Tempo / SLA de Resposta',
+      description: 'Estipula tempo máximo de espera antes de escalonar automaticamente.',
+      icon: 'schedule',
+      badge: 'SLA 48h',
+      badgeColor: '#F59E0B',
+      category: 'STANDARD',
+      creationMethod: 'STANDARD',
+      createdBy: 'Sistema Nativo',
+      createdAt: 'Padrão do Sistema',
+      usageCount: 18,
+      defaultConfig: {
+        slaHours: 48,
+        escalateTo: 'SUPERIOR_DIRETO',
+      },
+    },
+    {
+      type: 'RISK_CHECK',
+      title: 'Anti-Fracionamento & SoD',
+      description: 'Bloqueio estrito de autoaprovação e checagem de janelas móveis de 30 dias.',
+      icon: 'security',
+      badge: 'Motor de Risco',
+      badgeColor: '#EC4899',
+      category: 'STANDARD',
+      creationMethod: 'STANDARD',
+      createdBy: 'Sistema Nativo',
+      createdAt: 'Padrão do Sistema',
+      usageCount: 26,
+      defaultConfig: {
+        riskWindowDays: 30,
+        checkDuplicate: true,
+        checkSplit: true,
+      },
+    },
+    {
+      type: 'TRIGGER',
+      title: 'Gatilho de Centro de Custo',
+      description: 'Aplica a alçada quando a despesa estiver associada a um departamento.',
+      icon: 'account_tree',
+      badge: 'Gatilho de Entrada',
+      badgeColor: '#3B82F6',
+      category: 'STANDARD',
+      creationMethod: 'STANDARD',
+      createdBy: 'Sistema Nativo',
+      createdAt: 'Padrão do Sistema',
+      usageCount: 30,
+      defaultConfig: {
+        costCenter: 'CC-104 - TI e Infra',
+        category: 'Hardware & Equipamentos',
+      },
+    },
+    // Regras Personalizadas (Exemplos criados pelos 3 caminhos)
+    {
+      type: 'APPROVER',
+      title: 'Parecer Jurídico & Compliance > R$ 100k',
+      description: 'Exige chancela prévia do corpo jurídico corporativo antes do envio ao CFO.',
+      icon: 'gavel',
+      badge: 'Chancela Jurídica',
+      badgeColor: '#8B5CF6',
+      category: 'CUSTOM',
+      creationMethod: 'AI_PROMPT',
+      createdBy: 'Gerado via Assistente IA',
+      createdAt: 'Ontem às 16:40',
+      usageCount: 3,
+      defaultConfig: {
+        approverRole: 'DIRETOR',
+        quorum: 'UNICO',
+        enforceSod: true,
+      },
+    },
+    {
+      type: 'CONDITION_VALUE',
+      title: 'Teto Emergencial TI (Até R$ 50.000)',
+      description: 'Despesas emergenciais de infraestrutura com aprovação imediata do CTO.',
+      icon: 'bolt',
+      badge: 'Emergência Cloud',
+      badgeColor: '#EC4899',
+      category: 'CUSTOM',
+      creationMethod: 'DOCUMENT',
+      createdBy: 'Importado de Politica_TI_2026.docx',
+      createdAt: '18 Out 2026',
+      usageCount: 5,
+      defaultConfig: {
+        operator: '<=',
+        valueMin: 0,
+        valueMax: 50000,
+        currency: 'BRL',
+      },
+    },
+    {
+      type: 'SLA_TIMER',
+      title: 'SLA Crítico Fast-Track (12 Horas)',
+      description: 'Prazo limite reduzido para compras de matérias-primas críticas.',
+      icon: 'timer',
+      badge: 'Fast-Track 12h',
+      badgeColor: '#F59E0B',
+      category: 'CUSTOM',
+      creationMethod: 'MANUAL',
+      createdBy: 'Criado Manualmente por Admin',
+      createdAt: '10 Out 2026',
+      usageCount: 2,
+      defaultConfig: {
+        slaHours: 12,
+        escalateTo: 'SUPERIOR_DIRETO',
+      },
+    },
+  ]);
+
+  addRuleTemplate(template: RuleTemplateItem): void {
+    this.ruleTemplatesState.update((list) => [template, ...list]);
+  }
+
+  deleteRuleTemplate(title: string): void {
+    this.ruleTemplatesState.update((list) => list.filter((t) => t.title !== title));
+  }
+
   // Lista central de regras de alçada
   private readonly rulesState = signal<LimitRuleItem[]>([
     {

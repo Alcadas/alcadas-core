@@ -21,6 +21,9 @@ export class LimitsComponent {
   readonly currentRuleId = signal<string | null>(null);
   readonly currentRuleTitle = signal<string>('Configuração de Alçadas & Tetos');
 
+  // Estado de Carregamento da Esteira
+  readonly isLoading = signal(true);
+
   // Zoom e Pan do Canvas de Fluxo
   readonly zoomLevel = signal(100);
   readonly panX = signal(0);
@@ -45,86 +48,8 @@ export class LimitsComponent {
   // Busca na Biblioteca de Modelos
   readonly templateSearch = signal('');
 
-  // 1. Modelos Disponíveis na Biblioteca Lateral Esquerda
-  readonly ruleTemplates = signal<RuleTemplateItem[]>([
-    {
-      type: 'CONDITION_VALUE',
-      title: 'Teto de Valor (<, >, =)',
-      description: 'Define limites monetários para disparar alçada ou escalonar aprovação.',
-      icon: 'calculate',
-      badge: 'Regra de Teto',
-      badgeColor: '#644EF3',
-      defaultConfig: {
-        operator: '<=',
-        valueMin: 0,
-        valueMax: 15000,
-        currency: 'BRL',
-      },
-    },
-    {
-      type: 'APPROVER',
-      title: 'Aprovador Único',
-      description: 'Exige assinatura individual de um cargo ou hierarquia específica.',
-      icon: 'person_check',
-      badge: '1 Assinatura',
-      badgeColor: '#10B981',
-      defaultConfig: {
-        approverRole: 'GERENTE',
-        quorum: 'UNICO',
-        enforceSod: true,
-      },
-    },
-    {
-      type: 'APPROVER',
-      title: 'Dupla Aprovação (2 Pessoas)',
-      description: 'Exige duas assinaturas mútuas independentes para liberação.',
-      icon: 'group',
-      badge: 'Quórum Duplo',
-      badgeColor: '#8B5CF6',
-      defaultConfig: {
-        approverRole: 'DIRETOR',
-        quorum: 'DUPLO',
-        enforceSod: true,
-      },
-    },
-    {
-      type: 'SLA_TIMER',
-      title: 'Tempo / SLA de Resposta',
-      description: 'Estipula tempo máximo de espera antes de escalonar automaticamente.',
-      icon: 'schedule',
-      badge: 'SLA 48h',
-      badgeColor: '#F59E0B',
-      defaultConfig: {
-        slaHours: 48,
-        escalateTo: 'SUPERIOR_DIRETO',
-      },
-    },
-    {
-      type: 'RISK_CHECK',
-      title: 'Anti-Fracionamento & SoD',
-      description: 'Bloqueio estrito de autoaprovação e checagem de janelas móveis de 30 dias.',
-      icon: 'security',
-      badge: 'Motor de Risco',
-      badgeColor: '#EC4899',
-      defaultConfig: {
-        riskWindowDays: 30,
-        checkDuplicate: true,
-        checkSplit: true,
-      },
-    },
-    {
-      type: 'TRIGGER',
-      title: 'Gatilho de Centro de Custo',
-      description: 'Aplica a alçada quando a despesa estiver associada a um departamento.',
-      icon: 'account_tree',
-      badge: 'Gatilho de Entrada',
-      badgeColor: '#3B82F6',
-      defaultConfig: {
-        costCenter: 'CC-104 - TI e Infra',
-        category: 'Hardware & Equipamentos',
-      },
-    },
-  ]);
+  // 1. Modelos Disponíveis na Biblioteca Lateral (Centralizado via LimitsService)
+  readonly ruleTemplates = this.limitsService.ruleTemplatesState;
 
   // Modelos filtrados pela barra de busca
   readonly filteredTemplates = computed(() => {
@@ -279,16 +204,21 @@ export class LimitsComponent {
     };
 
     const insertIdx = this.pendingInsertIndex();
+    let targetIndex = 0;
+
     this.workflowNodes.update((nodes) => {
       const copy = [...nodes];
       if (insertIdx !== null && insertIdx >= 0 && insertIdx <= copy.length) {
         copy.splice(insertIdx, 0, newNode);
+        targetIndex = insertIdx;
       } else {
         const lastIndex = copy.length - 1;
         if (lastIndex >= 0 && copy[lastIndex].type === 'TERMINAL') {
           copy.splice(lastIndex, 0, newNode);
+          targetIndex = lastIndex;
         } else {
           copy.push(newNode);
+          targetIndex = copy.length - 1;
         }
       }
       return copy;
@@ -297,6 +227,26 @@ export class LimitsComponent {
     this.pendingInsertIndex.set(null);
     this.isLibraryExpanded.set(false); // Recolhe a biblioteca para focar no inspetor
     this.selectedNodeId.set(newId); // Expande a barra lateral direita para a regra recém-criada
+
+    // Mover suavemente a tela (pan) até a nova regra e dar foco nela
+    this.focusNode(newId, targetIndex);
+  }
+
+  // Foca e centraliza a câmera na regra adicionada
+  focusNode(nodeId: string, index: number): void {
+    const estimatedOffset = index * 170;
+    const targetPanY = -Math.max(0, estimatedOffset - 120);
+
+    this.panX.set(0);
+    this.panY.set(targetPanY);
+
+    setTimeout(() => {
+      const el = document.getElementById(nodeId);
+      if (el) {
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   }
 
   // Remove um nó do fluxo
@@ -433,10 +383,19 @@ export class LimitsComponent {
         this.currentRuleTitle.set(`Alçada #${id}`);
       }
     }
+
+    // Simula carregamento da esteira e conexão de rede com o backend
+    setTimeout(() => {
+      this.isLoading.set(false);
+    }, 600);
   }
 
   goBack(): void {
     this.router.navigate(['/alcadas/minhas-alcadas']);
+  }
+
+  goToRulesCatalog(): void {
+    this.router.navigate(['/alcadas/regras']);
   }
 
   saveWorkflow(): void {
