@@ -481,110 +481,131 @@
   [class.expanded]="isDrawerExpanded()"
 >
   <!-- Barra de Puxar / Header Interativo da Gaveta -->
-  <div class="drawer-header-bar">
-    <div class="handle-pill-wrap">
+  <div class="drawer-header-bar" [class.is-collapsed]="!isDrawerExpanded()">
+    @if (!isDrawerExpanded()) {
+      <!-- Modo Compacto em Repouso (Barra Inferior Discreta na base) -->
       <button
         type="button"
-        class="handle-pill-btn"
+        class="drawer-collapsed-bar"
         (click)="toggleDrawer()"
-        [attr.aria-expanded]="isDrawerExpanded()"
-        aria-label="Expandir ou recolher painel de modelos de regras"
+        [attr.aria-expanded]="false"
+        title="Clique para esticar e ver modelos disponíveis"
       >
-        <span class="handle-pill"></span>
-      </button>
-    </div>
-
-    <div class="drawer-summary-row">
-      <button
-        type="button"
-        class="drawer-title-btn"
-        (click)="toggleDrawer()"
-        [attr.aria-expanded]="isDrawerExpanded()"
-        title="Clique para expandir/recolher modelos"
-      >
-        <div class="drawer-icon-wrap">
-          <span class="material-symbols-rounded">dashboard_customize</span>
+        <div class="collapsed-left">
+          <span class="material-symbols-rounded collapsed-icon">dashboard_customize</span>
+          <span class="collapsed-title">Modelos e Regras Disponíveis</span>
+          <span class="collapsed-badge">{{ limitsService.ruleTemplatesState().length }}</span>
+          <span class="collapsed-hint">({{ standardCount() }} nativas · {{ customCount() }} personalizadas)</span>
         </div>
-        <div class="drawer-text-group">
-          <div class="drawer-heading-row">
-            <h3 class="drawer-heading">Modelos e Regras Disponíveis</h3>
-            <span class="drawer-badge-count">{{ limitsService.ruleTemplatesState().length }} Modelos</span>
-            @if (!isDrawerExpanded()) {
-              <span class="drawer-breakdown-hint">({{ standardCount() }} Nativas · {{ customCount() }} Personalizadas)</span>
-            }
-          </div>
-          <p class="drawer-caption">
-            @if (!isDrawerExpanded()) {
-              Clique para esticar e visualizar todas as regras nativas e personalizadas para os fluxos
-            } @else {
-              Modelos de governança e tetos prontos para serem vinculados às etapas de aprovação
-            }
-          </p>
+
+        <div class="collapsed-center">
+          <span class="handle-pill"></span>
+        </div>
+
+        <div class="collapsed-right">
+          <span class="btn-collapsed-label">Ver Modelos Disponíveis</span>
+          <span class="material-symbols-rounded collapsed-chevron">expand_less</span>
         </div>
       </button>
+    } @else {
+      <!-- Modo Expandido: Barra Superior com Ferramentas -->
+      <div class="drawer-expanded-header">
+        <div class="handle-pill-wrap">
+          <button
+            type="button"
+            class="handle-pill-btn"
+            (click)="toggleDrawer()"
+            [attr.aria-expanded]="true"
+            aria-label="Recolher painel de modelos de regras"
+          >
+            <span class="handle-pill"></span>
+          </button>
+        </div>
 
-      <!-- Controles da Gaveta (Busca, Filtros e Botão de Ação) -->
-      <div class="drawer-controls">
-        @if (isDrawerExpanded()) {
-          <!-- Busca Rápida -->
-          <div class="drawer-search-wrap">
-            <span class="material-symbols-rounded search-icon">search</span>
-            <input
-              type="text"
-              placeholder="Buscar regra ou modelo..."
-              [ngModel]="searchQuery()"
-              (ngModelChange)="searchQuery.set($event)"
-            />
-            @if (searchQuery()) {
-              <button type="button" class="btn-clear-search" (click)="searchQuery.set('')">
-                <span class="material-symbols-rounded">close</span>
+        <div class="drawer-summary-row">
+          <button
+            type="button"
+            class="drawer-title-btn"
+            (click)="toggleDrawer()"
+            [attr.aria-expanded]="true"
+            title="Clique para recolher modelos"
+          >
+            <div class="drawer-icon-wrap">
+              <span class="material-symbols-rounded">dashboard_customize</span>
+            </div>
+            <div class="drawer-text-group">
+              <div class="drawer-heading-row">
+                <h3 class="drawer-heading">Modelos e Regras Disponíveis</h3>
+                <span class="drawer-badge-count">{{ limitsService.ruleTemplatesState().length }} Modelos</span>
+              </div>
+              <p class="drawer-caption">
+                Modelos de governança e tetos prontos para serem vinculados às etapas de aprovação
+              </p>
+            </div>
+          </button>
+
+          <!-- Controles da Gaveta (Busca, Filtros e Botão de Ação) -->
+          <div class="drawer-controls">
+            <!-- Busca Rápida -->
+            <div class="drawer-search-wrap">
+              <span class="material-symbols-rounded search-icon">search</span>
+              <input
+                type="text"
+                placeholder="Buscar regra ou modelo..."
+                [ngModel]="searchQuery()"
+                (ngModelChange)="searchQuery.set($event)"
+              />
+              @if (searchQuery()) {
+                <button type="button" class="btn-clear-search" (click)="searchQuery.set('')">
+                  <span class="material-symbols-rounded">close</span>
+                </button>
+              }
+            </div>
+
+            <!-- Filtros por Categoria -->
+            <div class="drawer-filter-tabs">
+              <button
+                type="button"
+                class="tab-filter-btn"
+                [class.active]="selectedFilter() === 'all'"
+                (click)="setFilter('all')"
+              >
+                <span>Todas ({{ limitsService.ruleTemplatesState().length }})</span>
               </button>
-            }
-          </div>
+              <button
+                type="button"
+                class="tab-filter-btn"
+                [class.active]="selectedFilter() === 'standard'"
+                (click)="setFilter('standard')"
+              >
+                <span>Nativas ({{ standardCount() }})</span>
+              </button>
+              <button
+                type="button"
+                class="tab-filter-btn"
+                [class.active]="selectedFilter() === 'custom'"
+                (click)="setFilter('custom')"
+              >
+                <span>Personalizadas ({{ customCount() }})</span>
+              </button>
+            </div>
 
-          <!-- Filtros por Categoria -->
-          <div class="drawer-filter-tabs">
+            <!-- Botão Toggle de Recolher -->
             <button
               type="button"
-              class="tab-filter-btn"
-              [class.active]="selectedFilter() === 'all'"
-              (click)="setFilter('all')"
+              class="btn-drawer-toggle"
+              (click)="toggleDrawer()"
+              title="Recolher painel de modelos"
             >
-              <span>Todas ({{ limitsService.ruleTemplatesState().length }})</span>
-            </button>
-            <button
-              type="button"
-              class="tab-filter-btn"
-              [class.active]="selectedFilter() === 'standard'"
-              (click)="setFilter('standard')"
-            >
-              <span>Nativas ({{ standardCount() }})</span>
-            </button>
-            <button
-              type="button"
-              class="tab-filter-btn"
-              [class.active]="selectedFilter() === 'custom'"
-              (click)="setFilter('custom')"
-            >
-              <span>Personalizadas ({{ customCount() }})</span>
+              <span>Recolher Painel</span>
+              <span class="material-symbols-rounded toggle-arrow rotated">
+                expand_more
+              </span>
             </button>
           </div>
-        }
-
-        <!-- Botão Toggle de Expandir / Recolher -->
-        <button
-          type="button"
-          class="btn-drawer-toggle"
-          (click)="toggleDrawer()"
-          [title]="isDrawerExpanded() ? 'Recolher painel de modelos' : 'Expandir para ver modelos de regras'"
-        >
-          <span>{{ isDrawerExpanded() ? 'Recolher Painel' : 'Ver Modelos Disponíveis' }}</span>
-          <span class="material-symbols-rounded toggle-arrow" [class.rotated]="isDrawerExpanded()">
-            keyboard_arrow_up
-          </span>
-        </button>
+        </div>
       </div>
-    </div>
+    }
   </div>
 
   <!-- Conteúdo Rolável da Gaveta (Grid de Cards) -->
