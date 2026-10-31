@@ -1,0 +1,151 @@
+<aside class="sidebar" [class.collapsed]="isCollapsed()">
+  <!-- 1. Workspace Header (Alinhado exatamente à altura do header de conteúdo) -->
+  <div class="sidebar-header">
+    <button type="button" class="workspace-info" (click)="selectItem(mainMenuItems()[0])">
+      <div class="workspace-logo-wrap">
+        <img src="/alcadas.png" alt="Startop Alçadas" class="workspace-logo" />
+      </div>
+      @if (!isCollapsed()) {
+        <div class="workspace-details">
+          <div class="workspace-name-wrap">
+            <span class="workspace-name">Startop</span>
+            <span class="material-symbols-rounded chevron-down">expand_more</span>
+          </div>
+          <span class="workspace-sub">Workflow system</span>
+        </div>
+      }
+    </button>
+
+    <button
+      type="button"
+      class="btn-toggle-collapse"
+      [attr.aria-label]="isCollapsed() ? 'Expandir menu lateral' : 'Recolher menu lateral'"
+      [title]="isCollapsed() ? 'Expandir menu lateral' : 'Recolher menu lateral'"
+      (click)="toggleCollapse()"
+    >
+      <span class="material-symbols-rounded collapse-icon">
+        {{ isCollapsed() ? 'dock_to_right' : 'dock_to_left' }}
+      </span>
+    </button>
+  </div>
+
+  <!-- 2. Quick Search -->
+  <div class="search-section">
+    <div class="search-input-wrap">
+      <span class="material-symbols-rounded search-icon">search</span>
+      @if (!isCollapsed()) {
+        <input
+          type="text"
+          placeholder="Pesquisar..."
+          aria-label="Pesquisar ferramentas e workflows"
+        />
+        <div class="search-badges">
+          <kbd class="kbd-badge">/</kbd>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- 3. Navigation Menu -->
+  <div class="sidebar-scrollable">
+    <div class="menu-group">
+      @if (!isCollapsed()) {
+        <div class="group-title">Menu principal</div>
+      }
+
+      <nav class="nav-list">
+        @for (item of mainMenuItems(); track item.id) {
+          <button
+            type="button"
+            class="nav-item"
+            [class.active]="activeItem() === item.id"
+            (click)="selectItem(item)"
+            [title]="isCollapsed() ? item.label : ''"
+          >
+            <span class="material-symbols-rounded nav-icon">{{ item.icon }}</span>
+
+            @if (!isCollapsed()) {
+              <span class="item-label">{{ item.label }}</span>
+
+              @if (item.badge) {
+                <span class="item-badge" [style.background-color]="item.badgeColor || '#644EF3'">
+                  {{ item.badge }}
+                </span>
+              }
+
+              @if (item.hasSubmenu) {
+                <span class="material-symbols-rounded item-chevron">chevron_right</span>
+              }
+            }
+          </button>
+        }
+      </nav>
+    </div>
+
+    <!-- 4. Departamentos & Centros de Custo -->
+    <div class="menu-group">
+      @if (!isCollapsed()) {
+        <div class="group-title group-title-action">
+          <span>Departamentos</span>
+          <button type="button" class="btn-add-action" title="Novo Centro de Custo">
+            <span class="material-symbols-rounded btn-add-icon">add</span>
+          </button>
+        </div>
+      }
+
+      <div class="dept-list">
+        @for (dept of departments(); track dept.id) {
+          <div
+            class="dept-item"
+            [class.pinned]="dept.isPinned"
+            [title]="isCollapsed() ? dept.name : ''"
+          >
+            <span class="dept-avatar" [style.background-color]="dept.color + '22'" [style.color]="dept.color">
+              {{ dept.code }}
+            </span>
+
+            @if (!isCollapsed()) {
+              <span class="dept-name">{{ dept.name }}</span>
+              <button
+                type="button"
+                class="btn-pin"
+                [class.active]="dept.isPinned"
+                [title]="dept.isPinned ? 'Desafixar departamento' : 'Fixar departamento'"
+                (click)="togglePin(dept.id, $event)"
+              >
+                <span class="material-symbols-rounded pin-icon">push_pin</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. User & System Footer -->
+  <div class="sidebar-footer">
+    <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
+      <div class="user-avatar-wrap">
+        <span class="user-avatar-badge">
+          {{ (authService.currentUser()?.name || 'A').charAt(0).toUpperCase() }}
+        </span>
+      </div>
+
+      @if (!isCollapsed()) {
+        <div class="user-meta">
+          <span class="user-name">{{ authService.currentUser()?.name || 'Gestor de Alçadas' }}</span>
+          <span class="user-role">{{ authService.currentUser()?.role || 'Aprovador Titular' }}</span>
+        </div>
+
+        <button
+          type="button"
+          class="btn-logout-sidebar"
+          title="Encerrar sessão"
+          (click)="logout()"
+        >
+          <span class="material-symbols-rounded logout-icon">logout</span>
+        </button>
+      }
+    </div>
+  </div>
+</aside>

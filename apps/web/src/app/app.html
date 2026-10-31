@@ -1,6 +1,10 @@
-<main>
-  <h1>Alçadas</h1>
-  <p>Governança de aprovações financeiras</p>
-  <p>Status da API: {{ status() }}</p>
-</main>
-<router-outlet></router-outlet>
+@if (authService.isAuthenticated() && !isPublicRoute()) {
+  <div class="app-layout">
+    <app-sidebar></app-sidebar>
+    <main class="app-main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+} @else {
+  <router-outlet></router-outlet>
+}

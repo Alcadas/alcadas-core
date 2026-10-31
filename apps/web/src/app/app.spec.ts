@@ -12,10 +12,9 @@ describe('App', () => {
     }).compileComponents();
   });
 
-  it('should render title', () => {
+  it('should create the app', () => {
     const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Alçadas');
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
   });
 });
