@@ -122,9 +122,17 @@
     </div>
   </div>
 
-  <!-- 5. User & System Footer -->
-  <div class="sidebar-footer">
-    <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
+ <!-- 5. User & System Footer -->
+<div class="sidebar-footer">
+  <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
+
+    <a
+      class="user-link"
+      routerLink="/profile"
+      routerLinkActive="user-link-active"
+      title="Ver meu perfil"
+      aria-label="Ver meu perfil"
+    >
       <div class="user-avatar-wrap">
         <span class="user-avatar-badge">
           {{ (authService.currentUser()?.name || 'A').charAt(0).toUpperCase() }}
@@ -136,16 +144,19 @@
           <span class="user-name">{{ authService.currentUser()?.name || 'Gestor de Alçadas' }}</span>
           <span class="user-role">{{ authService.currentUser()?.role || 'Aprovador Titular' }}</span>
         </div>
-
-        <button
-          type="button"
-          class="btn-logout-sidebar"
-          title="Encerrar sessão"
-          (click)="logout()"
-        >
-          <span class="material-symbols-rounded logout-icon">logout</span>
-        </button>
       }
-    </div>
+    </a>
+
+    @if (!isCollapsed()) {
+      <button
+        type="button"
+        class="btn-logout-sidebar"
+        title="Encerrar sessão"
+        (click)="logout()"
+      >
+        <span class="material-symbols-rounded logout-icon">logout</span>
+      </button>
+    }
   </div>
+</div>
 </aside>

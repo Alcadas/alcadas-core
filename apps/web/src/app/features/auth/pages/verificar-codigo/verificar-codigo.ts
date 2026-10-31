@@ -7,15 +7,16 @@ import {
   inject,
 } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-verificar-codigo',
   standalone: true,
-  imports: [NgFor, NgIf, RouterLink],
+  imports: [NgFor, NgIf],
   templateUrl: './verificar-codigo.html',
   styleUrls: ['./verificar-codigo.css'],
 })
+
 export class VerificarCodigo implements OnDestroy {
   private router = inject(Router);
 
