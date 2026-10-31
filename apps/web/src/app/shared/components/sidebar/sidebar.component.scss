@@ -1,0 +1,458 @@
+$primary: #644EF3;
+$primary-light: #BDB4FC;
+$text: #0f172a;
+$text-muted: #64748b;
+$border: #eef2f6;
+
+.sidebar {
+  width: 270px;
+  height: 100vh;
+  background: #fafbfd;
+  border-right: 1px solid $border;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  user-select: none;
+  flex-shrink: 0;
+
+  &.collapsed {
+    width: 72px;
+
+    .sidebar-header {
+      justify-content: center;
+      padding: 0 0.5rem;
+    }
+
+    .search-section {
+      padding: 0 0.75rem;
+    }
+
+    .search-input-wrap {
+      justify-content: center;
+      padding: 0.6rem 0;
+    }
+
+    .nav-item {
+      justify-content: center;
+      padding: 0.65rem 0;
+    }
+
+    .dept-item {
+      justify-content: center;
+      padding: 0.5rem 0;
+    }
+  }
+}
+
+/* 1. Header com altura fixa de 68px para alinhar com o Dashboard */
+.sidebar-header {
+  height: 68px;
+  max-height: 68px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid $border;
+  background: #fafbfd;
+
+  .workspace-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+  }
+
+  .workspace-logo-wrap {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba($primary, 0.15);
+    flex-shrink: 0;
+
+    .workspace-logo {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+  }
+
+  .workspace-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .workspace-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+
+    .workspace-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: $text;
+      letter-spacing: -0.01em;
+    }
+
+    .chevron-down {
+      font-size: 18px;
+      color: $text-muted;
+    }
+  }
+
+  .workspace-sub {
+    font-size: 0.72rem;
+    color: $text-muted;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .btn-toggle-collapse {
+    background: transparent;
+    border: none;
+    color: $text-muted;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #f1f5f9;
+      color: $text;
+    }
+
+    .collapse-icon {
+      font-size: 20px;
+    }
+  }
+}
+
+/* 2. Search */
+.search-section {
+  padding: 0.85rem 1rem 0.5rem;
+
+  .search-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.45rem 0.65rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus-within {
+      background: #ffffff;
+      border-color: $primary;
+      box-shadow: 0 0 0 3px rgba($primary, 0.12);
+    }
+
+    .search-icon {
+      font-size: 18px;
+      color: #94a3b8;
+      flex-shrink: 0;
+    }
+
+    input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 0.825rem;
+      color: $text;
+      min-width: 0;
+
+      &::placeholder { color: #94a3b8; }
+    }
+
+    .kbd-badge {
+      font-family: inherit;
+      font-size: 0.68rem;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      color: #64748b;
+    }
+  }
+}
+
+/* 3. Scrollable List */
+.sidebar-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+}
+
+.menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  .group-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .group-title-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .btn-add-action {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0 0.2rem;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+
+      .btn-add-icon { font-size: 16px; }
+
+      &:hover {
+        color: $primary;
+        background: #f1f5f9;
+      }
+    }
+  }
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+
+  .nav-icon {
+    font-size: 19px;
+    flex-shrink: 0;
+  }
+
+  .item-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #ffffff;
+    padding: 0.1rem 0.4rem;
+    border-radius: 9999px;
+    line-height: 1.2;
+  }
+
+  .item-chevron {
+    font-size: 16px;
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  &:hover:not(.active) {
+    background: #f1f5f9;
+    color: $text;
+  }
+
+  &.active {
+    background: #f0eeff;
+    border-color: $primary;
+    color: $primary;
+    font-weight: 600;
+
+    .nav-icon, .item-chevron {
+      color: $primary;
+    }
+  }
+}
+
+/* 4. Departamentos */
+.dept-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dept-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #f1f5f9;
+    .btn-pin { opacity: 1; }
+  }
+
+  .dept-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .dept-name {
+    flex: 1;
+    font-size: 0.825rem;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .btn-pin {
+    background: transparent;
+    border: none;
+    padding: 0.15rem;
+    cursor: pointer;
+    color: #94a3b8;
+    opacity: 0.35;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+
+    .pin-icon { font-size: 16px; }
+
+    &.active {
+      opacity: 1;
+      color: $primary;
+    }
+
+    &:hover {
+      color: $primary;
+      opacity: 1;
+    }
+  }
+}
+
+/* 5. Footer */
+.sidebar-footer {
+  padding: 0.85rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.7);
+  background: #fafbfd;
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.4rem;
+    border-radius: 8px;
+
+    &.user-card-collapsed {
+      justify-content: center;
+      padding: 0;
+    }
+  }
+
+  .user-avatar-wrap .user-avatar-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, $primary, $primary-light);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .user-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    .user-name {
+      font-size: 0.825rem;
+      font-weight: 600;
+      color: $text;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-role {
+      font-size: 0.7rem;
+      color: $text-muted;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .btn-logout-sidebar {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    .logout-icon { font-size: 18px; }
+
+    &:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+  }
+}
