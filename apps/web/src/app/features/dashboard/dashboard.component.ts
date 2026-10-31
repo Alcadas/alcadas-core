@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
-import { SidebarComponent } from '../../shared/components/sidebar/sidebar.component';
 
 export interface QuickActionCard {
   id: string;
@@ -41,7 +40,7 @@ export interface ApprovalRequest {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, SidebarComponent],
+  imports: [CommonModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -49,12 +48,10 @@ export class DashboardComponent {
   protected readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  // Filtros Reativos
   readonly selectedPeriod = signal<'dia' | 'semana' | 'mes'>('mes');
   readonly selectedTab = signal<'pendentes' | 'todas' | 'aprovadas'>('pendentes');
   readonly searchQuery = signal('');
 
-  // 1. Ações Rápidas de Governança
   readonly quickCards = signal<QuickActionCard[]>([
     {
       id: 'aprovacoes',
@@ -90,7 +87,6 @@ export class DashboardComponent {
     },
   ]);
 
-  // 2. Segmentos de Consumo de Orçamento por Serviço / Alçada
   readonly budgetSegments = signal<BudgetSegment[]>([
     {
       name: 'Infraestrutura Cloud & SaaS',
@@ -126,11 +122,9 @@ export class DashboardComponent {
     },
   ]);
 
-  // Totais do Período
   readonly totalBudget = signal(600000);
   readonly usedBudget = signal(487300);
 
-  // 3. Solicitações de Alçada
   readonly requests = signal<ApprovalRequest[]>([
     {
       id: '1',
@@ -209,7 +203,6 @@ export class DashboardComponent {
     },
   ]);
 
-  // Lista filtrada
   readonly filteredRequests = computed(() => {
     const tab = this.selectedTab();
     const query = this.searchQuery().toLowerCase().trim();

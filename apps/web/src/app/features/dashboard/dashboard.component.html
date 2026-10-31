@@ -1,278 +1,270 @@
-<div class="app-layout">
-  <!-- Menu Lateral Integrado -->
-  <app-sidebar></app-sidebar>
+<!-- 1. Header do Centro de Operações (Alinhado exatamente à mesma linha de 68px do Sidebar Header) -->
+<header class="ops-header">
+  <div class="header-titles">
+    <h1 class="header-main-title">Centro de Operações de Alçadas</h1>
+    <p class="header-sub-title">
+      Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real.
+    </p>
+  </div>
 
-  <!-- Área Principal do Dashboard -->
-  <div class="main-wrapper">
-    <!-- 1. Header do Centro de Operações (Alinhado exatamente à mesma linha de 68px do Sidebar Header) -->
-    <header class="ops-header">
-      <div class="header-titles">
-        <h1 class="header-main-title">Centro de Operações de Alçadas</h1>
-        <p class="header-sub-title">
-          Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real.
+  <div class="header-actions">
+    <button type="button" class="btn-action btn-outline">
+      <span class="material-symbols-rounded btn-icon">file_download</span>
+      <span>Exportar Dados</span>
+    </button>
+
+    <button type="button" class="btn-action btn-primary">
+      <span class="material-symbols-rounded btn-icon">add</span>
+      <span>Nova Solicitação</span>
+    </button>
+  </div>
+</header>
+
+<div class="dashboard-scrollable">
+  <!-- 2. Cards de Ações Rápidas de Governança -->
+  <section class="quick-cards-grid">
+    @for (card of quickCards(); track card.id) {
+      <div class="quick-card">
+        <div class="quick-card-top">
+          <span class="quick-card-tag" [style.color]="card.tagColor" [style.background-color]="card.tagColor + '18'">
+            {{ card.tag }}
+          </span>
+          <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+        </div>
+        <h3 class="quick-card-title">{{ card.title }}</h3>
+        <p class="quick-card-desc">{{ card.description }}</p>
+      </div>
+    }
+  </section>
+
+  <!-- 3. Consumo Orçamentário Segmentado por Categoria de Serviço -->
+  <section class="usage-card">
+    <div class="usage-header">
+      <div class="usage-title-wrap">
+        <div class="plan-badge">Ciclo Orçamentário 2024 / Q4</div>
+        <h2 class="usage-title">Consumo de Alçadas por Categoria de Serviço</h2>
+        <p class="usage-subtitle">
+          <strong>R$ {{ usedBudget() | number:'1.0-0' }}</strong> de R$ {{ totalBudget() | number:'1.0-0' }} comprometidos neste ciclo (81.2% da dotação autorizada)
         </p>
       </div>
 
-      <div class="header-actions">
-        <button type="button" class="btn-action btn-outline">
-          <span class="material-symbols-rounded btn-icon">file_download</span>
-          <span>Exportar Dados</span>
+      <div class="period-toggle">
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="selectedPeriod() === 'dia'"
+          (click)="setPeriod('dia')"
+        >
+          Dia
         </button>
-
-        <button type="button" class="btn-action btn-primary">
-          <span class="material-symbols-rounded btn-icon">add</span>
-          <span>Nova Solicitação</span>
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="selectedPeriod() === 'semana'"
+          (click)="setPeriod('semana')"
+        >
+          Semana
+        </button>
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="selectedPeriod() === 'mes'"
+          (click)="setPeriod('mes')"
+        >
+          Mês
         </button>
       </div>
-    </header>
-
-    <div class="dashboard-scrollable">
-      <!-- 2. Cards de Ações Rápidas de Governança -->
-      <section class="quick-cards-grid">
-        @for (card of quickCards(); track card.id) {
-          <div class="quick-card">
-            <div class="quick-card-top">
-              <span class="quick-card-tag" [style.color]="card.tagColor" [style.background-color]="card.tagColor + '18'">
-                {{ card.tag }}
-              </span>
-              <span class="material-symbols-rounded card-arrow">arrow_forward</span>
-            </div>
-            <h3 class="quick-card-title">{{ card.title }}</h3>
-            <p class="quick-card-desc">{{ card.description }}</p>
-          </div>
-        }
-      </section>
-
-      <!-- 3. Consumo Orçamentário Segmentado por Categoria de Serviço -->
-      <section class="usage-card">
-        <div class="usage-header">
-          <div class="usage-title-wrap">
-            <div class="plan-badge">Ciclo Orçamentário 2024 / Q4</div>
-            <h2 class="usage-title">Consumo de Alçadas por Categoria de Serviço</h2>
-            <p class="usage-subtitle">
-              <strong>R$ {{ usedBudget() | number:'1.0-0' }}</strong> de R$ {{ totalBudget() | number:'1.0-0' }} comprometidos neste ciclo (81.2% da dotação autorizada)
-            </p>
-          </div>
-
-          <div class="period-toggle">
-            <button
-              type="button"
-              class="toggle-btn"
-              [class.active]="selectedPeriod() === 'dia'"
-              (click)="setPeriod('dia')"
-            >
-              Dia
-            </button>
-            <button
-              type="button"
-              class="toggle-btn"
-              [class.active]="selectedPeriod() === 'semana'"
-              (click)="setPeriod('semana')"
-            >
-              Semana
-            </button>
-            <button
-              type="button"
-              class="toggle-btn"
-              [class.active]="selectedPeriod() === 'mes'"
-              (click)="setPeriod('mes')"
-            >
-              Mês
-            </button>
-          </div>
-        </div>
-
-        <!-- Barra Multicor Segmentada -->
-        <div class="segmented-progress-bar">
-          @for (segment of budgetSegments(); track segment.name) {
-            <div
-              class="segment-bar"
-              [style.width.%]="segment.percentage"
-              [style.background-color]="segment.color"
-              [title]="segment.name + ': ' + segment.valueFormatted + ' (' + segment.percentage + '%)'"
-            ></div>
-          }
-        </div>
-
-        <!-- Legenda dos Segmentos -->
-        <div class="segments-legend">
-          @for (segment of budgetSegments(); track segment.name) {
-            <div class="legend-item">
-              <span class="legend-dot" [style.background-color]="segment.color"></span>
-              <span class="legend-label">{{ segment.name }}</span>
-              <strong class="legend-value">{{ segment.valueFormatted }}</strong>
-              <span class="legend-pct">({{ segment.percentage }}%)</span>
-            </div>
-          }
-        </div>
-
-        <!-- Indicadores Numéricos Chave (KPIs) -->
-        <div class="usage-kpis">
-          <div class="kpi-item">
-            <span class="kpi-number">R$ 487.3k</span>
-            <span class="kpi-label">Comprometido no Período</span>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-number">42</span>
-            <span class="kpi-label">Solicitações Processadas</span>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-number highlight-alert">3</span>
-            <span class="kpi-label">Aprovações Pendentes</span>
-          </div>
-          <div class="kpi-item">
-            <span class="kpi-number highlight-success">100%</span>
-            <span class="kpi-label">Integridade SHA-256</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 4. Seção Inferior: Tabela de Alçadas e Painel de Monitoramento -->
-      <section class="bottom-split-grid">
-        <!-- Coluna Esquerda: Tabela de Solicitações -->
-        <div class="card table-card">
-          <div class="table-toolbar">
-            <div class="tabs-filter">
-              <button
-                type="button"
-                class="tab-btn"
-                [class.active]="selectedTab() === 'pendentes'"
-                (click)="setTab('pendentes')"
-              >
-                Minhas Pendências (3)
-              </button>
-              <button
-                type="button"
-                class="tab-btn"
-                [class.active]="selectedTab() === 'todas'"
-                (click)="setTab('todas')"
-              >
-                Todas as Alçadas
-              </button>
-              <button
-                type="button"
-                class="tab-btn"
-                [class.active]="selectedTab() === 'aprovadas'"
-                (click)="setTab('aprovadas')"
-              >
-                Aprovadas
-              </button>
-            </div>
-
-            <div class="table-search-wrap">
-              <span class="material-symbols-rounded search-mini-icon">search</span>
-              <input
-                type="text"
-                placeholder="Filtrar por código ou descrição..."
-                [value]="searchQuery()"
-                (input)="searchQuery.set($any($event.target).value)"
-              />
-            </div>
-          </div>
-
-          <div class="table-responsive">
-            <table class="requests-table">
-              <thead>
-                <tr>
-                  <th>Código & Descrição</th>
-                  <th>Departamento</th>
-                  <th>Alçada Requerida</th>
-                  <th>Valor Total</th>
-                  <th>Status</th>
-                  <th class="th-actions">Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (req of filteredRequests(); track req.id) {
-                  <tr>
-                    <td>
-                      <div class="req-title-cell">
-                        <span class="req-code">{{ req.code }}</span>
-                        <span class="req-desc">{{ req.description }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="dept-badge" [style.color]="req.deptColor" [style.background-color]="req.deptColor + '18'">
-                        {{ req.deptCode }} • {{ req.department }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="tier-label">{{ req.requiredTier }}</span>
-                    </td>
-                    <td>
-                      <strong class="value-cell">{{ req.valueFormatted }}</strong>
-                    </td>
-                    <td>
-                      @if (req.status === 'PENDENTE') {
-                        <span class="status-pill status-pending">● Pendente</span>
-                      } @else if (req.status === 'APROVADA') {
-                        <span class="status-pill status-approved">● Aprovada</span>
-                      }
-                    </td>
-                    <td class="td-actions">
-                      @if (req.status === 'PENDENTE') {
-                        <button
-                          type="button"
-                          class="btn-quick-approve"
-                          (click)="approveRequest(req, $event)"
-                        >
-                          <span class="material-symbols-rounded approve-mini-icon">check</span>
-                          <span>Aprovar</span>
-                        </button>
-                      } @else {
-                        <span class="approved-check">
-                          <span class="material-symbols-rounded check-icon">check_circle</span>
-                          <span>Concluído</span>
-                        </span>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Coluna Direita: Monitor de Fraudes & Trilha -->
-        <div class="card monitor-card">
-          <div class="monitor-header">
-            <h3>Conformidade & Governança</h3>
-            <span class="status-pill-green">● Sistema Operacional</span>
-          </div>
-
-          <div class="monitor-metrics-list">
-            <div class="monitor-metric-box">
-              <div class="metric-box-top">
-                <span class="box-label">Motor Anti-Fracionamento</span>
-                <span class="box-tag">Janela 30d</span>
-              </div>
-              <p class="box-value">0 Violações</p>
-              <div class="box-sub-progress">
-                <div class="mini-bar-fill" style="width: 100%"></div>
-              </div>
-              <span class="box-foot">Nenhuma compra fracionada detectada</span>
-            </div>
-
-            <div class="monitor-metric-box">
-              <div class="metric-box-top">
-                <span class="box-label">Trilha Criptográfica SHA-256</span>
-                <span class="box-tag">Imutável</span>
-              </div>
-              <p class="box-value">1.428 Elos</p>
-              <span class="box-foot">Cadeia íntegra • Verificação em 0.24s</span>
-            </div>
-
-            <div class="monitor-metric-box">
-              <div class="metric-box-top">
-                <span class="box-label">Segregação de Funções (SoD)</span>
-                <span class="box-tag">Bloqueio Ativo</span>
-              </div>
-              <p class="box-value">100% Protegido</p>
-              <span class="box-foot">Autoaprovação terminantemente bloqueada</span>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
-  </div>
+
+    <!-- Barra Multicor Segmentada -->
+    <div class="segmented-progress-bar">
+      @for (segment of budgetSegments(); track segment.name) {
+        <div
+          class="segment-bar"
+          [style.width.%]="segment.percentage"
+          [style.background-color]="segment.color"
+          [title]="segment.name + ': ' + segment.valueFormatted + ' (' + segment.percentage + '%)'"
+        ></div>
+      }
+    </div>
+
+    <!-- Legenda dos Segmentos -->
+    <div class="segments-legend">
+      @for (segment of budgetSegments(); track segment.name) {
+        <div class="legend-item">
+          <span class="legend-dot" [style.background-color]="segment.color"></span>
+          <span class="legend-label">{{ segment.name }}</span>
+          <strong class="legend-value">{{ segment.valueFormatted }}</strong>
+          <span class="legend-pct">({{ segment.percentage }}%)</span>
+        </div>
+      }
+    </div>
+
+    <!-- Indicadores Numéricos Chave (KPIs) -->
+    <div class="usage-kpis">
+      <div class="kpi-item">
+        <span class="kpi-number">R$ 487.3k</span>
+        <span class="kpi-label">Comprometido no Período</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-number">42</span>
+        <span class="kpi-label">Solicitações Processadas</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-number highlight-alert">3</span>
+        <span class="kpi-label">Aprovações Pendentes</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-number highlight-success">100%</span>
+        <span class="kpi-label">Integridade SHA-256</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Seção Inferior: Tabela de Alçadas e Painel de Monitoramento -->
+  <section class="bottom-split-grid">
+    <!-- Coluna Esquerda: Tabela de Solicitações -->
+    <div class="card table-card">
+      <div class="table-toolbar">
+        <div class="tabs-filter">
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="selectedTab() === 'pendentes'"
+            (click)="setTab('pendentes')"
+          >
+            Minhas Pendências (3)
+          </button>
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="selectedTab() === 'todas'"
+            (click)="setTab('todas')"
+          >
+            Todas as Alçadas
+          </button>
+          <button
+            type="button"
+            class="tab-btn"
+            [class.active]="selectedTab() === 'aprovadas'"
+            (click)="setTab('aprovadas')"
+          >
+            Aprovadas
+          </button>
+        </div>
+
+        <div class="table-search-wrap">
+          <span class="material-symbols-rounded search-mini-icon">search</span>
+          <input
+            type="text"
+            placeholder="Filtrar por código ou descrição..."
+            [value]="searchQuery()"
+            (input)="searchQuery.set($any($event.target).value)"
+          />
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="requests-table">
+          <thead>
+            <tr>
+              <th>Código & Descrição</th>
+              <th>Departamento</th>
+              <th>Alçada Requerida</th>
+              <th>Valor Total</th>
+              <th>Status</th>
+              <th class="th-actions">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (req of filteredRequests(); track req.id) {
+              <tr>
+                <td>
+                  <div class="req-title-cell">
+                    <span class="req-code">{{ req.code }}</span>
+                    <span class="req-desc">{{ req.description }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="dept-badge" [style.color]="req.deptColor" [style.background-color]="req.deptColor + '18'">
+                    {{ req.deptCode }} • {{ req.department }}
+                  </span>
+                </td>
+                <td>
+                  <span class="tier-label">{{ req.requiredTier }}</span>
+                </td>
+                <td>
+                  <strong class="value-cell">{{ req.valueFormatted }}</strong>
+                </td>
+                <td>
+                  @if (req.status === 'PENDENTE') {
+                    <span class="status-pill status-pending">● Pendente</span>
+                  } @else if (req.status === 'APROVADA') {
+                    <span class="status-pill status-approved">● Aprovada</span>
+                  }
+                </td>
+                <td class="td-actions">
+                  @if (req.status === 'PENDENTE') {
+                    <button
+                      type="button"
+                      class="btn-quick-approve"
+                      (click)="approveRequest(req, $event)"
+                    >
+                      <span class="material-symbols-rounded approve-mini-icon">check</span>
+                      <span>Aprovar</span>
+                    </button>
+                  } @else {
+                    <span class="approved-check">
+                      <span class="material-symbols-rounded check-icon">check_circle</span>
+                      <span>Concluído</span>
+                    </span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Coluna Direita: Monitor de Fraudes & Trilha -->
+    <div class="card monitor-card">
+      <div class="monitor-header">
+        <h3>Conformidade & Governança</h3>
+        <span class="status-pill-green">● Sistema Operacional</span>
+      </div>
+
+      <div class="monitor-metrics-list">
+        <div class="monitor-metric-box">
+          <div class="metric-box-top">
+            <span class="box-label">Motor Anti-Fracionamento</span>
+            <span class="box-tag">Janela 30d</span>
+          </div>
+          <p class="box-value">0 Violações</p>
+          <div class="box-sub-progress">
+            <div class="mini-bar-fill" style="width: 100%"></div>
+          </div>
+          <span class="box-foot">Nenhuma compra fracionada detectada</span>
+        </div>
+
+        <div class="monitor-metric-box">
+          <div class="metric-box-top">
+            <span class="box-label">Trilha Criptográfica SHA-256</span>
+            <span class="box-tag">Imutável</span>
+          </div>
+          <p class="box-value">1.428 Elos</p>
+          <span class="box-foot">Cadeia íntegra • Verificação em 0.24s</span>
+        </div>
+
+        <div class="monitor-metric-box">
+          <div class="metric-box-top">
+            <span class="box-label">Segregação de Funções (SoD)</span>
+            <span class="box-tag">Bloqueio Ativo</span>
+          </div>
+          <p class="box-value">100% Protegido</p>
+          <span class="box-foot">Autoaprovação terminantemente bloqueada</span>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>

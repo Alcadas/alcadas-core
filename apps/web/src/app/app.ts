@@ -1,21 +1,31 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { RouterModule } from '@angular/router';
+import { Component, computed, inject } from '@angular/core';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
+import { AuthService } from './core/auth/auth.service';
+import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
 
 @Component({
-  imports: [RouterModule],
   selector: 'app-root',
+  standalone: true,
+  imports: [RouterModule, SidebarComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App implements OnInit {
-  private http = inject(HttpClient);
-  protected status = signal('verificando...');
+export class App {
+  protected readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  ngOnInit() {
-    this.http.get('http://localhost:3000/api/status', {responseType:'text'}).subscribe({
-      next: (data) => this.status.set(data),
-      error: () => this.status.set('API fora do ar'),
-    });
-  }
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects)
+    ),
+    { initialValue: this.router.url }
+  );
+
+  readonly isPublicRoute = computed(() => {
+    const url = this.currentUrl();
+    return url.includes('/login');
+  });
 }

@@ -16,12 +16,54 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'aprovacoes',
+    loadComponent: () =>
+      import('./features/approvals/approvals.component').then(
+        (m) => m.ApprovalsComponent
+      ),
+  },
+  {
+    path: 'solicitacoes',
+    loadComponent: () =>
+      import('./features/requests/requests.component').then(
+        (m) => m.RequestsComponent
+      ),
+  },
+  {
+    path: 'alcadas',
+    loadComponent: () =>
+      import('./features/limits/limits.component').then(
+        (m) => m.LimitsComponent
+      ),
+  },
+  {
+    path: 'auditoria',
+    loadComponent: () =>
+      import('./features/audit/audit.component').then(
+        (m) => m.AuditComponent
+      ),
+  },
+  {
+    path: 'riscos',
+    loadComponent: () =>
+      import('./features/risks/risks.component').then(
+        (m) => m.RisksComponent
+      ),
+  },
+  {
+    path: 'delegacoes',
+    loadComponent: () =>
+      import('./features/delegations/delegations.component').then(
+        (m) => m.DelegationsComponent
+      ),
+  },
+  {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'login',
+    redirectTo: 'dashboard',
   },
   {
     path: '**',
-    redirectTo: 'login',
+    redirectTo: 'dashboard',
   },
 ];

@@ -1,10 +1,13 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 
 export interface MenuItem {
   id: string;
+  route: string;
   label: string;
   icon: string;
   badge?: string | number | null;
@@ -32,17 +35,36 @@ export class SidebarComponent {
   private readonly router = inject(Router);
 
   readonly isCollapsed = signal(false);
-  readonly activeItem = signal('dashboard');
   readonly searchQuery = signal('');
 
+  // Sincroniza a aba ativa diretamente com a URL da rota
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects)
+    ),
+    { initialValue: this.router.url }
+  );
+
+  readonly activeItem = computed(() => {
+    const url = this.currentUrl();
+    if (url.includes('/aprovacoes')) return 'aprovacoes';
+    if (url.includes('/solicitacoes')) return 'solicitacoes';
+    if (url.includes('/alcadas')) return 'alcadas';
+    if (url.includes('/auditoria')) return 'auditoria';
+    if (url.includes('/riscos')) return 'riscos';
+    if (url.includes('/delegacoes')) return 'delegacoes';
+    return 'dashboard';
+  });
+
   readonly mainMenuItems = signal<MenuItem[]>([
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
-    { id: 'aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: true },
-    { id: 'solicitacoes', label: 'Solicitações', icon: 'description', hasSubmenu: true },
-    { id: 'alcadas', label: 'Alçadas & Tetos', icon: 'shield', hasSubmenu: true },
-    { id: 'auditoria', label: 'Trilha Criptográfica', icon: 'link', badge: 'SHA', badgeColor: '#10B981', hasSubmenu: false },
-    { id: 'riscos', label: 'Motor de Riscos', icon: 'security', badge: 'Anti-Fraude', badgeColor: '#F59E0B', hasSubmenu: false },
-    { id: 'delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: true },
+    { id: 'dashboard', route: '/dashboard', label: 'Dashboard', icon: 'dashboard', hasSubmenu: false },
+    { id: 'aprovacoes', route: '/aprovacoes', label: 'Minhas Aprovações', icon: 'check_circle', badge: 3, badgeColor: '#644EF3', hasSubmenu: true },
+    { id: 'solicitacoes', route: '/solicitacoes', label: 'Solicitações', icon: 'description', hasSubmenu: true },
+    { id: 'alcadas', route: '/alcadas', label: 'Alçadas & Tetos', icon: 'shield', hasSubmenu: true },
+    { id: 'auditoria', route: '/auditoria', label: 'Trilha Criptográfica', icon: 'link', badge: 'SHA', badgeColor: '#10B981', hasSubmenu: false },
+    { id: 'riscos', route: '/riscos', label: 'Motor de Riscos', icon: 'security', badge: 'Anti-Fraude', badgeColor: '#F59E0B', hasSubmenu: false },
+    { id: 'delegacoes', route: '/delegacoes', label: 'Delegações & SoD', icon: 'group', hasSubmenu: true },
   ]);
 
   readonly departments = signal<DepartmentItem[]>([
@@ -57,11 +79,8 @@ export class SidebarComponent {
     this.isCollapsed.update((v) => !v);
   }
 
-  selectItem(id: string): void {
-    this.activeItem.set(id);
-    if (id === 'dashboard') {
-      this.router.navigate(['/dashboard']);
-    }
+  selectItem(item: MenuItem): void {
+    this.router.navigate([item.route]);
   }
 
   togglePin(id: string, event: Event): void {

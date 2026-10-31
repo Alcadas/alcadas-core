@@ -1,7 +1,7 @@
 <aside class="sidebar" [class.collapsed]="isCollapsed()">
-  <!-- 1. Workspace Header (Alinhado exatamente à altura do header do Dashboard) -->
+  <!-- 1. Workspace Header (Alinhado exatamente à altura do header de conteúdo) -->
   <div class="sidebar-header">
-    <button type="button" class="workspace-info" (click)="selectItem('dashboard')">
+    <button type="button" class="workspace-info" (click)="selectItem(mainMenuItems()[0])">
       <div class="workspace-logo-wrap">
         <img src="/alcadas.png" alt="Startop Alçadas" class="workspace-logo" />
       </div>
@@ -59,7 +59,7 @@
             type="button"
             class="nav-item"
             [class.active]="activeItem() === item.id"
-            (click)="selectItem(item.id)"
+            (click)="selectItem(item)"
             [title]="isCollapsed() ? item.label : ''"
           >
             <span class="material-symbols-rounded nav-icon">{{ item.icon }}</span>
