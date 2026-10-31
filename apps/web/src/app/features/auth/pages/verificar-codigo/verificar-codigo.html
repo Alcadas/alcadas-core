@@ -1,0 +1,52 @@
+<main class="auth">
+  <div class="blob" aria-hidden="true"></div>
+  <div class="blob-soft" aria-hidden="true"></div>
+
+  <section class="card">
+    <header class="brand">
+      <img
+        src="logoV.png"
+        alt="Alçadas"
+        style="display:block; width:150px; max-width:100%; height:auto; margin:0 auto;"
+      />
+      </header>
+
+    <h1>Digite o código</h1>
+    <p class="sub">
+      Enviamos um código de 6 dígitos
+      <ng-container *ngIf="email">para <strong>{{ email }}</strong></ng-container>
+      <ng-container *ngIf="!email">para o seu e-mail</ng-container>.
+    </p>
+
+    <form (submit)="verificar($event)" novalidate>
+      <div class="codigo" role="group" aria-label="Código de 6 dígitos" (paste)="colar($event)">
+        <input
+          *ngFor="let d of digitos; let i = index; trackBy: porIndice"
+          #caixa
+          class="digito"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="1"
+          [value]="digitos[i]"
+          [attr.aria-label]="'Dígito ' + (i + 1)"
+          [class.invalido]="!!erro"
+          (input)="digitar($event, i)"
+          (keydown)="teclar($event, i)"
+        />
+      </div>
+      <span class="erro" role="alert" *ngIf="erro">{{ erro }}</span>
+
+      <button class="botao" type="submit" [disabled]="!completo || carregando">
+        Verificar código
+      </button>
+    </form>
+
+    <p class="reenviar">
+      Não recebeu?
+      <button type="button" class="link">
+        Reenviar código
+      </button>
+    </p>
+  </section>
+</main>
