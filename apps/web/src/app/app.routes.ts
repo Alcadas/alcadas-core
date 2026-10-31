@@ -9,6 +9,20 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+  path: 'register',
+  loadComponent: () =>
+    import('./features/register/register.component').then(
+      (m) => m.RegisterComponent
+    ),
+  },
+  {
+  path: 'verificarCodigo',
+  loadComponent: () =>
+    import('./features/auth/pages/verificar-codigo/verificar-codigo').then(
+      (m) => m.VerificarCodigo
+    ),
+  },
+  {
     path: 'dashboard',
     loadComponent: () =>
       import('./features/dashboard/dashboard.component').then(

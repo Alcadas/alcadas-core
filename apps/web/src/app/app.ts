@@ -24,8 +24,15 @@ export class App {
     { initialValue: this.router.url }
   );
 
+  private readonly rotasPublicas = [
+    '/login',
+    '/register',
+    '/verificarCodigo',
+    '/nova-senha',
+  ];
+
   readonly isPublicRoute = computed(() => {
-    const url = this.currentUrl();
-    return url.includes('/login');
+    const url = this.currentUrl().split('?')[0];
+    return this.rotasPublicas.some((r) => url.startsWith(r));
   });
 }
