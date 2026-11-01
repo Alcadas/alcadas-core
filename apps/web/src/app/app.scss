@@ -13,4 +13,9 @@
   min-width: 0;
   height: 100vh;
   overflow: hidden;
+  position: relative;
+
+  router-outlet {
+    display: none !important;
+  }
 }

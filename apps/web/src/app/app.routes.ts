@@ -9,6 +9,34 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+  path: 'register',
+  loadComponent: () =>
+    import('./features/register/register.component').then(
+      (m) => m.RegisterComponent
+    ),
+  },
+  {
+    path: 'profile',
+    loadComponent: () =>
+      import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+    title: 'Perfil | Alçadas',
+    // canActivate: [authGuard], // descomente quando o guard do Firebase Auth existir
+  },
+  {
+  path: 'verificarCodigo',
+  loadComponent: () =>
+    import('./features/auth/pages/verificar-codigo/verificar-codigo').then(
+      (m) => m.VerificarCodigo
+    ),
+  },
+  {
+  path: 'novaSenha',
+  loadComponent: () =>
+    import('./features/auth/pages/nova-senha/nova-senha').then(
+      (m) => m.NovaSenha
+    ),
+  },
+  {
     path: 'dashboard',
     loadComponent: () =>
       import('./features/dashboard/dashboard.component').then(
@@ -31,10 +59,41 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'alcadas',
-    loadComponent: () =>
-      import('./features/limits/limits.component').then(
-        (m) => m.LimitsComponent
-      ),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'minhas-alcadas',
+      },
+      {
+        path: 'minhas-alcadas',
+        loadComponent: () =>
+          import('./features/limits/pages/my-limits/my-limits.component').then(
+            (m) => m.MyLimitsComponent
+          ),
+      },
+      {
+        path: 'regras',
+        loadComponent: () =>
+          import(
+            './features/limits/pages/rules-catalog/rules-catalog.component'
+          ).then((m) => m.RulesCatalogComponent),
+      },
+      {
+        path: 'editor/:id',
+        loadComponent: () =>
+          import('./features/limits/limits.component').then(
+            (m) => m.LimitsComponent
+          ),
+      },
+      {
+        path: 'novo',
+        loadComponent: () =>
+          import('./features/limits/limits.component').then(
+            (m) => m.LimitsComponent
+          ),
+      },
+    ],
   },
   {
     path: 'auditoria',

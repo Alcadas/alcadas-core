@@ -1,0 +1,273 @@
+<!-- 1. Header Padronizado de Gestão de Alçadas -->
+<app-page-header
+  breadcrumbRoot="Alçadas"
+  breadcrumbCurrent="Meus Fluxos"
+  searchPlaceholder="Buscar por título, ID (#ALC) ou departamento..."
+  [searchQuery]="limitsService.searchQuery()"
+  (searchQueryChange)="onSearchChange($event)"
+  contextIcon="account_tree"
+  contextTitle="Gestão de Alçadas & Tetos"
+  [contextSubtitle]="limitsService.filteredRules().length + ' esteiras de aprovação configuradas na organização'"
+  [tabs]="pageHeaderTabs"
+  [activeTab]="limitsService.activeTab()"
+  (tabChange)="selectTab($event)"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goToRulesCatalog()">
+      <span class="material-symbols-rounded">rule</span>
+      <span>Catálogo de Regras</span>
+    </button>
+    <button type="button" class="btn-header-primary" (click)="openCreateModal()">
+      <span class="material-symbols-rounded">add</span>
+      <span>Nova Alçada</span>
+    </button>
+  </div>
+</app-page-header>
+
+<!-- Container Principal com scroll interno -->
+<div class="page-container" (click)="closeActionsMenu()" (keydown.escape)="closeActionsMenu()" tabindex="-1">
+
+  <!-- 3. Barra de Busca e Ação "+ Nova Alçada" -->
+  <section class="toolbar-section">
+    <div class="search-wrapper">
+      <span class="material-symbols-rounded search-icon">search</span>
+      <input
+        type="text"
+        placeholder="Buscar por título, ID (#ALC) ou departamento..."
+        [value]="limitsService.searchQuery()"
+        (input)="onSearchChange($any($event.target).value)"
+        class="search-input"
+      />
+    </div>
+
+    <button type="button" class="btn-add-action" (click)="openCreateModal()">
+      <span class="material-symbols-rounded">add</span>
+      <span>Criar Regra</span>
+    </button>
+  </section>
+
+  <!-- 4. Lista de Alçadas Cadastradas (Cards com Borda Lateral e Pipeline Stepper) -->
+  <section class="rules-list-section">
+    @if (isLoading()) {
+      <!-- Skeletons das Alçadas -->
+      @for (item of [1, 2, 3]; track item) {
+        <article class="limit-card skeleton-limit-card">
+          <div class="skeleton-header-row">
+            <div class="skeleton-shimmer skeleton-card-title"></div>
+            <div class="skeleton-shimmer skeleton-badge"></div>
+          </div>
+          <div class="skeleton-meta-row">
+            <div class="skeleton-shimmer skeleton-meta-pill"></div>
+            <div class="skeleton-shimmer skeleton-meta-pill"></div>
+            <div class="skeleton-shimmer skeleton-meta-pill"></div>
+          </div>
+          <div class="skeleton-stepper-row">
+            <div class="skeleton-shimmer skeleton-stepper-bar"></div>
+          </div>
+        </article>
+      }
+    } @else {
+      @for (rule of limitsService.filteredRules(); track rule.id) {
+      <article class="limit-card" [style.border-left-color]="rule.accentColor">
+        <!-- Topo do Card: Título, Status, Atribuição e Menu Três Pontos -->
+        <div class="card-header-row">
+          <div class="header-left">
+            <h2 class="rule-title">{{ rule.title }}</h2>
+
+            <span class="status-pill status-{{ rule.status.toLowerCase() }}">
+              <span class="status-dot"></span>
+              <span>{{ rule.statusLabel }}</span>
+            </span>
+
+            <span class="assigned-pill">
+              <span class="material-symbols-rounded">person</span>
+              <span>{{ rule.assignedTo }}</span>
+            </span>
+          </div>
+
+          <div class="header-right">
+            <span class="created-meta">Criado em {{ rule.createdAt }}</span>
+
+            <!-- Menu de Ações (...) -->
+            <div class="menu-container">
+              <button
+                type="button"
+                class="btn-dots"
+                title="Opções da regra"
+                (click)="toggleActionsMenu(rule.id, $event)"
+              >
+                <span class="material-symbols-rounded">more_horiz</span>
+              </button>
+
+              @if (openMenuId() === rule.id) {
+                <div class="actions-dropdown" role="menu">
+                  <button type="button" class="dropdown-item" (click)="navigateToEditor(rule.id)">
+                    <span class="material-symbols-rounded">account_tree</span>
+                    <span>Editar no Canvas</span>
+                  </button>
+                  <button type="button" class="dropdown-item" (click)="duplicateRule(rule.id, $event)">
+                    <span class="material-symbols-rounded">content_copy</span>
+                    <span>Duplicar Regra</span>
+                  </button>
+                  <hr class="dropdown-divider" />
+                  <button type="button" class="dropdown-item danger" (click)="deleteRule(rule.id, $event)">
+                    <span class="material-symbols-rounded">delete</span>
+                    <span>Excluir Regra</span>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Linha Central: Metadados Estruturais da Regra -->
+        <div class="card-meta-row">
+          <span class="meta-item">
+            <span class="meta-label">ID:</span>
+            <span class="meta-value">#{{ rule.id }}</span>
+          </span>
+          <span class="meta-separator">•</span>
+          <span class="meta-item">
+            <span class="meta-label">Teto Máx:</span>
+            <span class="meta-value highlight">R$ {{ rule.ceilingAmount | number: '1.2-2' }}</span>
+          </span>
+          <span class="meta-separator">•</span>
+          <span class="meta-item">
+            <span class="meta-label">Quórum:</span>
+            <span class="meta-value">{{ rule.quorumLabel }}</span>
+          </span>
+          <span class="meta-separator">•</span>
+          <span class="meta-item">
+            <span class="meta-label">SLA:</span>
+            <span class="meta-value">{{ rule.slaHours }}h limite</span>
+          </span>
+          <span class="meta-separator">•</span>
+          <span class="meta-item">
+            <span class="meta-label">Centro de Custo:</span>
+            <span class="meta-value">{{ rule.locationOrCenter }}</span>
+          </span>
+        </div>
+
+        <!-- Linha Inferior: Pipeline Horizontal de Etapas (Stepper com Conexões) -->
+        <div class="card-pipeline-row">
+          <div class="pipeline-stepper" aria-label="Progresso da esteira de aprovação">
+            @for (step of rule.steps; track step.name; let isLast = $last) {
+              <div class="step-unit">
+                <div class="step-indicator" [class]="'step-' + step.status">
+                  @if (step.status === 'completed') {
+                    <span class="material-symbols-rounded step-icon">check</span>
+                  } @else if (step.status === 'active') {
+                    <span class="material-symbols-rounded step-icon">radio_button_checked</span>
+                  } @else {
+                    <span class="material-symbols-rounded step-icon">radio_button_unchecked</span>
+                  }
+                  <span class="step-text">{{ step.name }}</span>
+                </div>
+
+                @if (!isLast) {
+                  <div class="step-line" [class.filled]="step.status === 'completed'"></div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Ação Direta para Editar o Fluxo -->
+          <div class="pipeline-action">
+            <button
+              type="button"
+              class="btn-open-flow"
+              (click)="navigateToEditor(rule.id)"
+              title="Abrir editor visual de fluxo para esta alçada"
+            >
+              <span class="material-symbols-rounded">account_tree</span>
+              <span>Editar Fluxo</span>
+            </button>
+          </div>
+        </div>
+      </article>
+    } @empty {
+      <!-- Empty State quando nenhuma alçada é encontrada -->
+      <div class="empty-state">
+        <span class="material-symbols-rounded empty-icon">rule_folder</span>
+        <h3 class="empty-title">Nenhuma regra de alçada encontrada</h3>
+        <p class="empty-desc">Tente ajustar seus termos de busca ou crie uma nova alçada para iniciar o fluxo.</p>
+        <button type="button" class="btn-empty-action" (click)="openCreateModal()">
+          <span class="material-symbols-rounded">add</span>
+          <span>Criar Nova Alçada</span>
+        </button>
+      </div>
+    }
+  }
+  </section>
+</div>
+
+<!-- Modal de Criação de Alçada -->
+@if (isCreateModalOpen()) {
+  <div class="modal-backdrop" (click)="closeCreateModal()" (keydown.escape)="closeCreateModal()" tabindex="-1">
+    <div class="modal-card" (click)="$event.stopPropagation()" (keydown.escape)="closeCreateModal()" tabindex="-1">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="material-symbols-rounded modal-icon">add_task</span>
+          <h3>Nova Regra de Alçada</h3>
+        </div>
+        <button type="button" class="btn-modal-close" (click)="closeCreateModal()">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-field">
+          <label for="ruleName">Nome da Alçada / Finalidade</label>
+          <input
+            id="ruleName"
+            type="text"
+            placeholder="Ex: Aquisição de Softwares e Serviços Cloud"
+            [ngModel]="newRuleTitle()"
+            (ngModelChange)="newRuleTitle.set($event)"
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="deptSelect">Departamento / Centro</label>
+            <select id="deptSelect" [ngModel]="newRuleDept()" (ngModelChange)="newRuleDept.set($event)">
+              <option value="Tecnologia & Infra">Tecnologia & Infra</option>
+              <option value="Controladoria & Finanças">Controladoria & Finanças</option>
+              <option value="Gente & Gestão">Gente & Gestão</option>
+              <option value="Engenharia & Produção">Engenharia & Produção</option>
+              <option value="Operações & Viagens">Operações & Viagens</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="amountLimit">Teto Máximo Inicial (R$)</label>
+            <input
+              id="amountLimit"
+              type="number"
+              step="1000"
+              [ngModel]="newRuleAmount()"
+              (ngModelChange)="newRuleAmount.set(+$event)"
+            />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="quorumSelect">Quórum de Decisão</label>
+          <select id="quorumSelect" [ngModel]="newRuleQuorum()" (ngModelChange)="newRuleQuorum.set($event)">
+            <option value="1 Aprovador (Assinatura Individual)">1 Aprovador (Assinatura Individual)</option>
+            <option value="2 Aprovadores (Quórum Duplo)">2 Aprovadores (Quórum Duplo Obrigatório)</option>
+            <option value="Conselho de Administração">Conselho de Administração</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeCreateModal()">Cancelar</button>
+        <button type="button" class="btn-submit" (click)="confirmCreate()">
+          <span class="material-symbols-rounded">arrow_forward</span>
+          <span>Criar e Configurar Fluxo</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}

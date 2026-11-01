@@ -55,29 +55,61 @@
 
       <nav class="nav-list">
         @for (item of mainMenuItems(); track item.id) {
-          <button
-            type="button"
-            class="nav-item"
-            [class.active]="activeItem() === item.id"
-            (click)="selectItem(item)"
-            [title]="isCollapsed() ? item.label : ''"
-          >
-            <span class="material-symbols-rounded nav-icon">{{ item.icon }}</span>
+          <div class="nav-item-wrapper" [class.has-open-submenu]="isSubmenuOpen(item.id)">
+            <button
+              type="button"
+              class="nav-item"
+              [class.active]="activeItem() === item.id"
+              (click)="selectItem(item)"
+              [title]="isCollapsed() ? item.label : ''"
+            >
+              <span class="material-symbols-rounded nav-icon">{{ item.icon }}</span>
 
-            @if (!isCollapsed()) {
-              <span class="item-label">{{ item.label }}</span>
+              @if (!isCollapsed()) {
+                <span class="item-label">{{ item.label }}</span>
 
-              @if (item.badge) {
-                <span class="item-badge" [style.background-color]="item.badgeColor || '#644EF3'">
-                  {{ item.badge }}
-                </span>
+                @if (item.badge) {
+                  <span class="item-badge" [style.background-color]="item.badgeColor || '#644EF3'">
+                    {{ item.badge }}
+                  </span>
+                }
+
+                @if (item.hasSubmenu) {
+                  <span
+                    class="material-symbols-rounded item-chevron"
+                    [class.rotated]="isSubmenuOpen(item.id)"
+                  >
+                    expand_more
+                  </span>
+                }
               }
+            </button>
 
-              @if (item.hasSubmenu) {
-                <span class="material-symbols-rounded item-chevron">chevron_right</span>
-              }
+            <!-- Submenu (ex: Meus Fluxos e Minhas Regras) -->
+            @if (!isCollapsed() && item.hasSubmenu && item.subItems && isSubmenuOpen(item.id)) {
+              <div class="sub-nav-list">
+                @for (sub of item.subItems; track sub.id) {
+                  <button
+                    type="button"
+                    class="sub-nav-item"
+                    [class.active]="activeSubItem() === sub.id"
+                    (click)="selectSubItem(sub, $event)"
+                  >
+                    <span class="sub-nav-indicator"></span>
+                    @if (sub.icon) {
+                      <span class="material-symbols-rounded sub-icon">{{ sub.icon }}</span>
+                    }
+                    <span class="sub-label">{{ sub.label }}</span>
+                    @if (sub.badge) {
+                      <span class="sub-badge" [style.background-color]="sub.badgeColor || '#644EF3'">
+                        {{ sub.badge }}
+                      </span>
+                    }
+                  </button>
+                }
+              </div>
             }
-          </button>
+          </div>
         }
       </nav>
     </div>
@@ -122,9 +154,17 @@
     </div>
   </div>
 
-  <!-- 5. User & System Footer -->
-  <div class="sidebar-footer">
-    <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
+ <!-- 5. User & System Footer -->
+<div class="sidebar-footer">
+  <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
+
+    <a
+      class="user-link"
+      routerLink="/profile"
+      routerLinkActive="user-link-active"
+      title="Ver meu perfil"
+      aria-label="Ver meu perfil"
+    >
       <div class="user-avatar-wrap">
         <span class="user-avatar-badge">
           {{ (authService.currentUser()?.name || 'A').charAt(0).toUpperCase() }}
@@ -136,16 +176,19 @@
           <span class="user-name">{{ authService.currentUser()?.name || 'Gestor de Alçadas' }}</span>
           <span class="user-role">{{ authService.currentUser()?.role || 'Aprovador Titular' }}</span>
         </div>
-
-        <button
-          type="button"
-          class="btn-logout-sidebar"
-          title="Encerrar sessão"
-          (click)="logout()"
-        >
-          <span class="material-symbols-rounded logout-icon">logout</span>
-        </button>
       }
-    </div>
+    </a>
+
+    @if (!isCollapsed()) {
+      <button
+        type="button"
+        class="btn-logout-sidebar"
+        title="Encerrar sessão"
+        (click)="logout()"
+      >
+        <span class="material-symbols-rounded logout-icon">logout</span>
+      </button>
+    }
   </div>
+</div>
 </aside>
