@@ -34,7 +34,7 @@ Descreva de forma clara e concisa o que foi implementado, alterado ou corrigido.
 - [ ] Logs não registram dados pessoais (nome, e-mail, CPF, telefone) — `RNF09`.
 - [ ] Telas novas ou alteradas tratam os estados **carregando, vazio, erro (com "Tentar novamente") e sucesso** — `RNF08`.
 - [ ] Rota nova ou alterada está igual no [contrato OpenAPI](https://github.com/Alcadas/alcadas-docs/blob/main/docs/api/openapi.yaml).
-- [ ] Nenhum recurso novo no GCP/Firebase sem ADR ou aprovação do Tech Lead.
+- [ ] Nenhum serviço novo (Firebase, Render…) sem ADR ou aprovação do Tech Lead, e nada que exija cartão ou plano Blaze (Plano Custo Zero — ADR-011).
 
 **Revisor** (pessoa diferente do autor)
 - [ ] Conferi que os testes cobrem a regra alterada e que o CI está verde.
