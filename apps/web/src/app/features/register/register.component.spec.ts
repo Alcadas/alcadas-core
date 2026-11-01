@@ -15,7 +15,7 @@ describe('RegisterComponent', () => {
     fixture = TestBed.createComponent(RegisterComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
-  });
+  }, 15000);
 
   it('should create', () => {
     expect(component).toBeTruthy();

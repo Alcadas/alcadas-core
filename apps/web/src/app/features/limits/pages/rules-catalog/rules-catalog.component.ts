@@ -219,7 +219,7 @@ export class RulesCatalogComponent {
     },
   ]);
 
-  // Estado do Editor: Na Mão (Manual)
+  // Estado do Editor: Manual
   readonly manualType = signal<RuleCategoryType>('OPERATIONAL');
   readonly manualRole = signal<string>('GERENTE');
   readonly manualAmount = signal<number>(25000);
