@@ -11,7 +11,7 @@
       />
       </header>
 
-    <ng-container *ngIf="!concluido; else pronto">
+    @if (!concluido) {
       <h1>Criar nova senha</h1>
       <p class="sub">Escolha uma senha forte para entrar na Alçadas.</p>
 
@@ -40,21 +40,21 @@
             autocomplete="new-password"
             [class.invalido]="diferentes"
           />
-          <span class="erro" role="alert" *ngIf="diferentes">As senhas não coincidem.</span>
+          @if (diferentes) {
+            <span class="erro" role="alert">As senhas não coincidem.</span>
+          }
         </div>
 
         <button class="botao" type="submit" [disabled]="form.invalid || carregando">
           Salvar nova senha
         </button>
       </form>
-    </ng-container>
-
-    <ng-template #pronto>
+    } @else {
       <div class="concluido" role="status">
         <h1>Senha alterada!</h1>
         <p class="sub">Agora você já pode entrar com a nova senha.</p>
         <a class="botao" routerLink="/login">Ir para o login</a>
       </div>
-    </ng-template>
+    }
   </section>
 </main>

@@ -6,13 +6,12 @@ import {
   ViewChildren,
   inject,
 } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-verificar-codigo',
   standalone: true,
-  imports: [NgFor, NgIf],
+  imports: [],
   templateUrl: './verificar-codigo.html',
   styleUrls: ['./verificar-codigo.css'],
 })

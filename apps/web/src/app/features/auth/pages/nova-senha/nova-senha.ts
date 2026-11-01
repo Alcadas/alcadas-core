@@ -1,5 +1,4 @@
 import { Component, inject } from '@angular/core';
-import { NgIf } from '@angular/common';
 import {
   AbstractControl,
   FormBuilder,
@@ -16,7 +15,7 @@ function senhasIguais(g: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-nova-senha',
   standalone: true,
-  imports: [NgIf, ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './nova-senha.html',
   styleUrls: ['./nova-senha.css'],
 })
