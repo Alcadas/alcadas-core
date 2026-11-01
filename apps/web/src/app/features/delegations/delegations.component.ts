@@ -214,8 +214,8 @@ const ITENS_POR_PAGINA = 5;
 
     <!-- ================= MODAL: PROFISSÃO (criar / renomear) ================= -->
     @if (modalProfissaoAberto) {
-      <div class="modal-fundo" (click)="fecharModais()">
-        <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
+        <div class="modal" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
           <h2>{{ editandoProfissaoId === null ? 'Nova Profissão' : 'Editar Profissão' }}</h2>
 
           <label class="campo">
@@ -253,8 +253,8 @@ const ITENS_POR_PAGINA = 5;
 
     <!-- ================= MODAL: PERFIL (criar / editar) ================= -->
     @if (modalPerfilAberto) {
-      <div class="modal-fundo" (click)="fecharModais()">
-        <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
+        <div class="modal" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
           <h2>{{ editandoPerfilId === null ? 'Novo Perfil' : 'Editar Perfil' }}</h2>
 
           <label class="campo">
@@ -293,8 +293,8 @@ const ITENS_POR_PAGINA = 5;
 
     <!-- ================= MODAL: VER PERMISSÕES DA PESSOA ================= -->
     @if (perfilVisualizado !== null) {
-      <div class="modal-fundo" (click)="fecharModais()">
-        <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
+        <div class="modal" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
           <h2>{{ perfilVisualizado.nome }}</h2>
           <p class="sub">{{ perfilVisualizado.email }}</p>
 
@@ -326,8 +326,8 @@ const ITENS_POR_PAGINA = 5;
 
     <!-- ================= MODAL: EXCLUIR PERFIL ================= -->
     @if (perfilParaExcluir !== null) {
-      <div class="modal-fundo" (click)="fecharModais()">
-        <div class="modal modal-confirma" (click)="$event.stopPropagation()">
+      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
+        <div class="modal modal-confirma" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
           <span class="material-symbols-rounded icone-lixeira">delete</span>
           <h2>Tem certeza que deseja deletar este perfil?</h2>
           <p class="sub">{{ perfilParaExcluir.nome }}. Essa ação não pode ser desfeita.</p>
@@ -341,8 +341,8 @@ const ITENS_POR_PAGINA = 5;
 
     <!-- ================= MODAL: EXCLUIR PROFISSÃO ================= -->
     @if (profissaoParaExcluir !== null) {
-      <div class="modal-fundo" (click)="fecharModais()">
-        <div class="modal modal-confirma" (click)="$event.stopPropagation()">
+      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
+        <div class="modal modal-confirma" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
           <span class="material-symbols-rounded icone-lixeira">delete</span>
           @if (pessoasComProfissao(profissaoParaExcluir.id) > 0) {
             <h2>Não é possível deletar esta profissão</h2>
