@@ -9,6 +9,34 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+  path: 'register',
+  loadComponent: () =>
+    import('./features/register/register.component').then(
+      (m) => m.RegisterComponent
+    ),
+  },
+  {
+    path: 'profile',
+    loadComponent: () =>
+      import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+    title: 'Perfil | Alçadas',
+    // canActivate: [authGuard], // descomente quando o guard do Firebase Auth existir
+  },
+  {
+  path: 'verificarCodigo',
+  loadComponent: () =>
+    import('./features/auth/pages/verificar-codigo/verificar-codigo').then(
+      (m) => m.VerificarCodigo
+    ),
+  },
+  {
+  path: 'novaSenha',
+  loadComponent: () =>
+    import('./features/auth/pages/nova-senha/nova-senha').then(
+      (m) => m.NovaSenha
+    ),
+  },
+  {
     path: 'dashboard',
     loadComponent: () =>
       import('./features/dashboard/dashboard.component').then(
