@@ -1,114 +1,38 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  AuthenticatedUser,
-  DecisaoAjusteDto,
-  DecisaoAprovacaoDto,
-  DecisaoRejeicaoDto,
-  EloAuditoriaDto,
-  SolicitacaoResponseDto,
-  UserRole,
-} from '@alcadas-core/models';
-import { VerificacaoTrilhaResultado } from '../auditoria/auditoria.service';
-import { CurrentUser, Roles } from '../auth/auth.decorators';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
+import { Controller, Post, Get, Body, Req, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { SolicitacoesService } from './solicitacoes.service';
+import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
+import { ListagemValidator } from './listagem.validator';
 
-/** Papéis com competência de decisão (ADR-007). A alçada e o SoD são conferidos no caso de uso. */
-export const PAPEIS_APROVADORES: UserRole[] = [
-  'USER_NORMAL',
-  'SUPER_USER',
-  'APROVADOR_N1',
-  'APROVADOR_N2',
-  'DIRETOR_CFO',
-];
-
-/** Papéis que podem consultar/verificar a trilha (o solicitante só a do próprio pedido). */
-export const PAPEIS_LEITURA_TRILHA: UserRole[] = [
-  ...PAPEIS_APROVADORES,
-  'SOLICITANTE',
-  'AUDITOR',
-  'ADMIN',
-];
+interface RequestComUsuario {
+  user: { tenantId: string; uid: string };
+}
 
 @Controller('solicitacoes')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(FirebaseAuthGuard)
 export class SolicitacoesController {
-  constructor(private readonly solicitacoesService: SolicitacoesService) {}
+  constructor(
+    private readonly solicitacoesService: SolicitacoesService,
+    private readonly listagemValidator: ListagemValidator
+  ) {}
 
-  /**
-   * T02: POST /api/solicitacoes/:id/aprovar
-   */
-  @Post(':id/aprovar')
-  @Roles(...PAPEIS_APROVADORES)
-  @HttpCode(HttpStatus.OK)
-  async aprovar(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DecisaoAprovacaoDto,
-  ): Promise<SolicitacaoResponseDto> {
-    return this.solicitacoesService.aprovarSolicitacao(user, id, dto);
+  @Post()
+  async criar(@Body() dto: CriarSolicitacaoDto, @Req() req: RequestComUsuario) {
+    const tenantId = req.user.tenantId;
+    const solicitanteId = req.user.uid;
+
+    if (!tenantId || !solicitanteId) {
+      throw new BadRequestException('Credenciais institucionais incompletas no token.');
+    }
+
+    return this.solicitacoesService.criarSolicitacao(dto, tenantId, solicitanteId);
   }
 
-  /**
-   * T03: POST /api/solicitacoes/:id/rejeitar
-   */
-  @Post(':id/rejeitar')
-  @Roles(...PAPEIS_APROVADORES)
-  @HttpCode(HttpStatus.OK)
-  async rejeitar(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DecisaoRejeicaoDto,
-  ): Promise<SolicitacaoResponseDto> {
-    return this.solicitacoesService.rejeitarSolicitacao(user, id, dto);
-  }
+  @Get()
+  async listar(@Query() query: Record<string, string>, @Req() req: RequestComUsuario) {
+    const tenantId = req.user.tenantId;
+    const parametros = this.listagemValidator.validar(query);
 
-  /**
-   * T04: POST /api/solicitacoes/:id/ajuste
-   */
-  @Post(':id/ajuste')
-  @Roles(...PAPEIS_APROVADORES)
-  @HttpCode(HttpStatus.OK)
-  async solicitarAjuste(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DecisaoAjusteDto,
-  ): Promise<SolicitacaoResponseDto> {
-    return this.solicitacoesService.solicitarAjuste(user, id, dto);
-  }
-
-  /**
-   * GET /api/solicitacoes/:id/trilha — linha do tempo com os elos SHA-256 (US-07).
-   */
-  @Get(':id/trilha')
-  @Roles(...PAPEIS_LEITURA_TRILHA)
-  async obterTrilha(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-  ): Promise<EloAuditoriaDto[]> {
-    return this.solicitacoesService.obterTrilha(user, id);
-  }
-
-  /**
-   * POST /api/solicitacoes/:id/trilha/verificar — recalcula a cadeia e aponta o elo adulterado (US-08).
-   */
-  @Post(':id/trilha/verificar')
-  @Roles(...PAPEIS_LEITURA_TRILHA)
-  @HttpCode(HttpStatus.OK)
-  async verificarTrilha(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-  ): Promise<VerificacaoTrilhaResultado> {
-    return this.solicitacoesService.verificarTrilha(user, id);
+    return this.solicitacoesService.listarPorTenant(tenantId, parametros);
   }
 }

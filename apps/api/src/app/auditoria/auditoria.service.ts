@@ -27,6 +27,37 @@ export interface VerificacaoTrilhaResultado {
 export const GENESIS_HASH =
   '0000000000000000000000000000000000000000000000000000000000000000';
 
+/**
+ * Fórmula canônica do elo (ADR-006), usada na criação (T01) e em todas as transições:
+ * H_n = SHA-256(H_{n-1} | timestampUtc | authorId | tipoEvento | payloadCanônico)
+ */
+export function calcularHashElo(input: {
+  hashAnterior: string;
+  timestampUtc: string;
+  authorId: string;
+  tipoEvento: TipoEventoTrilha;
+  payload: Record<string, unknown>;
+}): string {
+  const rawData = `${input.hashAnterior}|${input.timestampUtc}|${input.authorId}|${input.tipoEvento}|${canonicalStringify(input.payload)}`;
+  return createHash('sha256').update(rawData, 'utf8').digest('hex');
+}
+
+/** JSON com chaves ordenadas, para o hash não depender da ordem dos campos. */
+export function canonicalStringify(value: unknown): string {
+  if (value === null || value === undefined || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalStringify(item)).join(',')}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const entries = Object.keys(record)
+    .sort()
+    .filter((k) => record[k] !== undefined)
+    .map((k) => `${JSON.stringify(k)}:${canonicalStringify(record[k])}`);
+  return `{${entries.join(',')}}`;
+}
+
 @Injectable()
 export class AuditoriaService {
   constructor(private readonly firestore: FirestoreService) {}
@@ -185,23 +216,6 @@ export class AuditoriaService {
     tipoEvento: TipoEventoTrilha;
     payload: Record<string, unknown>;
   }): string {
-    const canonicalPayload = this.canonicalStringify(input.payload);
-    const rawData = `${input.hashAnterior}|${input.timestampUtc}|${input.authorId}|${input.tipoEvento}|${canonicalPayload}`;
-    return createHash('sha256').update(rawData, 'utf8').digest('hex');
-  }
-
-  private canonicalStringify(value: unknown): string {
-    if (value === null || value === undefined || typeof value !== 'object') {
-      return JSON.stringify(value);
-    }
-    if (Array.isArray(value)) {
-      return `[${value.map((item) => this.canonicalStringify(item)).join(',')}]`;
-    }
-    const record = value as Record<string, unknown>;
-    const sortedKeys = Object.keys(record).sort();
-    const entries = sortedKeys
-      .filter((k) => record[k] !== undefined)
-      .map((k) => `${JSON.stringify(k)}:${this.canonicalStringify(record[k])}`);
-    return `{${entries.join(',')}}`;
+    return calcularHashElo(input);
   }
 }

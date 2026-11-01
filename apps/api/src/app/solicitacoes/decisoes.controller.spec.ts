@@ -3,26 +3,26 @@ import { Reflector } from '@nestjs/core';
 import { AuthenticatedUser, UserRole } from '@alcadas-core/models';
 import { ROLES_KEY } from '../auth/auth.decorators';
 import { RolesGuard } from '../auth/roles.guard';
-import { PAPEIS_APROVADORES, SolicitacoesController } from './solicitacoes.controller';
+import { DecisoesController, PAPEIS_APROVADORES } from './decisoes.controller';
 
-type Handler = keyof SolicitacoesController;
+type Handler = keyof DecisoesController;
 
 function contextoPara(handler: Handler, role: UserRole): ExecutionContext {
   const user: AuthenticatedUser = { userId: 'u1', tenantId: 'startop', role };
   return {
-    getHandler: () => SolicitacoesController.prototype[handler],
-    getClass: () => SolicitacoesController,
+    getHandler: () => DecisoesController.prototype[handler],
+    getClass: () => DecisoesController,
     switchToHttp: () => ({ getRequest: () => ({ user }) }),
   } as unknown as ExecutionContext;
 }
 
-describe('SolicitacoesController — RBAC (ADR-007)', () => {
+describe('DecisoesController — RBAC (ADR-007)', () => {
   const guard = new RolesGuard(new Reflector());
 
   it.each<Handler>(['aprovar', 'rejeitar', 'solicitarAjuste', 'obterTrilha', 'verificarTrilha'])(
     'a rota %s declara @Roles',
     (handler) => {
-      const roles = Reflect.getMetadata(ROLES_KEY, SolicitacoesController.prototype[handler]);
+      const roles = Reflect.getMetadata(ROLES_KEY, DecisoesController.prototype[handler]);
       expect(Array.isArray(roles) && roles.length > 0).toBe(true);
     },
   );

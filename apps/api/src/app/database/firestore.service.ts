@@ -74,7 +74,7 @@ export class FirestoreService {
     data: T,
   ): Promise<T> {
     this.assertValidTenant(tenantId);
-    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
+    const cleanSubPath = subcollection.replace(/^\/+|\/+$/g, '');
     const relativePath = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
     const record = { ...(data as Record<string, unknown>), tenantId };
 

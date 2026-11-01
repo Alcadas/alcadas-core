@@ -153,6 +153,32 @@ export interface EvaluateTierCompetenceResponseDto {
   requiredRole: UserRole;
   escalated: boolean;
   message: string;
+}
+
+/**
+ * Representação da Solicitação Financeira conforme OpenAPI e Modelo de Dados.
+ */
+export interface SolicitacaoResponseDto {
+  id: string;
+  tenantId: string;
+  centroCustoId: string;
+  solicitanteId: string;
+  valor: number;
+  categoria: string;
+  justificativa: string;
+  fornecedor?: string;
+  status: StatusSolicitacao;
+  versao: number;
+  alertaRisco?: string | null;
+  aprovadorId?: string;
+  decididoPorId?: string;
+  motivoDecisao?: string;
+  observacaoDecisao?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * DTO para decisão de Aprovação (T02 - POST /api/solicitacoes/{id}/aprovar).
  */
 export interface DecisaoAprovacaoDto {
