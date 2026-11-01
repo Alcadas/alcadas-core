@@ -1,20 +1,21 @@
 import { Module } from '@nestjs/common';
-import { AuditoriaService } from '../auditoria/auditoria.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { FirestoreService } from '../database/firestore.service';
 import { SolicitacoesController } from './solicitacoes.controller';
 import { SolicitacoesService } from './solicitacoes.service';
+import { SolicitacaoValidator } from './solicitacao.validator';
+import { FirestoreSolicitacoesRepository } from './firestore-solicitacoes.repository';
+import { SOLICITACOES_REPOSITORY } from './solicitacoes.repository';
+import { ListagemValidator} from './listagem.validator';
 
 @Module({
   controllers: [SolicitacoesController],
   providers: [
-    FirestoreService,
-    AuditoriaService,
-    JwtAuthGuard,
-    RolesGuard,
+    ListagemValidator,
+    SolicitacaoValidator,
     SolicitacoesService,
+    {
+      provide: SOLICITACOES_REPOSITORY,
+      useClass: FirestoreSolicitacoesRepository
+    }
   ],
-  exports: [SolicitacoesService, AuditoriaService, FirestoreService],
 })
 export class SolicitacoesModule {}

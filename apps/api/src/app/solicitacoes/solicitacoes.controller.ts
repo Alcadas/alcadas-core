@@ -1,65 +1,38 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  AuthenticatedUser,
-  DecisaoAjusteDto,
-  DecisaoAprovacaoDto,
-  DecisaoRejeicaoDto,
-  SolicitacaoResponseDto,
-} from '@alcadas-core/models';
-import { CurrentUser } from '../auth/auth.decorators';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
+import { Controller, Post, Get, Body, Req, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { SolicitacoesService } from './solicitacoes.service';
+import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
+import { ListagemValidator } from './listagem.validator';
+
+interface RequestComUsuario {
+  user: { tenantId: string; uid: string };
+}
 
 @Controller('solicitacoes')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(FirebaseAuthGuard)
 export class SolicitacoesController {
-  constructor(private readonly solicitacoesService: SolicitacoesService) {}
+  constructor(
+    private readonly solicitacoesService: SolicitacoesService,
+    private readonly listagemValidator: ListagemValidator
+  ) {}
 
-  /**
-   * T02: POST /api/solicitacoes/:id/aprovar
-   */
-  @Post(':id/aprovar')
-  @HttpCode(HttpStatus.OK)
-  async aprovar(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DecisaoAprovacaoDto,
-  ): Promise<SolicitacaoResponseDto> {
-    return this.solicitacoesService.aprovarSolicitacao(user, id, dto);
+  @Post()
+  async criar(@Body() dto: CriarSolicitacaoDto, @Req() req: RequestComUsuario) {
+    const tenantId = req.user.tenantId;
+    const solicitanteId = req.user.uid;
+
+    if (!tenantId || !solicitanteId) {
+      throw new BadRequestException('Credenciais institucionais incompletas no token.');
+    }
+
+    return this.solicitacoesService.criarSolicitacao(dto, tenantId, solicitanteId);
   }
 
-  /**
-   * T03: POST /api/solicitacoes/:id/rejeitar
-   */
-  @Post(':id/rejeitar')
-  @HttpCode(HttpStatus.OK)
-  async rejeitar(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DecisaoRejeicaoDto,
-  ): Promise<SolicitacaoResponseDto> {
-    return this.solicitacoesService.rejeitarSolicitacao(user, id, dto);
-  }
+  @Get()
+  async listar(@Query() query: Record<string, string>, @Req() req: RequestComUsuario) {
+    const tenantId = req.user.tenantId;
+    const parametros = this.listagemValidator.validar(query);
 
-  /**
-   * T04: POST /api/solicitacoes/:id/ajuste
-   */
-  @Post(':id/ajuste')
-  @HttpCode(HttpStatus.OK)
-  async solicitarAjuste(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DecisaoAjusteDto,
-  ): Promise<SolicitacaoResponseDto> {
-    return this.solicitacoesService.solicitarAjuste(user, id, dto);
+    return this.solicitacoesService.listarPorTenant(tenantId, parametros);
   }
 }

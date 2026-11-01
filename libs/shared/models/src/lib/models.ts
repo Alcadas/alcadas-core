@@ -144,6 +144,9 @@ export interface EvaluateTierCompetenceDto {
 /**
  * Resposta da avaliação de alçada para um pedido (CA-01.2).
  */
+/**
+ * Resposta da avaliação de alçada para um pedido (CA-01.2).
+ */
 export interface EvaluateTierCompetenceResponseDto {
   allowed: boolean;
   amount: number;
@@ -153,6 +156,9 @@ export interface EvaluateTierCompetenceResponseDto {
   requiredRole: UserRole;
   escalated: boolean;
   message: string;
+} // <- Aqui está a chave de fechamento que faltava
+
+/**
  * DTO para decisão de Aprovação (T02 - POST /api/solicitacoes/{id}/aprovar).
  */
 export interface DecisaoAprovacaoDto {
