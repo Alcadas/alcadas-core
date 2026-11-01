@@ -144,9 +144,6 @@ export interface EvaluateTierCompetenceDto {
 /**
  * Resposta da avaliação de alçada para um pedido (CA-01.2).
  */
-/**
- * Resposta da avaliação de alçada para um pedido (CA-01.2).
- */
 export interface EvaluateTierCompetenceResponseDto {
   allowed: boolean;
   amount: number;
@@ -156,7 +153,30 @@ export interface EvaluateTierCompetenceResponseDto {
   requiredRole: UserRole;
   escalated: boolean;
   message: string;
-} // <- Aqui está a chave de fechamento que faltava
+}
+
+/**
+ * Representação da Solicitação Financeira conforme OpenAPI e Modelo de Dados.
+ */
+export interface SolicitacaoResponseDto {
+  id: string;
+  tenantId: string;
+  centroCustoId: string;
+  solicitanteId: string;
+  valor: number;
+  categoria: string;
+  justificativa: string;
+  fornecedor?: string;
+  status: StatusSolicitacao;
+  versao: number;
+  alertaRisco?: string | null;
+  aprovadorId?: string;
+  decididoPorId?: string;
+  motivoDecisao?: string;
+  observacaoDecisao?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 /**
  * DTO para decisão de Aprovação (T02 - POST /api/solicitacoes/{id}/aprovar).

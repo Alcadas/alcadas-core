@@ -16,6 +16,22 @@ interface FirestoreDocument {
   fields?: Record<string, FirestoreValue>;
 }
 
+/** O documento mudou entre a leitura e a escrita (concorrência otimista). */
+export class ConflitoDeVersaoError extends Error {
+  constructor(readonly path: string) {
+    super(`Conflito de versão em ${path}`);
+    this.name = 'ConflitoDeVersaoError';
+  }
+}
+
+/** Tentativa de criar um documento que já existe (ex.: elo da trilha já gravado). */
+export class DocumentoJaExisteError extends Error {
+  constructor(readonly path: string) {
+    super(`Documento já existe em ${path}`);
+    this.name = 'DocumentoJaExisteError';
+  }
+}
+
 /**
  * Serviço de persistência conectado ao Emulador do Google Cloud Firestore (ADR-004 / RNF07 / RNF10).
  * Grava e lê documentos sempre dentro do caminho isolado do tenant: /tenants/{tenantId}/{subcollectionPath}/{docId}.
@@ -155,6 +171,120 @@ export class FirestoreService {
       }
     }
     return results;
+  }
+
+  /**
+   * Atualiza um documento somente se ele não mudou desde a leitura (concorrência otimista — ADR-005).
+   *
+   * A condição é dupla: o campo `versao` gravado precisa ser igual a `versaoEsperada` e, no emulador,
+   * o PATCH usa a precondição nativa `currentDocument.updateTime`. Se outra decisão gravou antes,
+   * o Firestore responde FAILED_PRECONDITION e lançamos `ConflitoDeVersaoError` (→ HTTP 409).
+   */
+  async updateTenantDocumentIfVersion<T extends { versao: number }>(
+    tenantId: string,
+    subcollectionPath: string,
+    docId: string,
+    versaoEsperada: number,
+    data: T,
+  ): Promise<T> {
+    this.assertValidTenant(tenantId);
+    const relativePath = this.buildPath(tenantId, subcollectionPath, docId);
+    const record = { ...(data as Record<string, unknown>), tenantId } as T & { tenantId: string };
+
+    let remote: { updateTime?: string; fields?: Record<string, FirestoreValue> } | null = null;
+    try {
+      const response = await this.http.get<FirestoreDocument & { updateTime?: string }>(
+        `/${relativePath}`,
+      );
+      remote = response.data;
+    } catch (error: unknown) {
+      if (!(axios.isAxiosError(error) && error.response?.status === 404)) {
+        remote = null; // emulador indisponível → segue apenas com o store em memória
+      }
+    }
+
+    if (remote?.fields) {
+      const atual = this.fromFirestoreFields(remote.fields);
+      if (Number(atual['versao'] ?? 1) !== versaoEsperada) {
+        throw new ConflitoDeVersaoError(relativePath);
+      }
+      try {
+        await this.http.patch(`/${relativePath}`, { fields: this.toFirestoreFields(record) }, {
+          params: { 'currentDocument.updateTime': remote.updateTime },
+        });
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && [400, 409, 412].includes(error.response?.status ?? 0)) {
+          throw new ConflitoDeVersaoError(relativePath);
+        }
+        throw error;
+      }
+      this.memoryStore.set(relativePath, record);
+      return record;
+    }
+
+    // Fallback em memória: verificação e escrita são síncronas, portanto atômicas no processo.
+    const local = this.memoryStore.get(relativePath);
+    if (local && Number(local['versao'] ?? 1) !== versaoEsperada) {
+      throw new ConflitoDeVersaoError(relativePath);
+    }
+    this.memoryStore.set(relativePath, record);
+    return record;
+  }
+
+  /**
+   * Cria um documento apenas se ele ainda não existir (precondição `currentDocument.exists=false`).
+   * Usado pela trilha de auditoria para que nenhum elo seja sobrescrito (imutabilidade — ADR-006).
+   */
+  async createTenantDocumentIfAbsent<T extends object>(
+    tenantId: string,
+    subcollectionPath: string,
+    docId: string,
+    data: T,
+  ): Promise<T> {
+    this.assertValidTenant(tenantId);
+    const relativePath = this.buildPath(tenantId, subcollectionPath, docId);
+    const record = { ...(data as Record<string, unknown>), tenantId } as T;
+
+    if (this.memoryStore.has(relativePath)) {
+      throw new DocumentoJaExisteError(relativePath);
+    }
+    // Reserva síncrona antes de qualquer await: duas criações simultâneas no mesmo processo
+    // não conseguem ocupar o mesmo caminho.
+    const reserva = record as Record<string, unknown>;
+    this.memoryStore.set(relativePath, reserva);
+
+    try {
+      await this.http.patch(`/${relativePath}`, { fields: this.toFirestoreFields(reserva) }, {
+        params: { 'currentDocument.exists': false },
+      });
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response && [400, 409, 412].includes(error.response.status)) {
+        if (this.memoryStore.get(relativePath) === reserva) {
+          this.memoryStore.delete(relativePath);
+        }
+        throw new DocumentoJaExisteError(relativePath);
+      }
+      this.logger.debug(`Firestore Emulator indisponível; elo mantido no store local (${relativePath}).`);
+    }
+
+    return record;
+  }
+
+  /**
+   * Verifica se o Firestore (emulador) responde. Usado por `/readyz`.
+   */
+  async ping(): Promise<boolean> {
+    try {
+      await this.http.get('/', { timeout: 1000, validateStatus: (s) => s < 500 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private buildPath(tenantId: string, subcollectionPath: string, docId: string): string {
+    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
+    return `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
   }
 
   private assertValidTenant(tenantId: string): void {

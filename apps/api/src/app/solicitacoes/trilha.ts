@@ -1,21 +1,33 @@
-import * as crypto from 'crypto';
+import { GENESIS_HASH, calcularHashElo } from '../auditoria/auditoria.service';
 
 export class TrilhaAuditoria {
-  static gerarEloGenese(payload: Record<string, unknown>, authorId: string, timestampUtc: string) {
-    const hashAnterior = '0000000000000000000000000000000000000000000000000000000000000000';
-    const canonicalPayload = JSON.stringify(payload);
-    
-    const stringParaHash = `${hashAnterior}${timestampUtc}${authorId}${canonicalPayload}`;
-    const hashAtual = crypto.createHash('sha256').update(stringParaHash).digest('hex');
+  /**
+   * Primeiro elo da trilha (T01 — CRIACAO_SOLICITACAO), no mesmo formato e com a mesma fórmula
+   * dos elos das transições (ADR-006). Assim a verificação da cadeia (US-08) cobre também a criação.
+   */
+  static gerarEloGenese(
+    payload: Record<string, unknown>,
+    authorId: string,
+    timestampUtc: string,
+  ) {
+    const tipoEvento = 'CRIACAO_SOLICITACAO' as const;
+    const payloadElo = { transicao: 'T01', de: null, para: 'PENDENTE', versao: 1, ...payload };
+    const hashAtual = calcularHashElo({
+      hashAnterior: GENESIS_HASH,
+      timestampUtc,
+      authorId,
+      tipoEvento,
+      payload: payloadElo,
+    });
 
     return {
-      sequencia: 0,
-      hashAnterior,
+      sequencia: 1,
+      hashAnterior: GENESIS_HASH,
       hashAtual,
-      action: 'CRIACAO_SOLICITACAO',
+      tipoEvento,
       authorId,
       timestampUtc,
-      canonicalPayload: payload
+      payload: payloadElo,
     };
   }
 }
