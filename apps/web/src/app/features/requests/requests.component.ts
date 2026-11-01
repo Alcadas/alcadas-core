@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
 import { RequestsService } from './services/requests.service';
@@ -24,6 +25,21 @@ export type RequestTab = 'todas' | 'pendentes' | 'aprovadas' | 'ajustes' | 'reje
 })
 export class RequestsComponent {
   protected readonly requestsService = inject(RequestsService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  goToCreatePage(): void {
+    this.router.navigate(['/solicitacoes/nova']);
+  }
+
+  constructor() {
+    const params = this.route.snapshot.queryParams;
+    if (params && params['criada'] === 'true') {
+      setTimeout(() => {
+        this.showToast('Nova solicitação submetida com sucesso à esteira de aprovação!', 'success');
+      }, 100);
+    }
+  }
 
   // Filtros e Navegação
   readonly currentTab = signal<RequestTab>('todas');
@@ -223,10 +239,9 @@ export class RequestsComponent {
     this.selectedIds.set(current);
   }
 
-  // Controle do Drawer de Criação
+  // Navegação para a página de criação de nova solicitação
   openCreateDrawer(): void {
-    this.resetCreateForm();
-    this.isCreateDrawerOpen.set(true);
+    this.goToCreatePage();
   }
 
   closeCreateDrawer(): void {
