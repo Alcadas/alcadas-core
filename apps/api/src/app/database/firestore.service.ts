@@ -42,7 +42,7 @@ export class FirestoreService {
   private readonly http: AxiosInstance;
   private readonly baseUrl: string;
 
-  // Store em memória sincronizado como fallback quando o emulador não está rodando localmente
+  // Store em memória sincronizado que atua como fallback caso o emulador não esteja rodando no host local
   private readonly memoryStore = new Map<string, Record<string, unknown>>();
 
   constructor() {
@@ -65,11 +65,11 @@ export class FirestoreService {
 
   /**
    * Salva ou atualiza um documento dentro do escopo estrito do tenant:
-   * /tenants/{tenantId}/{subcollectionPath}/{docId}
+   * /tenants/{tenantId}/{subcollection}/{docId}
    */
   async setTenantDocument<T extends object>(
     tenantId: string,
-    subcollectionPath: string,
+    subcollection: string,
     docId: string,
     data: T,
   ): Promise<T> {
@@ -314,6 +314,9 @@ export class FirestoreService {
       return { booleanValue: value };
     }
     if (typeof value === 'number') {
+      if (Number.isInteger(value)) {
+        return { doubleValue: value };
+      }
       return { doubleValue: value };
     }
     if (Array.isArray(value)) {

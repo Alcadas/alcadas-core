@@ -44,9 +44,7 @@ export class JwtAuthGuard implements CanActivate {
     token: string,
     headers: Record<string, string | string[] | undefined>,
   ): AuthenticatedUser {
-    const headerLimit = this.parseHeaderLimit(headers);
-
-    // 1. Tokens JWT padrão (Firebase Auth Emulator)
+    // 1. Suporte a tokens JWT padrão (3 partes base64url) emitidos pelo Firebase Auth Emulator
     const parts = token.split('.');
     if (parts.length === 3) {
       try {
@@ -132,6 +130,7 @@ export class JwtAuthGuard implements CanActivate {
       if (!suffix) {
         throw new UnauthorizedException('Token inválido.');
       }
+      const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'SOLICITANTE';
       const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'USER_NORMAL';
       const role = this.normalizeRole(roleHeader);
       return {
