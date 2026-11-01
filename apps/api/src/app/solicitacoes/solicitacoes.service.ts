@@ -1,9 +1,7 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ApprovalLevel,
@@ -12,23 +10,25 @@ import {
   DecisaoAjusteDto,
   DecisaoAprovacaoDto,
   DecisaoRejeicaoDto,
+  EloAuditoriaDto,
   SolicitacaoResponseDto,
-  StatusSolicitacao,
 } from '@alcadas-core/models';
-import { AuditoriaService } from '../auditoria/auditoria.service';
+import { AuditoriaService, VerificacaoTrilhaResultado } from '../auditoria/auditoria.service';
 import { FirestoreService } from '../database/firestore.service';
+import { MaquinaEstadosService } from './maquina-estados.service';
 
-const REQUESTS_COLLECTION = 'requests';
-const SOLICITACOES_COLLECTION_ALIAS = 'solicitacoes';
 const APPROVAL_TIERS_COLLECTION = 'approval_tiers';
 
-const APPROVER_ROLES = new Set([
+export const APPROVER_ROLES = new Set([
   'APROVADOR_N1',
   'APROVADOR_N2',
   'DIRETOR_CFO',
   'USER_NORMAL',
   'SUPER_USER',
 ]);
+
+/** Papéis que leem a trilha de qualquer solicitação do tenant (ADR-007). */
+const LEITORES_TRILHA = new Set([...APPROVER_ROLES, 'AUDITOR', 'ADMIN']);
 
 const DEFAULT_CEILING_BY_LEVEL: Record<ApprovalLevel, number | null> = {
   N1: 1000.0,
@@ -37,212 +37,126 @@ const DEFAULT_CEILING_BY_LEVEL: Record<ApprovalLevel, number | null> = {
 };
 
 /**
- * Serviço responsável pela Máquina de Estados e Decisões do Aprovador (Jornada 3 - RF03 / US-03 / T02 a T04).
+ * Casos de uso da Jornada 3 (decisão do aprovador) e da Jornada 5 (trilha).
+ * Toda mudança de status passa pela MaquinaEstadosService (ADR-005); este serviço
+ * só acrescenta as guardas de negócio — SoD (RN03) e teto de alçada (RN01).
  */
 @Injectable()
 export class SolicitacoesService {
-  // Lock atômico em memória por solicitação para impedir condições de corrida simultâneas (RF11 / RN11 / US-05)
-  private readonly activeLocks = new Set<string>();
-
   constructor(
     private readonly firestore: FirestoreService,
     private readonly auditoria: AuditoriaService,
+    private readonly maquinaEstados: MaquinaEstadosService,
   ) {}
 
-  /**
-   * T02: Aprovar solicitação financeira (POST /api/solicitacoes/{id}/aprovar).
-   * - Confere estado PENDENTE (409 se já APROVADA/REJEITADA - CA-03.4)
-   * - Confere versão OCC (409 se conflito - CA-05.1)
-   * - Confere Segregação de Funções / SoD (403 se autor == aprovador - RN03 / US-04)
-   * - Confere teto de alçada do aprovador (403 se valor > teto, mantendo PENDENTE - CA-03.1)
-   * - Avança para APROVADA, grava o ID do autor e gera o elo Log 2 (APROVACAO) na trilha (CA-03.3)
-   */
+  /** T02 — POST /api/solicitacoes/{id}/aprovar */
   async aprovarSolicitacao(
     user: AuthenticatedUser,
     solicitacaoId: string,
-    dto: DecisaoAprovacaoDto = {},
+    dto: DecisaoAprovacaoDto,
   ): Promise<SolicitacaoResponseDto> {
-    this.assertAuthenticatedTenant(user);
+    let alcada: { level: ApprovalLevel; maxAmount: number | null } | undefined;
+    const observacao = typeof dto?.observacao === 'string' ? dto.observacao.trim() : undefined;
 
-    return this.executeWithAtomicLock(user.tenantId, solicitacaoId, async () => {
-      const { solicitacao, collectionUsed } = await this.findSolicitacaoInTenant(
-        user.tenantId,
-        solicitacaoId,
-      );
-
-      // 1. Valida estado atual e Controle de Concorrência Otimista (CA-03.4 / CA-05.1 / N04-N06)
-      this.assertStateIsPendingAndVersionMatches(solicitacao, dto?.versao);
-
-      // 2. Valida Segregação de Funções - SoD (RN03 / US-04 / N01)
-      await this.assertSegregationOfDuties(user, solicitacao);
-
-      // 3. Confere papel e teto de alçada do aprovador (CA-03.1 / N02)
-      const { level, maxAmount } = await this.assertApproverWithinCeiling(
-        user,
-        solicitacao,
-      );
-
-      // 4. Transição PENDENTE -> APROVADA e persistência no Firestore Emulator (CA-03.3)
-      const now = new Date().toISOString();
-      const updated: SolicitacaoResponseDto = {
-        ...solicitacao,
-        status: 'APROVADA',
-        versao: (solicitacao.versao ?? 1) + 1,
+    return this.maquinaEstados.executar({
+      user,
+      solicitacaoId,
+      acao: 'APROVAR',
+      versaoInformada: dto?.versao,
+      validar: async (solicitacao) => {
+        await this.assertSegregationOfDuties(user, solicitacao);
+        alcada = await this.assertApproverWithinCeiling(user, solicitacao);
+      },
+      alteracoes: () => ({
         aprovadorId: user.userId,
         decididoPorId: user.userId,
-        ...(dto?.observacao ? { observacaoDecisao: dto.observacao.trim() } : {}),
-        updatedAt: now,
-      };
-
-      await this.persistSolicitacao(user.tenantId, collectionUsed, updated);
-
-      // 5. Grava Elo SHA-256 na Trilha de Auditoria (Log 2: APROVACAO)
-      await this.auditoria.recordEvent({
-        tenantId: user.tenantId,
-        requestId: solicitacao.id,
-        tipoEvento: 'APROVACAO',
-        authorId: user.userId,
-        authorRole: user.role,
-        timestampUtc: now,
-        payload: {
-          solicitacaoId: solicitacao.id,
-          aprovadorId: user.userId,
-          cargo: user.role,
-          nivelAlcada: level,
-          limiteAlcada: maxAmount,
-          valor: solicitacao.valor,
-          observacao: dto?.observacao?.trim() ?? null,
-        },
-      });
-
-      return updated;
+        ...(observacao ? { observacaoDecisao: observacao } : {}),
+      }),
+      payload: (solicitacao) => ({
+        solicitacaoId: solicitacao.id,
+        aprovadorId: user.userId,
+        cargo: user.role,
+        nivelAlcada: alcada?.level ?? null,
+        limiteAlcada: alcada?.maxAmount ?? null,
+        valor: solicitacao.valor,
+        observacao: observacao ?? null,
+      }),
     });
   }
 
-  /**
-   * T03: Rejeitar solicitação financeira (POST /api/solicitacoes/{id}/rejeitar).
-   * - Exige motivo de no mínimo 10 caracteres (com 9 caracteres recusa com 400 - CA-03.2 / N07)
-   * - Confere estado PENDENTE e versão OCC (409 - CA-03.4)
-   * - Confere SoD e teto de alçada do aprovador (403 - CA-03.1)
-   * - Avança para REJEITADA, grava o ID do autor e gera o elo Log 3 (REJEICAO) na trilha (CA-03.3)
-   */
+  /** T03 — POST /api/solicitacoes/{id}/rejeitar */
   async rejeitarSolicitacao(
     user: AuthenticatedUser,
     solicitacaoId: string,
     dto: DecisaoRejeicaoDto,
   ): Promise<SolicitacaoResponseDto> {
-    this.assertAuthenticatedTenant(user);
     const motivo = this.validateDecisionReason(dto?.motivo, 'rejeição');
-
-    return this.executeWithAtomicLock(user.tenantId, solicitacaoId, async () => {
-      const { solicitacao, collectionUsed } = await this.findSolicitacaoInTenant(
-        user.tenantId,
-        solicitacaoId,
-      );
-
-      // 1. Valida estado atual e OCC (CA-03.4 / CA-05.1)
-      this.assertStateIsPendingAndVersionMatches(solicitacao, dto?.versao);
-
-      // 2. Valida Segregação de Funções - SoD (RN03)
-      await this.assertSegregationOfDuties(user, solicitacao);
-
-      // 3. Confere teto de alçada do aprovador (CA-03.1)
-      await this.assertApproverWithinCeiling(user, solicitacao);
-
-      // 4. Transição PENDENTE -> REJEITADA e persistência no Firestore Emulator (CA-03.3)
-      const now = new Date().toISOString();
-      const updated: SolicitacaoResponseDto = {
-        ...solicitacao,
-        status: 'REJEITADA',
-        versao: (solicitacao.versao ?? 1) + 1,
-        aprovadorId: user.userId,
-        decididoPorId: user.userId,
-        motivoDecisao: motivo,
-        updatedAt: now,
-      };
-
-      await this.persistSolicitacao(user.tenantId, collectionUsed, updated);
-
-      // 5. Grava Elo SHA-256 na Trilha de Auditoria (Log 3: REJEICAO)
-      await this.auditoria.recordEvent({
-        tenantId: user.tenantId,
-        requestId: solicitacao.id,
-        tipoEvento: 'REJEICAO',
-        authorId: user.userId,
-        authorRole: user.role,
-        timestampUtc: now,
-        payload: {
-          solicitacaoId: solicitacao.id,
-          aprovadorId: user.userId,
-          motivo,
-        },
-      });
-
-      return updated;
-    });
+    return this.decidirComMotivo(user, solicitacaoId, 'REJEITAR', dto?.versao, motivo);
   }
 
-  /**
-   * T04: Solicitar ajuste na solicitação (POST /api/solicitacoes/{id}/ajuste).
-   * - Exige motivo de no mínimo 10 caracteres (com 9 caracteres recusa com 400 - CA-03.2 / N07)
-   * - Confere estado PENDENTE e versão OCC (409 - CA-03.4)
-   * - Confere SoD e teto de alçada do aprovador (403 - CA-03.1)
-   * - Avança para EM_AJUSTE, grava o ID do autor e gera o elo Log 4 (PEDIDO_AJUSTE) na trilha (CA-03.3)
-   */
+  /** T04 — POST /api/solicitacoes/{id}/ajuste */
   async solicitarAjuste(
     user: AuthenticatedUser,
     solicitacaoId: string,
     dto: DecisaoAjusteDto,
   ): Promise<SolicitacaoResponseDto> {
-    this.assertAuthenticatedTenant(user);
     const motivo = this.validateDecisionReason(dto?.motivo, 'solicitação de ajuste');
+    return this.decidirComMotivo(user, solicitacaoId, 'SOLICITAR_AJUSTE', dto?.versao, motivo);
+  }
 
-    return this.executeWithAtomicLock(user.tenantId, solicitacaoId, async () => {
-      const { solicitacao, collectionUsed } = await this.findSolicitacaoInTenant(
-        user.tenantId,
-        solicitacaoId,
-      );
+  /** GET /api/solicitacoes/{id}/trilha — elos ordenados por sequência (US-07). */
+  async obterTrilha(user: AuthenticatedUser, solicitacaoId: string): Promise<EloAuditoriaDto[]> {
+    await this.assertPodeLerTrilha(user, solicitacaoId);
+    return this.auditoria.getAuditTrail(user.tenantId, solicitacaoId);
+  }
 
-      // 1. Valida estado atual e OCC (CA-03.4 / CA-05.1)
-      this.assertStateIsPendingAndVersionMatches(solicitacao, dto?.versao);
+  /** POST /api/solicitacoes/{id}/trilha/verificar — recálculo da cadeia (US-08). */
+  async verificarTrilha(
+    user: AuthenticatedUser,
+    solicitacaoId: string,
+  ): Promise<VerificacaoTrilhaResultado> {
+    await this.assertPodeLerTrilha(user, solicitacaoId);
+    return this.auditoria.verificarCadeia(user.tenantId, solicitacaoId);
+  }
 
-      // 2. Valida Segregação de Funções - SoD (RN03)
-      await this.assertSegregationOfDuties(user, solicitacao);
-
-      // 3. Confere teto de alçada do aprovador (CA-03.1)
-      await this.assertApproverWithinCeiling(user, solicitacao);
-
-      // 4. Transição PENDENTE -> EM_AJUSTE e persistência no Firestore Emulator (CA-03.3)
-      const now = new Date().toISOString();
-      const updated: SolicitacaoResponseDto = {
-        ...solicitacao,
-        status: 'EM_AJUSTE',
-        versao: (solicitacao.versao ?? 1) + 1,
+  private async decidirComMotivo(
+    user: AuthenticatedUser,
+    solicitacaoId: string,
+    acao: 'REJEITAR' | 'SOLICITAR_AJUSTE',
+    versao: unknown,
+    motivo: string,
+  ): Promise<SolicitacaoResponseDto> {
+    return this.maquinaEstados.executar({
+      user,
+      solicitacaoId,
+      acao,
+      versaoInformada: versao,
+      validar: async (solicitacao) => {
+        await this.assertSegregationOfDuties(user, solicitacao);
+        await this.assertApproverWithinCeiling(user, solicitacao);
+      },
+      alteracoes: () => ({
         aprovadorId: user.userId,
         decididoPorId: user.userId,
         motivoDecisao: motivo,
-        updatedAt: now,
-      };
-
-      await this.persistSolicitacao(user.tenantId, collectionUsed, updated);
-
-      // 5. Grava Elo SHA-256 na Trilha de Auditoria (Log 4: PEDIDO_AJUSTE)
-      await this.auditoria.recordEvent({
-        tenantId: user.tenantId,
-        requestId: solicitacao.id,
-        tipoEvento: 'PEDIDO_AJUSTE',
-        authorId: user.userId,
-        authorRole: user.role,
-        timestampUtc: now,
-        payload: {
-          solicitacaoId: solicitacao.id,
-          aprovadorId: user.userId,
-          motivo,
-        },
-      });
-
-      return updated;
+      }),
+      payload: (solicitacao) => ({
+        solicitacaoId: solicitacao.id,
+        aprovadorId: user.userId,
+        motivo,
+      }),
     });
+  }
+
+  /**
+   * Leitura da trilha: aprovadores, auditor e admin leem qualquer solicitação do tenant;
+   * o solicitante lê apenas as próprias (ADR-007, matriz de permissões).
+   */
+  private async assertPodeLerTrilha(user: AuthenticatedUser, solicitacaoId: string): Promise<void> {
+    const { solicitacao } = await this.maquinaEstados.buscarNoTenant(user.tenantId, solicitacaoId);
+    if (LEITORES_TRILHA.has(user.role)) return;
+    if (user.role === 'SOLICITANTE' && solicitacao.solicitanteId === user.userId) return;
+    throw new ForbiddenException('RBAC: sem permissão para consultar a trilha desta solicitação.');
   }
 
   /**
@@ -265,30 +179,6 @@ export class SolicitacoesService {
     }
 
     return trimmed;
-  }
-
-  /**
-   * Valida Máquina de Estados (CA-03.4 / N05 / N06) e Controle de Concorrência Otimista (CA-05.1 / N04).
-   */
-  private assertStateIsPendingAndVersionMatches(
-    solicitacao: SolicitacaoResponseDto,
-    expectedVersion?: number,
-  ): void {
-    if (solicitacao.status !== 'PENDENTE') {
-      throw new ConflictException(
-        `CA-03.4: Transição inválida. A solicitação já se encontra no estado ${solicitacao.status} e não aceita nova decisão.`,
-      );
-    }
-
-    if (
-      expectedVersion !== undefined &&
-      expectedVersion !== null &&
-      expectedVersion !== solicitacao.versao
-    ) {
-      throw new ConflictException(
-        `CA-05.1: Conflito de concorrência (OCC). Versão esperada (${expectedVersion}) diverge da versão atual (${solicitacao.versao}).`,
-      );
-    }
   }
 
   /**
@@ -372,115 +262,5 @@ export class SolicitacoesService {
     }
 
     return { level, maxAmount: maxAmount ?? null };
-  }
-
-  /**
-   * Busca a solicitação dentro do tenant no Firestore Emulator (suportando tanto a coleção
-   * 'requests' do Modelo de Dados quanto 'solicitacoes' do OpenAPI, mapeando campos em PT/EN).
-   */
-  private async findSolicitacaoInTenant(
-    tenantId: string,
-    solicitacaoId: string,
-  ): Promise<{ solicitacao: SolicitacaoResponseDto; collectionUsed: string }> {
-    let raw = await this.firestore.getTenantDocument<Record<string, unknown>>(
-      tenantId,
-      REQUESTS_COLLECTION,
-      solicitacaoId,
-    );
-    let collectionUsed = REQUESTS_COLLECTION;
-
-    if (!raw) {
-      raw = await this.firestore.getTenantDocument<Record<string, unknown>>(
-        tenantId,
-        SOLICITACOES_COLLECTION_ALIAS,
-        solicitacaoId,
-      );
-      if (raw) {
-        collectionUsed = SOLICITACOES_COLLECTION_ALIAS;
-      }
-    }
-
-    if (!raw) {
-      throw new NotFoundException(
-        `Solicitação "${solicitacaoId}" não encontrada na organização (${tenantId}).`,
-      );
-    }
-
-    if (raw['tenantId'] && raw['tenantId'] !== tenantId) {
-      throw new ForbiddenException(
-        'Isolamento de Tenant (RNF07): Acesso proibido a solicitação de outra organização.',
-      );
-    }
-
-    const normalized: SolicitacaoResponseDto = {
-      id: (raw['id'] as string) || solicitacaoId,
-      tenantId: (raw['tenantId'] as string) || tenantId,
-      centroCustoId:
-        (raw['centroCustoId'] as string) || (raw['costCenterId'] as string) || '',
-      solicitanteId:
-        (raw['solicitanteId'] as string) || (raw['requesterId'] as string) || '',
-      valor: Number(raw['valor'] ?? raw['amount'] ?? 0),
-      categoria: (raw['categoria'] as string) || (raw['category'] as string) || '',
-      justificativa:
-        (raw['justificativa'] as string) || (raw['justification'] as string) || '',
-      ...(raw['fornecedor'] || raw['vendor']
-        ? { fornecedor: (raw['fornecedor'] as string) || (raw['vendor'] as string) }
-        : {}),
-      status: ((raw['status'] as StatusSolicitacao) || 'PENDENTE') as StatusSolicitacao,
-      versao: Number(raw['versao'] ?? raw['version'] ?? 1),
-      alertaRisco: (raw['alertaRisco'] as string | null) ?? null,
-      createdAt: (raw['createdAt'] as string) || new Date().toISOString(),
-      updatedAt: (raw['updatedAt'] as string) || new Date().toISOString(),
-    };
-
-    return { solicitacao: normalized, collectionUsed };
-  }
-
-  private async persistSolicitacao(
-    tenantId: string,
-    primaryCollection: string,
-    solicitacao: SolicitacaoResponseDto,
-  ): Promise<void> {
-    await this.firestore.setTenantDocument(
-      tenantId,
-      primaryCollection,
-      solicitacao.id,
-      solicitacao,
-    );
-    // Sincroniza também na coleção canônica 'requests' caso tenha vindo de 'solicitacoes'
-    if (primaryCollection !== REQUESTS_COLLECTION) {
-      await this.firestore.setTenantDocument(
-        tenantId,
-        REQUESTS_COLLECTION,
-        solicitacao.id,
-        solicitacao,
-      );
-    }
-  }
-
-  private async executeWithAtomicLock<T>(
-    tenantId: string,
-    solicitacaoId: string,
-    operation: () => Promise<T>,
-  ): Promise<T> {
-    const lockKey = `${tenantId}:${solicitacaoId}`;
-    if (this.activeLocks.has(lockKey)) {
-      throw new ConflictException(
-        'CA-05.1: Decisão concorrente detectada sobre a mesma solicitação.',
-      );
-    }
-
-    this.activeLocks.add(lockKey);
-    try {
-      return await operation();
-    } finally {
-      this.activeLocks.delete(lockKey);
-    }
-  }
-
-  private assertAuthenticatedTenant(user: AuthenticatedUser): void {
-    if (!user || !user.tenantId) {
-      throw new ForbiddenException('Isolamento de Tenant (RNF07): tenantId não identificado.');
-    }
   }
 }

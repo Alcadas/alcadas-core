@@ -3,6 +3,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { FirestoreService } from '../database/firestore.service';
+import { MaquinaEstadosService } from './maquina-estados.service';
 import { SolicitacoesController } from './solicitacoes.controller';
 import { SolicitacoesService } from './solicitacoes.service';
 
@@ -13,8 +14,9 @@ import { SolicitacoesService } from './solicitacoes.service';
     AuditoriaService,
     JwtAuthGuard,
     RolesGuard,
+    MaquinaEstadosService,
     SolicitacoesService,
   ],
-  exports: [SolicitacoesService, AuditoriaService, FirestoreService],
+  exports: [SolicitacoesService, MaquinaEstadosService, AuditoriaService, FirestoreService],
 })
 export class SolicitacoesModule {}
