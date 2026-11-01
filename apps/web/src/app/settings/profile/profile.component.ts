@@ -15,7 +15,7 @@ export class ProfileComponent implements OnInit {
   user!: UserProfile;
   isEditing = false;
 
-  // Only these fields can be edited by the user (RBAC: the rest is managed by admins)
+  // Apenas estes campos são editáveis pelo usuário (RBAC: o resto é gerido por administradores)
   readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
@@ -23,7 +23,7 @@ export class ProfileComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    // TODO: replace with real data (Firebase Auth uid -> Firestore "users/{uid}" via NestJS API)
+    // TODO: substituir por dados reais (Firebase Auth uid -> Firestore "users/{uid}" via API NestJS)
     this.user = {
       fullName: 'Julia Campos Santana',
       email: 'julia.santana@startop.com.br',
@@ -53,17 +53,11 @@ export class ProfileComponent implements OnInit {
   }
 
   get formattedLimit(): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(this.user.approvalLimit);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(this.user.approvalLimit);
   }
 
   get formattedLastAccess(): string {
-    return new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(this.user.lastAccess);
+    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(this.user.lastAccess);
   }
 
   startEdit(): void {
@@ -84,12 +78,8 @@ export class ProfileComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    // TODO: call the API (PATCH /users/me) before updating the local state
+    // TODO: chamar a API (PATCH /users/me) antes de atualizar o estado local
     this.user = { ...this.user, ...this.form.getRawValue() };
     this.isEditing = false;
-  }
-
-  logout(): void {
-    // TODO: call Firebase Auth signOut()
   }
 }
