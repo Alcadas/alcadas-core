@@ -1,5 +1,4 @@
-export const STATUS_SOLICITACAO = ['PENDENTE', 'EM_AJUSTE', 'APROVADA', 'REJEITADA'] as const;
-export type StatusSolicitacao = (typeof STATUS_SOLICITACAO)[number];
+import { StatusSolicitacao, TipoEventoTrilha } from './models';
 
 export type PapelUsuario =
   | 'SOLICITANTE'
@@ -8,18 +7,6 @@ export type PapelUsuario =
   | 'DIRETOR_CFO'
   | 'AUDITOR'
   | 'ADMIN';
-
-export type TipoEventoTrilha =
-  | 'CRIACAO_SOLICITACAO'
-  | 'APROVACAO'
-  | 'REJEICAO'
-  | 'PEDIDO_AJUSTE'
-  | 'REENVIO_SOLICITACAO'
-  | 'DELEGACAO_CRIADA'
-  | 'DELEGACAO_EXPIRADA'
-  | 'BLOQUEIO_SOD'
-  | 'BLOQUEIO_FRACIONAMENTO'
-  | 'ALERTA_DUPLICIDADE';
 
 export interface CriarSolicitacaoDto {
   centroCustoId: string;
