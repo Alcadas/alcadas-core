@@ -1,22 +1,39 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router } from '@angular/router';
 import { RequestsComponent } from './requests.component';
 import { RequestsService } from './services/requests.service';
 
 describe('RequestsComponent', () => {
   let component: RequestsComponent;
   let fixture: ComponentFixture<RequestsComponent>;
-  let service: RequestsService;
+  let router: Router;
 
   beforeEach(async () => {
     jest.useFakeTimers();
     await TestBed.configureTestingModule({
       imports: [RequestsComponent],
-      providers: [RequestsService],
+      providers: [
+        RequestsService,
+        {
+          provide: Router,
+          useValue: {
+            navigate: jest.fn(),
+          },
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParams: {},
+            },
+          },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(RequestsComponent);
     component = fixture.componentInstance;
-    service = TestBed.inject(RequestsService);
+    router = TestBed.inject(Router);
     fixture.detectChanges();
   });
 
@@ -55,12 +72,9 @@ describe('RequestsComponent', () => {
     expect(filtered.some((r) => r.titulo.includes('Figma'))).toBe(true);
   });
 
-  it('should open and close create drawer', () => {
-    expect(component.isCreateDrawerOpen()).toBe(false);
-    component.openCreateDrawer();
-    expect(component.isCreateDrawerOpen()).toBe(true);
-    component.closeCreateDrawer();
-    expect(component.isCreateDrawerOpen()).toBe(false);
+  it('should navigate to create page on goToCreatePage', () => {
+    component.goToCreatePage();
+    expect(router.navigate).toHaveBeenCalledWith(['/solicitacoes/nova']);
   });
 
   it('should open and close detail drawer', () => {
@@ -72,32 +86,6 @@ describe('RequestsComponent', () => {
     component.closeDetailDrawer();
     expect(component.isDetailDrawerOpen()).toBe(false);
     expect(component.selectedRequest()).toBeNull();
-  });
-
-  it('should validate form and reject invalid submissions', () => {
-    component.openCreateDrawer();
-    component.formTitulo.set('');
-    component.formValor.set(0);
-    component.formJustificativa.set('Curta');
-
-    component.submitNewRequest();
-    expect(Object.keys(component.formErrors()).length).toBeGreaterThan(0);
-    expect(component.isCreateDrawerOpen()).toBe(true);
-  });
-
-  it('should submit valid request and add it to list', () => {
-    const initialTotal = service.requests().length;
-    component.openCreateDrawer();
-    component.formTitulo.set('Nova Cotação de Teste Automatizado');
-    component.formValor.set(7500);
-    component.formJustificativa.set('Justificativa válida com mais de trinta caracteres para teste de governança.');
-
-    component.submitNewRequest();
-    jest.advanceTimersByTime(700);
-    fixture.detectChanges();
-
-    expect(service.requests().length).toBe(initialTotal + 1);
-    expect(component.isCreateDrawerOpen()).toBe(false);
   });
 
   it('should toggle selection of items', () => {

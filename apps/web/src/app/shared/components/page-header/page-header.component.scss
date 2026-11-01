@@ -30,19 +30,19 @@
 }
 
 .breadcrumb-root {
-  font-size: var(--text-sm, 0.8rem);
+  font-size: var(--text-base, 0.875rem);
   font-weight: 500;
   color: var(--text-muted, #64748b);
 }
 
 .breadcrumb-slash {
-  font-size: var(--text-sm, 0.8rem);
+  font-size: var(--text-base, 0.875rem);
   color: var(--color-slate-300, #cbd5e1);
 }
 
 .breadcrumb-current {
   margin: 0;
-  font-size: var(--text-base, 0.85rem);
+  font-size: var(--text-md, 0.975rem);
   font-weight: 700;
   color: var(--text-primary, #0f172a);
   letter-spacing: -0.01em;
@@ -52,7 +52,7 @@
 /* Centro: Barra de Busca */
 .search-container {
   flex: 1;
-  max-width: 400px;
+  max-width: 420px;
   display: flex;
   align-items: center;
 }
@@ -65,8 +65,8 @@
   background: var(--bg-page, #f8fafc);
   border: 1px solid var(--border-color, #cbd5e1);
   border-radius: var(--radius-lg, 8px);
-  padding: 0 0.5rem 0 0.6rem;
-  height: 32px;
+  padding: 0 0.5rem 0 0.65rem;
+  height: 34px;
   transition: all 0.15s ease;
 
   &:focus-within {
@@ -76,9 +76,9 @@
   }
 
   .search-icon {
-    font-size: 16px;
+    font-size: 17px;
     color: var(--color-slate-400, #94a3b8);
-    margin-right: 0.4rem;
+    margin-right: 0.45rem;
   }
 
   .search-input {
@@ -86,7 +86,7 @@
     border: none;
     outline: none;
     background: transparent;
-    font-size: var(--text-sm, 0.775rem);
+    font-size: var(--text-base, 0.875rem);
     color: var(--text-primary, #0f172a);
 
     &::placeholder {
@@ -186,27 +186,27 @@
 /* TIER 2: SUB-HEADER COM ABAS E CONTEXTO                                    */
 /* ========================================================================= */
 .page-header-tier2 {
-  height: 48px;
-  min-height: 48px;
-  max-height: 48px;
+  height: 50px;
+  min-height: 50px;
+  max-height: 50px;
   background: var(--bg-card, #ffffff);
   border-bottom: 1px solid var(--border-light, #eef2f6);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.25rem;
-  gap: 1rem;
+  padding: 0 1.5rem;
+  gap: 1.25rem;
 }
 
 .context-container {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
   flex-shrink: 0;
 
   .context-icon-box {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: var(--radius-md, 7px);
     background: var(--color-primary-subtle, #ede9fe);
     color: var(--color-primary, #644ef3);
@@ -215,7 +215,7 @@
     justify-content: center;
 
     .material-symbols-rounded {
-      font-size: 17px;
+      font-size: 18px;
     }
   }
 
@@ -224,14 +224,14 @@
     flex-direction: column;
 
     .context-title {
-      font-size: var(--text-sm, 0.775rem);
+      font-size: var(--text-base, 0.875rem);
       font-weight: 700;
       color: var(--text-primary, #0f172a);
-      line-height: 1.1;
+      line-height: 1.2;
     }
 
     .context-subtitle {
-      font-size: var(--text-2xs, 0.65rem);
+      font-size: var(--text-xs, 0.75rem);
       color: var(--text-muted, #64748b);
     }
   }
@@ -241,7 +241,7 @@
 .tabs-container {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.45rem;
   height: 100%;
 }
 
@@ -249,11 +249,11 @@
   height: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0 0.85rem;
+  gap: 0.45rem;
+  padding: 0 0.95rem;
   border: none;
   background: transparent;
-  font-size: var(--text-sm, 0.775rem);
+  font-size: var(--text-base, 0.875rem);
   font-weight: 500;
   color: var(--text-muted, #64748b);
   cursor: pointer;
@@ -262,7 +262,7 @@
   white-space: nowrap;
 
   .tab-icon {
-    font-size: 16px;
+    font-size: 18px;
     color: var(--color-slate-400, #94a3b8);
     transition: color 0.15s ease;
   }
@@ -289,13 +289,14 @@
 }
 
 .tab-badge {
-  font-size: var(--text-2xs, 0.625rem);
+  font-size: var(--text-xs, 0.725rem);
   font-weight: 700;
-  padding: 0.1rem 0.4rem;
+  padding: 0.12rem 0.48rem;
   border-radius: var(--radius-full, 999px);
   background: var(--color-slate-100, #f1f5f9);
   color: var(--color-slate-600, #475569);
   transition: all 0.15s ease;
+  line-height: 1.2;
 
   &.badge-warning { background: var(--color-warning-bg, #fef3c7); color: var(--color-warning, #b45309); }
   &.badge-success { background: var(--color-success-bg, #dcfce7); color: var(--color-success, #15803d); }

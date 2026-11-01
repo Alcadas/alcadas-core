@@ -58,6 +58,13 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'solicitacoes/nova',
+    loadComponent: () =>
+      import(
+        './features/requests/pages/create-request/create-request.component'
+      ).then((m) => m.CreateRequestComponent),
+  },
+  {
     path: 'alcadas',
     children: [
       {

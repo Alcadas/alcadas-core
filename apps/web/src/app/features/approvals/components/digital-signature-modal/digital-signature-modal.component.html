@@ -1,0 +1,153 @@
+@if (isOpen()) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-signature-title">
+    <button
+      type="button"
+      class="modal-backdrop"
+      (click)="closeModal()"
+      tabindex="-1"
+      aria-label="Fechar modal de assinatura"
+    ></button>
+
+    <div class="modal-card">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="header-title-wrap">
+          <span class="material-symbols-rounded header-icon">draw</span>
+          <h2 id="modal-signature-title">Assinatura Digital de Aprovação</h2>
+        </div>
+        <div class="header-actions">
+          <span class="esc-badge">ESC</span>
+          <button type="button" class="btn-close" (click)="closeModal()" aria-label="Fechar modal">
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Request Context Snippet -->
+      @if (request(); as req) {
+        <div class="request-summary-pill">
+          <div class="summary-code">
+            <span class="code-badge">{{ req.codigo }}</span>
+            <span class="summary-title">{{ req.titulo }}</span>
+          </div>
+          <div class="summary-meta">
+            <span class="requester-info">
+              <span class="material-symbols-rounded">person</span>
+              {{ req.solicitante.nome }}
+            </span>
+            <span class="dept-dot">•</span>
+            <span class="dept-info">{{ req.departamento }}</span>
+            <span class="amount-badge">{{ req.valor | currency: 'BRL' : 'symbol' : '1.2-2' }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <!-- Input para modo Digitação (se selecionado) -->
+        @if (signMode() === 'type') {
+          <div class="type-input-group">
+            <label for="typedSignatureInput" class="input-label">Nome completo para rubrica eletrônica</label>
+            <div class="input-wrapper">
+              <span class="material-symbols-rounded input-icon">badge</span>
+              <input
+                id="typedSignatureInput"
+                type="text"
+                class="form-control"
+                [ngModel]="typedSignature()"
+                (ngModelChange)="onTypedSignatureChange($event)"
+                placeholder="Digite seu nome completo..."
+              />
+            </div>
+          </div>
+        }
+
+        <!-- Signature Pad Canvas Box (matching reference image) -->
+        <div class="signature-canvas-container">
+          <canvas
+            #signatureCanvas
+            width="520"
+            height="160"
+            class="signature-canvas"
+            (mousedown)="startDrawing($event)"
+            (mousemove)="draw($event)"
+            (mouseup)="stopDrawing()"
+            (mouseleave)="stopDrawing()"
+            (touchstart)="startDrawing($event)"
+            (touchmove)="draw($event)"
+            (touchend)="stopDrawing()"
+          ></canvas>
+
+          <div class="canvas-toolbar">
+            <div class="toolbar-left">
+              <button type="button" class="canvas-action-btn" (click)="clearCanvas()">
+                <span class="material-symbols-rounded">backspace</span>
+                <span>Limpar</span>
+              </button>
+              <button type="button" class="canvas-action-btn" (click)="drawPresetSignature()">
+                <span class="material-symbols-rounded">restart_alt</span>
+                <span>Rubrica Padrão</span>
+              </button>
+            </div>
+            <div class="toolbar-right">
+              <span class="status-indicator" [class.has-drawn]="hasDrawn()">
+                <span class="material-symbols-rounded">{{ hasDrawn() ? 'check_circle' : 'gesture' }}</span>
+                <span>{{ hasDrawn() ? 'Rubrica capturada' : 'Assine com o mouse ou toque' }}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <p class="signature-disclaimer">
+          Esta aprovação será assinada digitalmente com certificação e registrada na trilha imutável de auditoria SHA-256.
+        </p>
+
+        <!-- Terms Agreement Card with Pink/Red Alert (exact match to reference image) -->
+        <div class="agreement-card">
+          <div class="agreement-switch-row">
+            <button
+              type="button"
+              class="custom-toggle"
+              [class.active]="isAgreed()"
+              (click)="toggleAgreement()"
+              role="switch"
+              [attr.aria-checked]="isAgreed()"
+              aria-label="Concordar com termos de assinatura"
+            >
+              <span class="toggle-handle"></span>
+            </button>
+            <p class="agreement-text">
+              Ao assinar, confirmo que revisei a conformidade orçamentária, os comprovantes anexos e estou de acordo com a política corporativa de alçadas, tornando esta deliberação legalmente vinculante.
+            </p>
+          </div>
+
+          @if (showAgreementWarning()) {
+            <div class="warning-alert-banner">
+              <span class="material-symbols-rounded alert-icon">info</span>
+              <span class="alert-text">Por favor, confirme que concorda com os termos antes de assinar.</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Modal Footer (matching reference image) -->
+      <div class="modal-footer">
+        <div class="footer-left">
+          <button type="button" class="btn-mode-toggle" (click)="toggleSignMode()">
+            <span class="material-symbols-rounded">{{ signMode() === 'draw' ? 'keyboard' : 'draw' }}</span>
+            <span>{{ signMode() === 'draw' ? 'Alternar para digitar' : 'Alternar para desenhar' }}</span>
+          </button>
+        </div>
+        <div class="footer-right">
+          <button type="button" class="btn-cancel" (click)="closeModal()">
+            Cancelar
+          </button>
+          <button type="button" class="btn-sign-primary" (click)="confirmSignature()">
+            <span class="material-symbols-rounded">verified</span>
+            <span>Assinar a solicitação</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

@@ -23,6 +23,14 @@ export type ApprovalStepStatus =
   | 'REJEITADA'
   | 'AJUSTE';
 
+export interface StepSignature {
+  signatario: string;
+  cargo: string;
+  dataHora: string;
+  hashSha256: string;
+  assinaturaImg?: string;
+}
+
 export interface ApprovalStep {
   numero: number;
   nome: string;
@@ -31,6 +39,7 @@ export interface ApprovalStep {
   status: ApprovalStepStatus;
   dataHora?: string;
   comentario?: string;
+  assinatura?: StepSignature;
 }
 
 export interface WorkflowDestination {

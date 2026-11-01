@@ -747,6 +747,10 @@ export class RequestsService {
     return newRequest;
   }
 
+  getRequestById(id: string): RequestItem | undefined {
+    return this._requests().find((r) => r.id === id);
+  }
+
   cancelRequest(id: string): boolean {
     let updated = false;
     this._requests.update((list) =>
@@ -765,5 +769,207 @@ export class RequestsService {
       })
     );
     return updated;
+  }
+
+  approveRequest(
+    id: string,
+    signatureImg?: string,
+    comentario?: string,
+    signatario = 'Diretoria Executiva / Aprovador'
+  ): boolean {
+    let updated = false;
+    const nowIso = new Date().toISOString();
+    const nowFormatted = new Date().toLocaleString('pt-BR');
+    const randomHash =
+      Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('') +
+      '...' +
+      Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+    this._requests.update((list) =>
+      list.map((req) => {
+        if (req.id !== id) return req;
+        updated = true;
+
+        const currentStepIndex = req.fluxoDestinado.etapas.findIndex(
+          (e) => e.status === 'PENDENTE' || e.status === 'EM_ANALISE' || e.status === 'AJUSTE'
+        );
+
+        const updatedEtapas = req.fluxoDestinado.etapas.map((step, idx) => {
+          if (
+            idx === currentStepIndex ||
+            (currentStepIndex === -1 && idx === req.fluxoDestinado.etapas.length - 1)
+          ) {
+            return {
+              ...step,
+              status: 'CONCLUIDA' as const,
+              dataHora: nowFormatted,
+              responsavelNome: signatario,
+              comentario: comentario || 'Aprovado e assinado digitalmente com conformidade orçamentária.',
+              assinatura: {
+                signatario,
+                cargo: 'Aprovador de Alçada Titular',
+                dataHora: nowFormatted,
+                hashSha256: randomHash,
+                assinaturaImg: signatureImg,
+              },
+            };
+          }
+          return step;
+        });
+
+        const isLastStep =
+          currentStepIndex === -1 || currentStepIndex >= req.fluxoDestinado.etapas.length - 1;
+
+        const nextStep = isLastStep ? null : req.fluxoDestinado.etapas[currentStepIndex + 1];
+
+        return {
+          ...req,
+          status: isLastStep ? ('APROVADA' as const) : ('PENDENTE' as const),
+          statusLabel: isLastStep ? 'Aprovada' : 'Em Análise',
+          statusIcon: isLastStep ? 'verified' : 'hourglass_top',
+          dataAtualizacao: nowIso,
+          fluxoDestinado: {
+            ...req.fluxoDestinado,
+            etapaAtualNumero: isLastStep
+              ? req.fluxoDestinado.totalEtapas
+              : currentStepIndex + 2,
+            etapaAtualNome: isLastStep
+              ? 'Concluída (Totalmente Aprovada)'
+              : nextStep?.nome || 'Próxima Alçada',
+            etapas: updatedEtapas,
+          },
+        };
+      })
+    );
+    return updated;
+  }
+
+  validateRequest(
+    id: string,
+    parecer = 'Validado tecnicamente conforme normas corporativas e orçamentos anexados.',
+    autor = 'Auditoria & Compliance'
+  ): boolean {
+    let updated = false;
+    const nowIso = new Date().toISOString();
+    const nowFormatted = new Date().toLocaleString('pt-BR');
+
+    this._requests.update((list) =>
+      list.map((req) => {
+        if (req.id !== id) return req;
+        updated = true;
+
+        const currentStepIndex = req.fluxoDestinado.etapas.findIndex(
+          (e) => e.status === 'PENDENTE' || e.status === 'EM_ANALISE' || e.status === 'AJUSTE'
+        );
+
+        const updatedEtapas = req.fluxoDestinado.etapas.map((step, idx) => {
+          if (idx === currentStepIndex) {
+            return {
+              ...step,
+              comentario: `Validação técnica realizada por ${autor}: ${parecer} (${nowFormatted})`,
+            };
+          }
+          return step;
+        });
+
+        return {
+          ...req,
+          dataAtualizacao: nowIso,
+          fluxoDestinado: {
+            ...req.fluxoDestinado,
+            etapas: updatedEtapas,
+          },
+        };
+      })
+    );
+    return updated;
+  }
+
+  requestAdjustment(id: string, motivo: string, autor = 'Comitê de Alçadas'): boolean {
+    let updated = false;
+    const nowIso = new Date().toISOString();
+    const nowFormatted = new Date().toLocaleString('pt-BR');
+
+    this._requests.update((list) =>
+      list.map((req) => {
+        if (req.id !== id) return req;
+        updated = true;
+
+        const updatedEtapas = req.fluxoDestinado.etapas.map((step) => {
+          if (step.status === 'PENDENTE' || step.status === 'EM_ANALISE') {
+            return {
+              ...step,
+              status: 'AJUSTE' as const,
+              dataHora: nowFormatted,
+              comentario: `Ajuste solicitado por ${autor}: ${motivo}`,
+            };
+          }
+          return step;
+        });
+
+        return {
+          ...req,
+          status: 'AJUSTE_SOLICITADO' as const,
+          statusLabel: 'Requer Ajuste',
+          statusIcon: 'edit_note',
+          dataAtualizacao: nowIso,
+          fluxoDestinado: {
+            ...req.fluxoDestinado,
+            etapaAtualNome: 'Aguardando Revisão do Solicitante',
+            etapas: updatedEtapas,
+          },
+        };
+      })
+    );
+    return updated;
+  }
+
+  rejectRequest(id: string, motivo: string, autor = 'Diretoria de Alçadas'): boolean {
+    let updated = false;
+    const nowIso = new Date().toISOString();
+    const nowFormatted = new Date().toLocaleString('pt-BR');
+
+    this._requests.update((list) =>
+      list.map((req) => {
+        if (req.id !== id) return req;
+        updated = true;
+
+        const updatedEtapas = req.fluxoDestinado.etapas.map((step) => {
+          if (step.status === 'PENDENTE' || step.status === 'EM_ANALISE') {
+            return {
+              ...step,
+              status: 'REJEITADA' as const,
+              dataHora: nowFormatted,
+              comentario: `Rejeitado por ${autor}: ${motivo}`,
+            };
+          }
+          return step;
+        });
+
+        return {
+          ...req,
+          status: 'REJEITADA' as const,
+          statusLabel: 'Recusada',
+          statusIcon: 'cancel',
+          dataAtualizacao: nowIso,
+          fluxoDestinado: {
+            ...req.fluxoDestinado,
+            etapaAtualNome: 'Fluxo Encerrado (Reprovado)',
+            etapas: updatedEtapas,
+          },
+        };
+      })
+    );
+    return updated;
+  }
+
+  approveBatch(ids: string[], signatureImg?: string): number {
+    let count = 0;
+    ids.forEach((id) => {
+      if (this.approveRequest(id, signatureImg, 'Aprovação em lote autorizada pela gestão de alçadas.')) {
+        count++;
+      }
+    });
+    return count;
   }
 }
