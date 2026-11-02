@@ -26,4 +26,9 @@ describe('ListagemValidator', () => {
     expect(() => validator.validar({ page: '0' })).toThrow(BadRequestException);
     expect(() => validator.validar({ limit: '101' })).toThrow(BadRequestException);
   });
+
+  it('limita a página a 50 itens, como o contrato OpenAPI v0.2', () => {
+    expect(validator.validar({ limit: '50' }).limit).toBe(50);
+    expect(() => validator.validar({ limit: '51' })).toThrow(BadRequestException);
+  });
 });

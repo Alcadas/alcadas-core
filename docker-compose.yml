@@ -17,6 +17,7 @@ services:
       - NODE_ENV=development
       - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
       - FIRESTORE_EMULATOR_HOST=firebase:8080
+      - WEB_URL=http://localhost:4200
       - NX_DAEMON=false
     depends_on:
       - firebase
@@ -31,7 +32,8 @@ services:
     ports:
       - "4200:4200"
 
-    command: sh -c "npm install && npx nx serve web --host 0.0.0.0"
+    # Dentro do compose a API é o serviço "api", não o localhost do container web
+    command: sh -c "npm install && npx nx serve web --host 0.0.0.0 --proxy-config=apps/web/proxy.docker.json"
     environment:
       - NX_DAEMON=false
     depends_on:

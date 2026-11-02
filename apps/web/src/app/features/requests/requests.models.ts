@@ -1,27 +1,9 @@
-export type RequestStatus =
-  | 'PENDENTE'
-  | 'APROVADA'
-  | 'REJEITADA'
-  | 'AJUSTE_SOLICITADO'
-  | 'CANCELADA';
+import { StatusSolicitacao } from '@alcadas-core/models';
 
-export type RequestPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+/** Status da tela = status da API (ADR-005). */
+export type RequestStatus = StatusSolicitacao;
 
-export type RequestCategory =
-  | 'SERVICOS_TERCEIROS'
-  | 'EQUIPAMENTOS_TI'
-  | 'MATERIAIS_ESCRITORIO'
-  | 'VIAGENS_HOSPEDAGEM'
-  | 'MANUTENCAO_PREDIAL'
-  | 'MARKETING_EVENTOS'
-  | 'CONSULTORIA';
-
-export type ApprovalStepStatus =
-  | 'CONCLUIDA'
-  | 'EM_ANALISE'
-  | 'PENDENTE'
-  | 'REJEITADA'
-  | 'AJUSTE';
+export type ApprovalStepStatus = 'CONCLUIDA' | 'EM_ANALISE' | 'PENDENTE' | 'REJEITADA' | 'AJUSTE';
 
 export interface ApprovalStep {
   numero: number;
@@ -34,29 +16,19 @@ export interface ApprovalStep {
 }
 
 export interface WorkflowDestination {
-  id: string;
   nome: string;
   totalEtapas: number;
-  etapaAtualNumero: number;
   etapaAtualNome: string;
   etapas: ApprovalStep[];
 }
 
-export interface RequestAttachment {
-  id: string;
-  nome: string;
-  tamanho: string;
-  tipo: string;
-  icone: string;
-  url?: string;
-}
-
+/** Solicitação pronta para a tela, montada a partir do `SolicitacaoResponseDto` da API. */
 export interface RequestItem {
   id: string;
   codigo: string;
   titulo: string;
   descricao: string;
-  categoria: RequestCategory;
+  categoria: string;
   categoriaLabel: string;
   categoriaIcon: string;
   categoriaColor: string;
@@ -64,21 +36,20 @@ export interface RequestItem {
   centroCustoNome: string;
   departamento: string;
   valor: number;
-  prioridade: RequestPriority;
+  fornecedor?: string;
   status: RequestStatus;
   statusLabel: string;
   statusIcon: string;
+  /** Versão de concorrência otimista, obrigatória nas decisões (CA-05.1). */
+  versao: number;
   dataCriacao: string;
   dataAtualizacao: string;
   solicitante: {
     id: string;
     nome: string;
     cargo: string;
-    email: string;
-    avatar?: string;
   };
   fluxoDestinado: WorkflowDestination;
-  anexos: RequestAttachment[];
 }
 
 export interface RequestStats {
@@ -92,20 +63,30 @@ export interface RequestStats {
   rejeitadas: number;
 }
 
-export interface RequestFilter {
-  tab: 'todas' | 'pendentes' | 'aprovadas' | 'ajustes' | 'rejeitadas';
-  search: string;
-  categoria: string;
-  centroCustoId: string;
-  sortBy: 'recentes' | 'maior_valor' | 'menor_valor' | 'prioridade';
+export interface CostCenterOption {
+  id: string;
+  code: string;
+  nome: string;
 }
 
-export interface CreateRequestDto {
-  titulo: string;
-  categoria: RequestCategory;
-  centroCustoId: string;
-  valor: number;
-  prioridade: RequestPriority;
-  justificativa: string;
-  anexos?: Array<{ nome: string; tamanho: string; tipo: string }>;
+export interface CategoryOption {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  limiteBase: number;
 }
+
+/** Corpo de `POST /api/solicitacoes` (OpenAPI v0.2 — CriarSolicitacaoDto). */
+export interface CreateRequestDto {
+  centroCustoId: string;
+  categoria: string;
+  valor: number;
+  justificativa: string;
+  fornecedor?: string;
+}
+
+export type DecisionAction = 'aprovar' | 'rejeitar' | 'ajuste';
+
+/** Estado de carregamento de uma tela ou bloco (RNF08). */
+export type LoadState = 'carregando' | 'pronto' | 'erro';

@@ -1,14 +1,9 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateChildFn, CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
-export const authGuard: CanActivateFn = () => {
+/** Libera as rotas internas só para quem está logado; os demais vão para /login. */
+export const authGuard: CanActivateFn & CanActivateChildFn = () => {
   const authService = inject(AuthService);
-  const router = inject(Router);
-
-  if (authService.isAuthenticated()) {
-    return true;
-  }
-
-  return router.createUrlTree(['/login']);
+  return authService.isAuthenticated() ? true : inject(Router).createUrlTree(['/login']);
 };

@@ -1,0 +1,36 @@
+# CODEOWNERS — alcadas-core
+# Quem é marcado aqui é chamado automaticamente para revisar o PR.
+# Com a proteção da `main`/`develop` ativa ("Require review from Code Owners"),
+# o merge exige a aprovação de pelo menos um dono da área alterada (DoD — PR revisado por outra pessoa).
+#
+# Papéis: Tech Lead @SchneiderCode1 · PO @Szervinsk · DevOps @phenric26
+#         Backend @LuizFelipe81 · Frontend @anacllaraxy · QA @leticiadsp
+# A última regra que casar com o arquivo vence.
+
+# Padrão: Tech Lead revisa tudo que não tiver dono mais específico
+*                               @SchneiderCode1
+
+# Backend (NestJS)
+/apps/api/                      @LuizFelipe81 @SchneiderCode1
+
+# Frontend (Angular)
+/apps/web/                      @anacllaraxy @SchneiderCode1
+
+# Testes E2E / contrato / autorização
+/apps/api-e2e/                  @leticiadsp @LuizFelipe81
+/apps/web-e2e/                  @leticiadsp @anacllaraxy
+
+# Contratos compartilhados entre front e back
+/libs/shared/models/            @SchneiderCode1 @LuizFelipe81 @anacllaraxy
+
+# Infraestrutura, CI e configuração do Firebase
+/.github/                       @phenric26 @SchneiderCode1
+/docker-compose.yml             @phenric26 @SchneiderCode1
+/firebase.json                  @phenric26 @SchneiderCode1
+/.firebaserc                    @phenric26 @SchneiderCode1
+/firestore.rules                @phenric26 @SchneiderCode1
+/.env.example                   @phenric26 @SchneiderCode1
+
+# Regras do repositório (este arquivo e o template de PR)
+/.github/CODEOWNERS             @SchneiderCode1
+/.github/PULL_REQUEST_TEMPLATE.md @SchneiderCode1 @Szervinsk

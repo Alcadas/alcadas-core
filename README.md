@@ -93,6 +93,27 @@ Leva alguns minutos para subir todos os containers
 
 ---
 
+## 🔐 Entrando no Sistema Localmente
+
+O frontend autentica no **Firebase Auth Emulator** e envia o ID token para a API em toda chamada ([ADR-012](https://github.com/Alcadas/alcadas-docs/blob/main/docs/arquitetura/adrs/ADR-012-autenticacao-frontend-rest.md)). Enquanto o seed automático (issue #10) não existe, crie os usuários uma vez pelo Emulator UI:
+
+1. Abra [http://localhost:4000/auth](http://localhost:4000/auth) e clique em **Add user**.
+2. Informe e-mail e senha (ex.: `gerente@startop.test` / `senha123`).
+3. Em **Custom Claims**, cole o JSON com a empresa e o papel:
+
+   | Usuário | Custom Claims |
+   | :--- | :--- |
+   | Solicitante | `{"tenantId":"startop","role":"SOLICITANTE","name":"Ana"}` |
+   | Gerente (N2) | `{"tenantId":"startop","role":"APROVADOR_N2","name":"Carlos"}` |
+   | Administrador | `{"tenantId":"startop","role":"ADMIN","name":"Admin"}` |
+   | Outra empresa | `{"tenantId":"empresa-b","role":"SOLICITANTE","name":"Zeca"}` |
+
+4. Entre em [http://localhost:4200/login](http://localhost:4200/login) com o e-mail e a senha criados.
+
+> Os dados dos emuladores somem quando o container `firebase` é recriado. O guia completo da integração está em [`alcadas-docs/docs/arquitetura/integracao-front-back.md`](https://github.com/Alcadas/alcadas-docs/blob/main/docs/arquitetura/integracao-front-back.md).
+
+---
+
 ## 📜 Scripts Disponíveis
 
 Os comandos abaixo podem ser executados via `npm run <script>` ou `npx nx <target> <project>`:

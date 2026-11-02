@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getFirebaseApp } from '../firebase/firebase-app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { ISolicitacoesRepository } from './solicitacoes.repository';
+import { FiltroListagem, ISolicitacoesRepository } from './solicitacoes.repository';
 
 @Injectable()
 export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository {
@@ -22,13 +22,20 @@ export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository 
     await batch.commit();
   }
 
-  async listarPorTenant(tenantId: string): Promise<Record<string, unknown>[]> {
+  /**
+   * Página de solicitações do tenant, da mais recente para a mais antiga.
+   * Filtrar por status junto com a ordenação exige o índice composto (status, createdAt desc)
+   * em produção; o emulador não exige índices.
+   */
+  async listarPorTenant(tenantId: string, filtro: FiltroListagem): Promise<Record<string, unknown>[]> {
     const db = getFirestore(getFirebaseApp());
-    const snapshot = await db
-      .collection('tenants').doc(tenantId)
-      .collection('requests')
-      .orderBy('createdAt', 'desc')
-      .limit(20)
+    let consulta = db.collection('tenants').doc(tenantId).collection('requests').orderBy('createdAt', 'desc');
+    if (filtro.status) {
+      consulta = consulta.where('status', '==', filtro.status);
+    }
+    const snapshot = await consulta
+      .offset((filtro.page - 1) * filtro.limit)
+      .limit(filtro.limit)
       .get();
 
     return snapshot.empty ? [] : (snapshot.docs.map(doc => doc.data()) as Record<string, unknown>[]);
