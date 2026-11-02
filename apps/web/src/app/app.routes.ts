@@ -15,8 +15,12 @@ export const appRoutes: Route[] = [
       (m) => m.RegisterComponent
     ),
   },
-  { path: 'configuracoes',
-   loadChildren: () => import('./settings/settings.routes').then(m => m.SETTINGS_ROUTES)
+  {
+    path: 'configuracoes',
+    loadChildren: () =>
+      import('./features/settings/settings.routes').then(
+        (m) => m.SETTINGS_ROUTES,
+      ),
   },
   {
   path: 'verificarCodigo',
