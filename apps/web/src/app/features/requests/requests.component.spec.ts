@@ -7,6 +7,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { APP_CONFIG } from '../../core/config/app-config';
 import { eloDaApi, solicitacaoDaApi, tetoDaApi } from '../../core/testing/api-fixtures';
 import { CONFIG_DE_TESTE } from '../../core/testing/test-config';
+import { ActivatedRoute, Router } from '@angular/router';
 import { RequestsComponent } from './requests.component';
 
 const URL_LISTA = '/api/solicitacoes?page=1&limit=50';
@@ -26,10 +27,35 @@ describe('RequestsComponent', () => {
   function texto(): string {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
+  let router: Router;
+
+  beforeEach(async () => {
+    jest.useFakeTimers();
+    await TestBed.configureTestingModule({
+      imports: [RequestsComponent],
+      providers: [
+        RequestsService,
+        {
+          provide: Router,
+          useValue: {
+            navigate: jest.fn(),
+          },
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              queryParams: {},
+            },
+          },
+        },
+      ],
+    }).compileComponents();
 
   function iniciar(): void {
     fixture = TestBed.createComponent(RequestsComponent);
     component = fixture.componentInstance;
+    router = TestBed.inject(Router);
     fixture.detectChanges();
   }
 
@@ -93,6 +119,10 @@ describe('RequestsComponent', () => {
       iniciar();
       responderCarga();
     });
+  it('should navigate to create page on goToCreatePage', () => {
+    component.goToCreatePage();
+    expect(router.navigate).toHaveBeenCalledWith(['/solicitacoes/nova']);
+  });
 
     it('calcula os indicadores a partir dos dados da API', () => {
       expect(component.stats()).toMatchObject({ total: 3, pendentes: 1, aprovadas: 1, ajustes: 1 });
@@ -248,6 +278,10 @@ describe('RequestsComponent', () => {
       http
         .expectOne('/api/solicitacoes/sol-001/aprovar')
         .flush({ message: 'Conflito de concorrência: outra decisão foi registrada.' }, { status: 409, statusText: 'Conflict' });
+  it('should toggle selection of items', () => {
+    const firstItem = component.paginatedRequests()[0];
+    component.toggleSelect(firstItem.id);
+    expect(component.selectedIds().has(firstItem.id)).toBe(true);
 
       expect(component.decisionError()).toContain('Conflito de concorrência');
       expect(component.selectedRequest()?.status).toBe('PENDENTE');

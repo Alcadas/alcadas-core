@@ -54,7 +54,7 @@ export class DashboardComponent {
   private readonly router = inject(Router);
 
   goToNewRequest(): void {
-    this.router.navigate(['/solicitacoes']);
+    this.router.navigate(['/solicitacoes/nova']);
   }
 
   // Dados para o Gráfico Shadcn de Valores por Solicitação com Linha de Média Aceita

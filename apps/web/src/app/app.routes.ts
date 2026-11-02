@@ -10,10 +10,34 @@ export const appRoutes: Route[] = [
       ),
   },
   {
-    path: 'register',
+  path: 'register',
+  loadComponent: () =>
+    import('./features/register/register.component').then(
+      (m) => m.RegisterComponent
+    ),
+  },
+  { path: 'configuracoes',
+   loadChildren: () => import('./settings/settings.routes').then(m => m.SETTINGS_ROUTES)
+  },
+  {
+  path: 'verificarCodigo',
+  loadComponent: () =>
+    import('./features/auth/pages/verificar-codigo/verificar-codigo').then(
+      (m) => m.VerificarCodigo
+    ),
+  },
+  {
+  path: 'novaSenha',
+  loadComponent: () =>
+    import('./features/auth/pages/nova-senha/nova-senha').then(
+      (m) => m.NovaSenha
+    ),
+  },
+  {
+    path: 'dashboard',
     loadComponent: () =>
-      import('./features/register/register.component').then(
-        (m) => m.RegisterComponent
+      import('./features/dashboard/dashboard.component').then(
+        (m) => m.DashboardComponent
       ),
   },
   {
@@ -34,6 +58,14 @@ export const appRoutes: Route[] = [
     // Rotas internas: só com sessão do Firebase Auth (CA-09.2)
     path: '',
     canActivateChild: [authGuard],
+    path: 'solicitacoes/nova',
+    loadComponent: () =>
+      import(
+        './features/requests/pages/create-request/create-request.component'
+      ).then((m) => m.CreateRequestComponent),
+  },
+  {
+    path: 'alcadas',
     children: [
       {
         path: 'profile',

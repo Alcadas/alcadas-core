@@ -84,6 +84,13 @@ const ITENS_POR_PAGINA = 5;
           <span>Novo Perfil</span>
         </button>
       </div>
+
+      <div tier2-actions class="tier2-actions-group">
+        <div class="table-records-counter">
+          <span class="material-symbols-rounded count-icon">badge</span>
+          <span><strong>{{ profissoes.length }}</strong> funções • <strong>{{ perfis.length }}</strong> perfis</span>
+        </div>
+      </div>
     </app-page-header>
 
     <div class="page-content">
@@ -366,45 +373,72 @@ const ITENS_POR_PAGINA = 5;
     }
   `,
   styles: [`
-    :host { display: flex; flex-direction: column; height: 100%; width: 100%; min-width: 0; overflow: hidden; }
+    :host { display: flex; flex-direction: column; height: 100%; width: 100%; min-width: 0; overflow: hidden; background-color: #f8fafc; }
     .header-actions-group {
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
-    .page-content { flex: 1; padding: 2rem; overflow-y: auto; }
+    .page-content {
+      flex: 1;
+      padding: 1.25rem 2rem 2.5rem;
+      width: 100%;
+      box-sizing: border-box;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
 
     .card {
-      background: #ffffff; border: 1px solid #eef2f6; border-radius: 16px; padding: 1.75rem;
-      max-width: 1100px; margin: 0 auto 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+      background: #ffffff;
+      border: 1px solid #eef2f6;
+      border-radius: 14px;
+      padding: 1.5rem 1.75rem;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }
     .card-titulo {
-      display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
     }
-    h3 { margin: 0 0 0.25rem; color: #0f172a; font-size: 1.15rem; font-weight: 700; }
+    h3 { margin: 0 0 0.25rem; color: #0f172a; font-size: 1.05rem; font-weight: 700; }
     p { margin: 0; color: #64748b; font-size: 0.85rem; }
     .contador {
-      font-size: 0.8rem; font-weight: 600; color: #644EF3; background: #f1eeff;
-      padding: 4px 10px; border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #644ef3;
+      background: #f1eeff;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
     }
     .vazio { text-align: center; color: #64748b; font-size: 0.85rem; padding: 2rem 0; }
 
-    .tabela-scroll { overflow-x: auto; }
+    .tabela-scroll { overflow-x: auto; width: 100%; }
     .tabela { width: 100%; border-collapse: collapse; font-size: 0.85rem; color: #0f172a; }
     .tabela th {
-      text-align: left; padding: 0.6rem 0.5rem; color: #64748b; font-weight: 600;
+      text-align: left;
+      padding: 0.75rem 0.75rem;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.8125rem;
       border-bottom: 1px solid #eef2f6;
     }
-    .tabela td { padding: 0.75rem 0.5rem; border-bottom: 1px solid #eef2f6; vertical-align: middle; }
-    .tabela-checks th.col-check { font-size: 0.72rem; text-align: center; min-width: 78px; }
+    .tabela td { padding: 0.85rem 0.75rem; border-bottom: 1px solid #eef2f6; vertical-align: middle; }
+    .tabela-checks th.col-check { font-size: 0.75rem; text-align: center; min-width: 85px; }
     .col-check { text-align: center; }
-    .col-check input { width: 16px; height: 16px; accent-color: #644EF3; cursor: pointer; }
+    .col-check input { width: 17px; height: 17px; accent-color: #644ef3; cursor: pointer; }
     .tabela th.col-acoes, .tabela td.col-acoes { text-align: right; white-space: nowrap; width: 110px; }
 
     .pessoa { display: flex; align-items: center; gap: 0.65rem; }
     .nome { font-weight: 600; }
     .avatar {
-      width: 34px; height: 34px; border-radius: 50%; background: #f1eeff; color: #644EF3;
+      width: 34px; height: 34px; border-radius: 50%; background: #f1eeff; color: #644ef3;
       display: inline-flex; align-items: center; justify-content: center;
       font-size: 0.75rem; font-weight: 700;
     }
@@ -413,7 +447,7 @@ const ITENS_POR_PAGINA = 5;
       display: inline-block; font-size: 0.75rem; font-weight: 600;
       padding: 3px 10px; border-radius: 999px;
     }
-    .cor-1 { background: #f1eeff; color: #644EF3; }
+    .cor-1 { background: #f1eeff; color: #644ef3; }
     .cor-2 { background: #e0f2fe; color: #0369a1; }
     .cor-3 { background: #dcfce7; color: #15803d; }
     .cor-4 { background: #fef3c7; color: #b45309; }
@@ -423,7 +457,7 @@ const ITENS_POR_PAGINA = 5;
       background: none; border: none; cursor: pointer; color: #64748b; padding: 4px;
       border-radius: 6px; vertical-align: middle;
     }
-    .btn-icone:hover { background: #f1eeff; color: #644EF3; }
+    .btn-icone:hover { background: #f1eeff; color: #644ef3; }
     .btn-icone.perigo:hover { background: #fef2f2; color: #dc2626; }
     .btn-icone .material-symbols-rounded { font-size: 20px; }
 
@@ -438,22 +472,25 @@ const ITENS_POR_PAGINA = 5;
     }
     .btn-pagina:disabled { opacity: 0.4; cursor: default; }
     .pagina-atual {
-      background: #644EF3; color: #ffffff; font-size: 0.8rem; font-weight: 600;
+      background: #644ef3; color: #ffffff; font-size: 0.8rem; font-weight: 600;
       min-width: 28px; text-align: center; padding: 4px 0; border-radius: 8px;
     }
 
     .btn-primario {
-      background: #644EF3; color: #ffffff; border: none; border-radius: 10px;
-      padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      background: #644ef3; color: #ffffff; border: none; border-radius: 8px;
+      padding: 0.45rem 1rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.15s ease;
     }
     .btn-primario:hover { background: #5640dd; }
     .btn-secundario {
-      background: #ffffff; color: #0f172a; border: 1px solid #BDB4FC; border-radius: 10px;
-      padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px;
+      padding: 0.45rem 1rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.15s ease;
     }
     .btn-perigo {
-      background: #ef4444; color: #ffffff; border: none; border-radius: 10px;
-      padding: 0.6rem 1.1rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      background: #ef4444; color: #ffffff; border: none; border-radius: 8px;
+      padding: 0.45rem 1rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.15s ease;
     }
     .btn-perigo:hover { background: #dc2626; }
 

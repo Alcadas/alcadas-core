@@ -1,11 +1,9 @@
-<!-- 1. Header Global Componentizado em Dois Níveis -->
+<!-- 1. Header Global Componentizado (Tier 2 oculto para maximizar espaço das ferramentas) -->
 <app-page-header
   breadcrumbRoot="Alçadas & Tetos"
   breadcrumbCurrent="Editor de Fluxo"
   searchPlaceholder="Buscar nós no fluxo..."
-  contextIcon="account_tree"
-  [contextTitle]="currentRuleTitle()"
-  [contextSubtitle]="'Fluxo de Governança · ' + workflowNodes().length + ' etapas de validação'"
+  [showTier2]="false"
 >
   <div header-actions class="header-actions-group">
     <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para Minhas Alçadas">

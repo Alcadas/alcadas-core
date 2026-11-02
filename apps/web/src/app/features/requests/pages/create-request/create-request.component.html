@@ -1,0 +1,419 @@
+<!-- 1. Header Global da Página de Nova Solicitação -->
+<app-page-header
+  breadcrumbRoot="Solicitações"
+  breadcrumbCurrent="Nova Solicitação"
+  searchPlaceholder="Buscar diretrizes de compra..."
+  contextIcon="post_add"
+  contextTitle="Nova Solicitação de Compra"
+  contextSubtitle="Preencha os dados e anexe documentos para envio ao fluxo de alçadas"
+  [showTier2]="false"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para Solicitações">
+      <span class="material-symbols-rounded">arrow_back</span>
+      <span>Voltar</span>
+    </button>
+
+    <button type="button" class="btn-header-outline" (click)="saveDraft()" title="Salvar Rascunho">
+      <span class="material-symbols-rounded">save_as</span>
+      <span>Salvar Rascunho</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn-header-primary"
+      (click)="submitNewRequest()"
+      [disabled]="isSubmitting()"
+      title="Submeter para aprovação"
+    >
+      @if (isSubmitting()) {
+        <span class="material-symbols-rounded spin-icon">progress_activity</span>
+        <span>Enviando...</span>
+      } @else {
+        <span class="material-symbols-rounded">send</span>
+        <span>Submeter Solicitação</span>
+      }
+    </button>
+  </div>
+</app-page-header>
+
+<!-- 2. Conteúdo Rolável da Página do Formulário -->
+<main class="create-request-page">
+  <div class="form-layout-container">
+
+    <!-- COLUNA PRINCIPAL: CAMPOS DO FORMULÁRIO -->
+    <div class="form-main-column">
+
+      <!-- Card 1: Identificação e Dados Principais -->
+      <section class="form-card">
+        <header class="card-header">
+          <div class="header-icon-wrap icon-primary">
+            <span class="material-symbols-rounded">badge</span>
+          </div>
+          <div class="header-text">
+            <h2 class="card-title">Identificação da Despesa</h2>
+            <p class="card-subtitle">Informe o título, centro de custo e a categoria de compras correspondente</p>
+          </div>
+        </header>
+
+        <div class="card-body">
+          <!-- Campo: Título -->
+          <div class="form-group">
+            <label for="tituloInput" class="form-label">
+              Título da Solicitação <span class="required">*</span>
+            </label>
+            <input
+              id="tituloInput"
+              type="text"
+              class="form-control"
+              placeholder="Ex: Aquisição de licenças Figma Enterprise para equipe de design"
+              [ngModel]="formTitulo()"
+              (ngModelChange)="formTitulo.set($event)"
+              name="titulo"
+              [class.has-error]="formErrors()['titulo']"
+            />
+            @if (formErrors()['titulo']) {
+              <span class="error-msg">{{ formErrors()['titulo'] }}</span>
+            } @else {
+              <span class="field-hint">Seja claro e objetivo para facilitar a identificação pelos aprovadores.</span>
+            }
+          </div>
+
+          <!-- Linha Dupla: Centro de Custo + Categoria -->
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="centroCustoSelect" class="form-label">
+                Centro de Custo <span class="required">*</span>
+              </label>
+              <select
+                id="centroCustoSelect"
+                class="form-control custom-select"
+                [ngModel]="formCentroCustoId()"
+                (ngModelChange)="formCentroCustoId.set($event)"
+                name="centroCustoId"
+              >
+                @for (cc of requestsService.costCenters; track cc.id) {
+                  <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }} ({{ cc.departamento }})</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="categoriaSelect" class="form-label">
+                Categoria de Despesa <span class="required">*</span>
+              </label>
+              <select
+                id="categoriaSelect"
+                class="form-control custom-select"
+                [ngModel]="formCategoria()"
+                (ngModelChange)="formCategoria.set($event)"
+                name="categoria"
+              >
+                @for (cat of requestsService.categories; track cat.id) {
+                  <option [value]="cat.id">{{ cat.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <!-- Nível de Prioridade / Urgência -->
+          <div class="form-group">
+            <span class="form-label">Prioridade da Demanda</span>
+            <div class="priority-selector" role="radiogroup" aria-label="Prioridade da Solicitação">
+              <button
+                type="button"
+                class="priority-card"
+                [class.active]="formPrioridade() === 'BAIXA'"
+                (click)="setPriority('BAIXA')"
+              >
+                <span class="dot dot-low"></span>
+                <span class="p-title">Baixa</span>
+                <span class="p-desc">Planejamento regular</span>
+              </button>
+
+              <button
+                type="button"
+                class="priority-card"
+                [class.active]="formPrioridade() === 'MEDIA'"
+                (click)="setPriority('MEDIA')"
+              >
+                <span class="dot dot-med"></span>
+                <span class="p-title">Média</span>
+                <span class="p-desc">Rotina operacional</span>
+              </button>
+
+              <button
+                type="button"
+                class="priority-card"
+                [class.active]="formPrioridade() === 'ALTA'"
+                (click)="setPriority('ALTA')"
+              >
+                <span class="dot dot-high"></span>
+                <span class="p-title">Alta</span>
+                <span class="p-desc">Impacto de entrega</span>
+              </button>
+
+              <button
+                type="button"
+                class="priority-card"
+                [class.active]="formPrioridade() === 'CRITICA'"
+                (click)="setPriority('CRITICA')"
+              >
+                <span class="dot dot-crit"></span>
+                <span class="p-title">Crítica</span>
+                <span class="p-desc">Risco de interrupção</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 2: Justificativa de Governança -->
+      <section class="form-card">
+        <header class="card-header">
+          <div class="header-icon-wrap icon-warning">
+            <span class="material-symbols-rounded">description</span>
+          </div>
+          <div class="header-text">
+            <h2 class="card-title">Justificativa de Negócio</h2>
+            <p class="card-subtitle">Fundamentação exigida pelo comitê de governança e auditoria da organização</p>
+          </div>
+        </header>
+
+        <div class="card-body">
+          <div class="form-group">
+            <div class="label-with-counter">
+              <label for="justificativaInput" class="form-label">
+                Motivo e Benefícios da Despesa <span class="required">*</span>
+              </label>
+              <span class="char-counter" [class.is-valid]="formJustificativa().length >= 30">
+                {{ formJustificativa().length }} / min 30 caracteres
+              </span>
+            </div>
+            <textarea
+              id="justificativaInput"
+              class="form-control form-textarea"
+              rows="5"
+              placeholder="Descreva de forma detalhada o motivo da contratação, os impactos positivos para a operação e a aderência ao orçamento do centro de custo..."
+              [ngModel]="formJustificativa()"
+              (ngModelChange)="formJustificativa.set($event)"
+              name="justificativa"
+              [class.has-error]="formErrors()['justificativa']"
+            ></textarea>
+            @if (formErrors()['justificativa']) {
+              <span class="error-msg">{{ formErrors()['justificativa'] }}</span>
+            } @else {
+              <span class="field-hint">
+                <span class="material-symbols-rounded hint-icon">verified_user</span>
+                <span>O texto será registrado de forma imutável com carimbo de tempo na trilha SHA-256.</span>
+              </span>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 3: Documentação e Orçamentos -->
+      <section class="form-card">
+        <header class="card-header">
+          <div class="header-icon-wrap icon-success">
+            <span class="material-symbols-rounded">attach_file</span>
+          </div>
+          <div class="header-text">
+            <h2 class="card-title">Cotações & Anexos Comprobatórios</h2>
+            <p class="card-subtitle">Anexe no mínimo uma proposta ou comparativo comercial para aprovação</p>
+          </div>
+        </header>
+
+        <div class="card-body">
+          <div
+            class="dropzone-area"
+            (click)="triggerFileInput()"
+            (keydown.enter)="triggerFileInput()"
+            tabindex="0"
+            role="button"
+            aria-label="Selecionar arquivos para anexo"
+          >
+            <div class="dropzone-icon-circle">
+              <span class="material-symbols-rounded dropzone-icon">cloud_upload</span>
+            </div>
+            <div class="dropzone-text">
+              <strong>Clique para adicionar arquivos de cotação</strong>
+              <span>Suporta propostas comerciais, orçamentos e contratos em formato .PDF ou .DOCX (até 15MB)</span>
+            </div>
+          </div>
+
+          <!-- Lista de Arquivos Anexados -->
+          @if (formAnexos().length > 0) {
+            <div class="attachments-list">
+              <h3 class="attachments-list-title">Documentos Anexados ({{ formAnexos().length }})</h3>
+              @for (att of formAnexos(); track $index) {
+                <div class="attachment-item">
+                  <div class="attachment-left">
+                    <span class="material-symbols-rounded file-icon">picture_as_pdf</span>
+                    <div class="attachment-details">
+                      <strong class="file-name">{{ att.nome }}</strong>
+                      <span class="file-size">{{ att.tamanho }} · Verificado</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-remove-attachment"
+                    (click)="removeAttachment($index)"
+                    title="Remover anexo"
+                    aria-label="Remover arquivo"
+                  >
+                    <span class="material-symbols-rounded">delete</span>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Rodapé de Ações do Formulário -->
+      <div class="form-action-bar">
+        <button type="button" class="btn-cancel" (click)="goBack()">
+          <span>Cancelar</span>
+        </button>
+
+        <div class="right-buttons">
+          <button type="button" class="btn-save-draft" (click)="saveDraft()">
+            <span class="material-symbols-rounded">save_as</span>
+            <span>Salvar Rascunho</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn-submit"
+            (click)="submitNewRequest()"
+            [disabled]="isSubmitting()"
+          >
+            @if (isSubmitting()) {
+              <span class="material-symbols-rounded spin-icon">progress_activity</span>
+              <span>Processando...</span>
+            } @else {
+              <span class="material-symbols-rounded">check_circle</span>
+              <span>Submeter para Aprovação</span>
+            }
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COLUNA LATERAL: VALOR E ESTEIRA DE ALÇADA DINÂMICA -->
+    <aside class="form-sidebar-column">
+
+      <!-- Card Lateral 1: Valor da Despesa -->
+      <section class="sidebar-card value-card">
+        <div class="sidebar-card-header">
+          <span class="material-symbols-rounded">payments</span>
+          <h3>Valor Estimado</h3>
+        </div>
+
+        <div class="form-group value-group">
+          <label for="valorInput" class="form-label">
+            Valor Total Previsto <span class="required">*</span>
+          </label>
+          <div class="money-input-wrapper" [class.has-error]="formErrors()['valor']">
+            <span class="money-prefix">R$</span>
+            <input
+              id="valorInput"
+              type="number"
+              min="0.01"
+              step="0.01"
+              class="money-input"
+              placeholder="0,00"
+              [ngModel]="formValor()"
+              (ngModelChange)="formValor.set($event)"
+              name="valor"
+            />
+          </div>
+          @if (formErrors()['valor']) {
+            <span class="error-msg">{{ formErrors()['valor'] }}</span>
+          }
+        </div>
+
+        @if (formValor()) {
+          <div class="value-highlight-display">
+            <span class="display-label">Impacto no Centro de Custo:</span>
+            <strong class="display-amount">{{ formValor() | currency:'BRL':'symbol':'1.2-2' }}</strong>
+          </div>
+        }
+      </section>
+
+      <!-- Card Lateral 2: Esteira Calculada Dinamicamente -->
+      <section class="sidebar-card workflow-preview-card">
+        <div class="sidebar-card-header">
+          <span class="material-symbols-rounded">account_tree</span>
+          <h3>Esteira de Alçada</h3>
+          <span class="workflow-steps-count">{{ suggestedWorkflow().totalEtapas }} Etapas</span>
+        </div>
+
+        <div class="workflow-name-banner">
+          <span class="workflow-tag">Fluxo Aplicado:</span>
+          <strong class="workflow-title">{{ suggestedWorkflow().nome }}</strong>
+        </div>
+
+        <p class="workflow-info-text">
+          Conforme as regras de governança, o valor informado requer a seguinte trilha sequencial:
+        </p>
+
+        <!-- Stepper Sequencial de Etapas -->
+        <div class="workflow-stepper-list">
+          @for (step of suggestedWorkflow().etapas; track step.numero) {
+            <div class="stepper-item" [class.is-first]="step.numero === 1">
+              <div class="step-badge">
+                @if (step.numero === 1) {
+                  <span class="material-symbols-rounded">check</span>
+                } @else {
+                  <span>{{ step.numero }}</span>
+                }
+              </div>
+              <div class="step-details">
+                <strong class="step-title">{{ step.nome }}</strong>
+                <span class="step-role">{{ step.papel }}</span>
+                <span class="step-responsavel">{{ step.responsavelNome }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Card Lateral 3: Diretrizes de Governança -->
+      <section class="sidebar-card governance-card">
+        <div class="sidebar-card-header">
+          <span class="material-symbols-rounded">security</span>
+          <h3>Garantias & Auditoria</h3>
+        </div>
+
+        <ul class="governance-rules-list">
+          <li class="rule-item">
+            <span class="material-symbols-rounded rule-icon">lock_clock</span>
+            <div>
+              <strong>Tempo Médio de Resposta</strong>
+              <p>Fluxos deste centro de custo são deliberados em até 2 dias úteis.</p>
+            </div>
+          </li>
+          <li class="rule-item">
+            <span class="material-symbols-rounded rule-icon">verified_user</span>
+            <div>
+              <strong>Segregação de Funções (SoD)</strong>
+              <p>O solicitante não pode autoaprovar suas próprias requisições.</p>
+            </div>
+          </li>
+          <li class="rule-item">
+            <span class="material-symbols-rounded rule-icon">link</span>
+            <div>
+              <strong>Imutabilidade SHA-256</strong>
+              <p>Geração de hash de integridade logo após a submissão.</p>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+    </aside>
+
+  </div>
+</main>

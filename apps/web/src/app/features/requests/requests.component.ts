@@ -5,6 +5,8 @@ import { JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE, justificativaSuficiente } from '@al
 import { AuthService } from '../../core/auth/auth.service';
 import { podeDecidir } from '../../core/auth/roles';
 import { mensagemDeErroDaApi } from '../../core/http/api-error';
+import { ActivatedRoute, Router } from '@angular/router';
+import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
 import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { fluxoDaAlcada } from './requests.mapper';
@@ -47,6 +49,21 @@ const MENSAGEM_DE_SUCESSO: Record<DecisionAction, string> = {
 export class RequestsComponent implements OnInit {
   protected readonly requestsService = inject(RequestsService);
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  goToCreatePage(): void {
+    this.router.navigate(['/solicitacoes/nova']);
+  }
+
+  constructor() {
+    const params = this.route.snapshot.queryParams;
+    if (params && params['criada'] === 'true') {
+      setTimeout(() => {
+        this.showToast('Nova solicitação submetida com sucesso à esteira de aprovação!', 'success');
+      }, 100);
+    }
+  }
 
   // Filtros e navegação
   readonly currentTab = signal<RequestTab>('todas');
@@ -232,9 +249,9 @@ export class RequestsComponent implements OnInit {
   }
 
   // Criação
+  // Navegação para a página de criação de nova solicitação
   openCreateDrawer(): void {
-    this.resetCreateForm();
-    this.isCreateDrawerOpen.set(true);
+    this.goToCreatePage();
   }
 
   closeCreateDrawer(): void {
