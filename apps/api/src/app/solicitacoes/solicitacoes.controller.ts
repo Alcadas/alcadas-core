@@ -1,38 +1,33 @@
-import { Controller, Post, Get, Body, Req, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
-import { SolicitacoesService } from './solicitacoes.service';
+import { UsuarioAtual, UsuarioAutenticado } from '../auth/usuario-autenticado';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { ListagemValidator } from './listagem.validator';
+import { SolicitacoesService } from './solicitacoes.service';
 
-interface RequestComUsuario {
-  user: { tenantId: string; uid: string };
-}
-
+/**
+ * Jornada 2 — submissão e listagem de solicitações.
+ * O tenant e o autor vêm sempre do token validado pelo FirebaseAuthGuard (ADR-009).
+ */
 @Controller('solicitacoes')
 @UseGuards(FirebaseAuthGuard)
 export class SolicitacoesController {
   constructor(
     private readonly solicitacoesService: SolicitacoesService,
-    private readonly listagemValidator: ListagemValidator
+    private readonly listagemValidator: ListagemValidator,
   ) {}
 
   @Post()
-  async criar(@Body() dto: CriarSolicitacaoDto, @Req() req: RequestComUsuario) {
-    const tenantId = req.user.tenantId;
-    const solicitanteId = req.user.uid;
-
-    if (!tenantId || !solicitanteId) {
-      throw new BadRequestException('Credenciais institucionais incompletas no token.');
-    }
-
-    return this.solicitacoesService.criarSolicitacao(dto, tenantId, solicitanteId);
+  async criar(@Body() dto: CriarSolicitacaoDto, @UsuarioAtual() usuario: UsuarioAutenticado) {
+    return this.solicitacoesService.criarSolicitacao(dto, usuario.tenantId, usuario.uid);
   }
 
   @Get()
-  async listar(@Query() query: Record<string, string>, @Req() req: RequestComUsuario) {
-    const tenantId = req.user.tenantId;
+  async listar(
+    @Query() query: Record<string, string>,
+    @UsuarioAtual() usuario: UsuarioAutenticado,
+  ) {
     const parametros = this.listagemValidator.validar(query);
-
-    return this.solicitacoesService.listarPorTenant(tenantId, parametros);
+    return this.solicitacoesService.listarPorTenant(usuario.tenantId, parametros);
   }
 }

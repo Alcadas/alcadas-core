@@ -1,9 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
-import { RouterLink } from '@angular/router';
-
 
 @Component({
   selector: 'app-login',
@@ -21,28 +19,29 @@ export class LoginComponent {
   protected readonly errorMessage = signal<string | null>(null);
 
   protected readonly loginForm = this.fb.nonNullable.group({
-    email: ['gestor@organizacao.com', [Validators.email]],
-    password: ['123456'],
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]],
   });
 
   onSubmit(): void {
+    if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
+      this.errorMessage.set('Informe e-mail e senha para entrar.');
+      return;
+    }
+
     this.isLoading.set(true);
     this.errorMessage.set(null);
+    const { email, password } = this.loginForm.getRawValue();
 
-    const email = this.loginForm.value.email?.trim() || 'gestor@organizacao.com';
-    const password = this.loginForm.value.password || '123456';
-
-    // Tenta autenticar na API se disponível; caso contrário, passa direto para o dashboard
-    this.authService.login({ email, password }).subscribe({
+    this.authService.login({ email: email.trim(), password }).subscribe({
       next: () => {
         this.isLoading.set(false);
-        this.router.navigate(['/dashboard']);
+        void this.router.navigate(['/dashboard']);
       },
-      error: () => {
-        // Modo flexível / desenvolvimento: avança para a próxima tela mesmo sem API ou rota configurada no backend
+      error: (erro: Error) => {
         this.isLoading.set(false);
-        this.authService.setMockSession(email);
-        this.router.navigate(['/dashboard']);
+        this.errorMessage.set(erro.message);
       },
     });
   }

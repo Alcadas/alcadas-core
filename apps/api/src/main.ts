@@ -8,7 +8,9 @@ async function bootstrap() {
   const globalPrefix = 'api';
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new FiltroErrosHttp());
-  app.enableCors({ origin: 'http://localhost:4200' });
+  // Origens do frontend liberadas no CORS, separadas por vírgula (Plano Custo Zero — ADR-011).
+  const origensPermitidas = (process.env['WEB_URL'] ?? 'http://localhost:4200').split(',').map((o) => o.trim());
+  app.enableCors({ origin: origensPermitidas });
   const port = process.env.PORT || 3000;
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}/${globalPrefix}`);

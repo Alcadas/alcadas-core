@@ -3,13 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { SolicitacaoValidator } from './solicitacao.validator';
 import { TrilhaAuditoria } from './trilha';
-import { ISolicitacoesRepository, SOLICITACOES_REPOSITORY } from './solicitacoes.repository';
-
-export interface ParametrosListagem {
-  status?: string;
-  page: number;
-  limit: number;
-}
+import { FiltroListagem, ISolicitacoesRepository, SOLICITACOES_REPOSITORY } from './solicitacoes.repository';
 
 @Injectable()
 export class SolicitacoesService {
@@ -50,10 +44,7 @@ export class SolicitacoesService {
     return solicitacao;
   }
 
-  async listarPorTenant(tenantId: string, parametros?: ParametrosListagem) {
-    if (parametros) {
-      console.debug(`Filtros aplicados: page ${parametros.page}, limit ${parametros.limit}`);
-    }
-    return this.repository.listarPorTenant(tenantId);
+  async listarPorTenant(tenantId: string, filtro: FiltroListagem) {
+    return this.repository.listarPorTenant(tenantId, filtro);
   }
 }

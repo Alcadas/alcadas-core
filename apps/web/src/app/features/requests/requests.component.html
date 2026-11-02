@@ -137,7 +137,7 @@
             (ngModelChange)="setCostCenterFilter($event)"
           >
             <option value="TODOS">Todos os Centros</option>
-            @for (cc of requestsService.costCenters; track cc.id) {
+            @for (cc of requestsService.costCenters(); track cc.id) {
               <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
             }
           </select>
@@ -155,7 +155,6 @@
             <option value="recentes">Mais Recentes</option>
             <option value="maior_valor">Maior Valor (R$)</option>
             <option value="menor_valor">Menor Valor (R$)</option>
-            <option value="prioridade">Maior Prioridade</option>
           </select>
         </div>
       </div>
@@ -195,20 +194,46 @@
           </thead>
 
           <tbody>
-            @if (paginatedRequests().length === 0) {
+            @if (requestsService.loadState() === 'carregando') {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box" role="status">
+                    <span class="spinner-small" aria-hidden="true"></span>
+                    <h3 class="empty-title">Carregando…</h3>
+                    <p class="empty-desc">Buscando as solicitações da sua organização.</p>
+                  </div>
+                </td>
+              </tr>
+            } @else if (requestsService.loadState() === 'erro') {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box" role="alert">
+                    <span class="material-symbols-rounded empty-icon">cloud_off</span>
+                    <h3 class="empty-title">Não foi possível carregar as solicitações</h3>
+                    <p class="empty-desc">{{ requestsService.loadError() }}</p>
+                    <button type="button" class="btn-header-outline" (click)="reload()">Tentar novamente</button>
+                  </div>
+                </td>
+              </tr>
+            } @else if (requestsService.requests().length === 0) {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box">
+                    <span class="material-symbols-rounded empty-icon">inbox</span>
+                    <h3 class="empty-title">Nenhuma solicitação ainda</h3>
+                    <p class="empty-desc">Quando alguém da sua organização submeter um pedido, ele aparece aqui.</p>
+                    <button type="button" class="btn-header-outline" (click)="openCreateDrawer()">Criar a primeira</button>
+                  </div>
+                </td>
+              </tr>
+            } @else if (paginatedRequests().length === 0) {
               <tr>
                 <td colspan="10" class="td-empty">
                   <div class="empty-state-box">
                     <span class="material-symbols-rounded empty-icon">search_off</span>
                     <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
                     <p class="empty-desc">Tente alterar os filtros selecionados ou digite outros termos de pesquisa.</p>
-                    <button
-                      type="button"
-                      class="btn-header-outline"
-                      (click)="setTab('todas'); setSearchQuery(''); setCategoryFilter('TODAS'); setCostCenterFilter('TODOS')"
-                    >
-                      Limpar Filtros
-                    </button>
+                    <button type="button" class="btn-header-outline" (click)="clearFilters()">Limpar Filtros</button>
                   </div>
                 </td>
               </tr>
@@ -233,9 +258,6 @@
 
                   <td class="td-code">
                     <span class="req-code">{{ req.codigo }}</span>
-                    <span class="priority-pill" [ngClass]="getPriorityBadgeClass(req.prioridade)">
-                      {{ req.prioridade }}
-                    </span>
                   </td>
 
                   <td class="td-title">
@@ -381,7 +403,7 @@
     [subtitle]="selectedRequest()?.titulo"
     icon="timeline"
     width="560px"
-    [badge]="selectedRequest() ? { text: selectedRequest()!.statusLabel, variant: selectedRequest()!.status === 'APROVADA' ? 'success' : selectedRequest()!.status === 'PENDENTE' ? 'warning' : 'neutral' } : undefined"
+    [badge]="selectedRequest() ? { text: selectedRequest()!.statusLabel, variant: getStatusBadgeVariant(selectedRequest()!.status) } : undefined"
     (closed)="closeDetailDrawer()"
   >
     @if (selectedRequest(); as req) {
@@ -415,8 +437,8 @@
               <span class="meta-val">{{ req.categoriaLabel }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Prioridade</span>
-              <span class="meta-val font-semibold">{{ req.prioridade }}</span>
+              <span class="meta-label">Alçada</span>
+              <span class="meta-val font-semibold">{{ req.fluxoDestinado.nome }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Solicitante</span>
@@ -435,14 +457,24 @@
             <div class="timeline-title-row">
               <span class="material-symbols-rounded timeline-header-icon">account_tree</span>
               <div>
-                <h3 class="timeline-heading">Trilha do Fluxo de Alçada</h3>
-                <p class="timeline-subheading">{{ req.fluxoDestinado.nome }} ({{ req.fluxoDestinado.totalEtapas }} etapas)</p>
+                <h3 class="timeline-heading">Trilha de Auditoria</h3>
+                <p class="timeline-subheading">Registros encadeados com SHA-256 ({{ trailSteps().length }} eventos)</p>
               </div>
             </div>
           </div>
 
+          @if (trailState() === 'carregando') {
+            <p class="timeline-subheading" role="status">Carregando a trilha…</p>
+          } @else if (trailState() === 'erro') {
+            <div role="alert">
+              <p class="timeline-subheading">Não foi possível carregar a trilha.</p>
+              <button type="button" class="btn-header-outline" (click)="loadTrail(req.id)">Tentar novamente</button>
+            </div>
+          } @else if (trailSteps().length === 0) {
+            <p class="timeline-subheading">Nenhum evento registrado na trilha.</p>
+          }
           <div class="timeline-stepper-vertical">
-            @for (step of req.fluxoDestinado.etapas; track step.numero) {
+            @for (step of trailSteps(); track step.numero) {
               <div
                 class="timeline-step-item"
                 [class.is-done]="step.status === 'CONCLUIDA'"
@@ -453,7 +485,7 @@
                   <div class="step-indicator-badge">
                     <span class="material-symbols-rounded indicator-icon">{{ getStepStatusIcon(step) }}</span>
                   </div>
-                  @if (step.numero < req.fluxoDestinado.totalEtapas) {
+                  @if (!$last) {
                     <div class="step-connector-line"></div>
                   }
                 </div>
@@ -501,45 +533,48 @@
           </div>
         </div>
 
-        <!-- Documentos e Anexos -->
-        <div class="detail-section">
-          <h4 class="detail-section-title">
-            <span class="material-symbols-rounded">attach_file</span>
-            <span>Documentos e Cotações Anexadas ({{ req.anexos.length }})</span>
-          </h4>
-          <div class="detail-attachments-grid">
-            @for (att of req.anexos; track att.id) {
-              <div class="detail-att-card">
-                <span class="material-symbols-rounded file-doc-icon">{{ att.icone }}</span>
-                <div class="att-name-group">
-                  <span class="att-filename" [title]="att.nome">{{ att.nome }}</span>
-                  <span class="att-meta-size">{{ att.tamanho }}</span>
-                </div>
-                <button
-                  type="button"
-                  class="download-att-btn"
-                  title="Visualizar ou baixar anexo"
-                  (click)="showToast('Download do anexo ' + att.nome + ' concluído.', 'info')"
-                  aria-label="Baixar anexo"
-                >
-                  <span class="material-symbols-rounded">download</span>
-                </button>
-              </div>
-            }
+        <!-- Decisão do aprovador (US-03) -->
+        @if (canDecideSelected()) {
+          <div class="detail-section">
+            <h4 class="detail-section-title">
+              <span class="material-symbols-rounded">gavel</span>
+              <span>Sua decisão</span>
+            </h4>
+            <div class="form-group">
+              <label for="motivoDecisao" class="form-label">
+                Motivo (obrigatório para rejeitar ou pedir ajuste — mín. {{ motivoMinimo }} caracteres)
+              </label>
+              <textarea
+                id="motivoDecisao"
+                class="form-control form-textarea"
+                rows="3"
+                [ngModel]="decisionMotivo()"
+                (ngModelChange)="decisionMotivo.set($event)"
+                name="motivoDecisao"
+                [class.has-error]="decisionError()"
+              ></textarea>
+              @if (decisionError()) {
+                <span class="error-msg" role="alert">{{ decisionError() }}</span>
+              }
+            </div>
           </div>
-        </div>
+        }
       </div>
     }
 
     <div drawer-footer class="drawer-footer-actions">
-      @if (selectedRequest()?.status === 'PENDENTE' || selectedRequest()?.status === 'AJUSTE_SOLICITADO') {
-        <button
-          type="button"
-          class="btn-drawer-danger"
-          (click)="cancelCurrentRequest()"
-        >
+      @if (canDecideSelected()) {
+        <button type="button" class="btn-drawer-danger" (click)="decide('rejeitar')" [disabled]="isDeciding()">
           <span class="material-symbols-rounded">cancel</span>
-          <span>Cancelar Solicitação</span>
+          <span>Rejeitar</span>
+        </button>
+        <button type="button" class="btn-drawer-cancel" (click)="decide('ajuste')" [disabled]="isDeciding()">
+          <span class="material-symbols-rounded">edit_note</span>
+          <span>Pedir ajuste</span>
+        </button>
+        <button type="button" class="btn-drawer-submit" (click)="decide('aprovar')" [disabled]="isDeciding()">
+          <span class="material-symbols-rounded">check_circle</span>
+          <span>Aprovar</span>
         </button>
       }
       <button type="button" class="btn-drawer-cancel" (click)="closeDetailDrawer()">

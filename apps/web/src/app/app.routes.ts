@@ -1,4 +1,5 @@
 import { Route } from '@angular/router';
+import { authGuard } from './core/auth/auth.guard';
 
 export const appRoutes: Route[] = [
   {
@@ -44,20 +45,23 @@ export const appRoutes: Route[] = [
       ),
   },
   {
-    path: 'aprovacoes',
+    path: 'verificarCodigo',
     loadComponent: () =>
-      import('./features/approvals/approvals.component').then(
-        (m) => m.ApprovalsComponent
+      import('./features/auth/pages/verificar-codigo/verificar-codigo').then(
+        (m) => m.VerificarCodigo
       ),
   },
   {
-    path: 'solicitacoes',
+    path: 'novaSenha',
     loadComponent: () =>
-      import('./features/requests/requests.component').then(
-        (m) => m.RequestsComponent
+      import('./features/auth/pages/nova-senha/nova-senha').then(
+        (m) => m.NovaSenha
       ),
   },
   {
+    // Rotas internas: só com sessão do Firebase Auth (CA-09.2)
+    path: '',
+    canActivateChild: [authGuard],
     path: 'solicitacoes/nova',
     loadComponent: () =>
       import(
@@ -68,65 +72,97 @@ export const appRoutes: Route[] = [
     path: 'alcadas',
     children: [
       {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+        title: 'Perfil | Alçadas',
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/dashboard/dashboard.component').then(
+            (m) => m.DashboardComponent
+          ),
+      },
+      {
+        path: 'aprovacoes',
+        loadComponent: () =>
+          import('./features/approvals/approvals.component').then(
+            (m) => m.ApprovalsComponent
+          ),
+      },
+      {
+        path: 'solicitacoes',
+        loadComponent: () =>
+          import('./features/requests/requests.component').then(
+            (m) => m.RequestsComponent
+          ),
+      },
+      {
+        path: 'alcadas',
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'minhas-alcadas',
+          },
+          {
+            path: 'minhas-alcadas',
+            loadComponent: () =>
+              import('./features/limits/pages/my-limits/my-limits.component').then(
+                (m) => m.MyLimitsComponent
+              ),
+          },
+          {
+            path: 'regras',
+            loadComponent: () =>
+              import(
+                './features/limits/pages/rules-catalog/rules-catalog.component'
+              ).then((m) => m.RulesCatalogComponent),
+          },
+          {
+            path: 'editor/:id',
+            loadComponent: () =>
+              import('./features/limits/limits.component').then(
+                (m) => m.LimitsComponent
+              ),
+          },
+          {
+            path: 'novo',
+            loadComponent: () =>
+              import('./features/limits/limits.component').then(
+                (m) => m.LimitsComponent
+              ),
+          },
+        ],
+      },
+      {
+        path: 'auditoria',
+        loadComponent: () =>
+          import('./features/audit/audit.component').then(
+            (m) => m.AuditComponent
+          ),
+      },
+      {
+        path: 'riscos',
+        loadComponent: () =>
+          import('./features/risks/risks.component').then(
+            (m) => m.RisksComponent
+          ),
+      },
+      {
+        path: 'delegacoes',
+        loadComponent: () =>
+          import('./features/delegations/delegations.component').then(
+            (m) => m.DelegationsComponent
+          ),
+      },
+      {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'minhas-alcadas',
-      },
-      {
-        path: 'minhas-alcadas',
-        loadComponent: () =>
-          import('./features/limits/pages/my-limits/my-limits.component').then(
-            (m) => m.MyLimitsComponent
-          ),
-      },
-      {
-        path: 'regras',
-        loadComponent: () =>
-          import(
-            './features/limits/pages/rules-catalog/rules-catalog.component'
-          ).then((m) => m.RulesCatalogComponent),
-      },
-      {
-        path: 'editor/:id',
-        loadComponent: () =>
-          import('./features/limits/limits.component').then(
-            (m) => m.LimitsComponent
-          ),
-      },
-      {
-        path: 'novo',
-        loadComponent: () =>
-          import('./features/limits/limits.component').then(
-            (m) => m.LimitsComponent
-          ),
+        redirectTo: 'dashboard',
       },
     ],
-  },
-  {
-    path: 'auditoria',
-    loadComponent: () =>
-      import('./features/audit/audit.component').then(
-        (m) => m.AuditComponent
-      ),
-  },
-  {
-    path: 'riscos',
-    loadComponent: () =>
-      import('./features/risks/risks.component').then(
-        (m) => m.RisksComponent
-      ),
-  },
-  {
-    path: 'delegacoes',
-    loadComponent: () =>
-      import('./features/delegations/delegations.component').then(
-        (m) => m.DelegationsComponent
-      ),
-  },
-  {
-    path: '',
-    pathMatch: 'full',
-    redirectTo: 'dashboard',
   },
   {
     path: '**',

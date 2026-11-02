@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE } from '@alcadas-core/models';
 import { CATEGORIAS_CONFIG } from './categorias.config';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 
@@ -12,8 +13,8 @@ export class SolicitacaoValidator {
     }
 
     if (dto.valor > config.limiteBase) {
-      if (!dto.justificativa || dto.justificativa.length < 30) {
-        throw new BadRequestException('Para valores acima da base da categoria, a justificativa deve conter no mínimo 30 caracteres.');
+      if (!dto.justificativa || dto.justificativa.trim().length < JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE) {
+        throw new BadRequestException(`Para valores acima da base da categoria, a justificativa deve conter no mínimo ${JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE} caracteres.`);
       }
     }
   }

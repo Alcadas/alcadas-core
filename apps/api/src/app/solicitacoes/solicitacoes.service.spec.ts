@@ -43,4 +43,19 @@ describe('SolicitacoesService', () => {
     
     expect(repositoryMock.salvarComTrilha).toHaveBeenCalledTimes(1);
   });
+
+  it('US-07: grava o elo de criação no formato da trilha (sequência 1, CRIACAO_SOLICITACAO)', async () => {
+    const dto = { centroCustoId: 'CC-01', valor: 500, categoria: 'SERVICOS_TERCEIROS' } as CriarSolicitacaoDto;
+
+    await service.criarSolicitacao(dto, 'tenant-123', 'user-456');
+
+    const [, elo] = repositoryMock.salvarComTrilha.mock.calls[0];
+    expect(elo).toMatchObject({ sequencia: 1, tipoEvento: 'CRIACAO_SOLICITACAO', authorId: 'user-456' });
+  });
+
+  it('repassa a paginação e o filtro de status ao repositório', async () => {
+    await service.listarPorTenant('tenant-123', { page: 2, limit: 20, status: 'PENDENTE' });
+
+    expect(repositoryMock.listarPorTenant).toHaveBeenCalledWith('tenant-123', { page: 2, limit: 20, status: 'PENDENTE' });
+  });
 });
