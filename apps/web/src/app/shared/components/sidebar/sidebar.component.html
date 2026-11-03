@@ -41,7 +41,7 @@
 
     <!-- Dropdown de Troca de Empresa para Desenvolvedor / Super Admin -->
     @if (!isCollapsed() && isTenantDropdownOpen()) {
-      <div class="tenant-dropdown-menu" (click)="$event.stopPropagation()">
+      <div class="tenant-dropdown-menu">
         <div class="dropdown-header">
           <span class="dropdown-title">Empresas Cadastradas</span>
           <span class="dropdown-badge">{{ settingsService.tenants().length }}</span>
