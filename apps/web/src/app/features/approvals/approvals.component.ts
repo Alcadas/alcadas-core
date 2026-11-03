@@ -12,6 +12,8 @@ import {
 } from './components/digital-signature-modal/digital-signature-modal.component';
 import { RequestsService } from '../requests/services/requests.service';
 import { RequestItem, RequestPriority, RequestStatus } from '../requests/requests.models';
+import { AuthService } from '../../core/auth/auth.service';
+import { SettingsService } from '../settings/services/settings.service';
 
 export type ApprovalsTab = 'pendentes' | 'ajustes' | 'aprovadas' | 'todas';
 
@@ -30,6 +32,8 @@ export type ApprovalsTab = 'pendentes' | 'ajustes' | 'aprovadas' | 'todas';
 })
 export class ApprovalsComponent {
   readonly requestsService = inject(RequestsService);
+  private readonly authService = inject(AuthService);
+  private readonly settingsService = inject(SettingsService);
 
   // Filtros e Navegação
   readonly currentTab = signal<ApprovalsTab>('pendentes');
@@ -79,6 +83,10 @@ export class ApprovalsComponent {
   // Alçada do gestor autenticado
   readonly authorizedLimit = 50000;
 
+  constructor() {
+    this.requestsService.ensureLoaded();
+  }
+
   // Abas do PageHeader
   readonly headerTabs = computed<PageHeaderTab[]>(() => {
     return [
@@ -113,9 +121,46 @@ export class ApprovalsComponent {
     ];
   });
 
+  /**
+   * Lista de solicitações elegíveis para aprovação.
+   * Por regra de Segregação de Funções (SoD) e governança:
+   * - O usuário não pode aprovar suas próprias solicitações (SoD).
+   * - Somente chegam para aprovação solicitações cujo valor e departamento estejam na alçada do usuário
+   *   (ou todas para o Desenvolvedor / Super Admin).
+   */
+  readonly approvalEligibleRequests = computed<RequestItem[]>(() => {
+    const all = this.requestsService.requests();
+    if (this.settingsService.isPlatformSuperAdmin()) {
+      return all;
+    }
+    const user = this.authService.currentUser();
+    const myId = user?.id;
+    const myName = (user?.name || '').trim().toLowerCase();
+    const myEmail = (user?.email || '').trim().toLowerCase();
+
+    // Limite de alçada do usuário atual (baseado no perfil ou nas delegações)
+    const userAccount = myEmail ? this.settingsService.findAccountByEmail(myEmail) : null;
+    const approvalLimit = userAccount?.employee?.approvalLimit ?? this.authorizedLimit;
+
+    return all.filter((r) => {
+      // 1. Bloqueia solicitações de autoria do próprio usuário (Segregação de Funções - SoD)
+      if (myId && r.solicitante.id === myId) return false;
+      if (myEmail && r.solicitante.id?.toLowerCase() === myEmail) return false;
+      if (myName && r.solicitante.nome?.trim().toLowerCase() === myName) return false;
+
+      // 2. Checagem de alçada: a solicitação só chega para aprovar se o valor estiver dentro do limite de alçada do gestor
+      // e se ele tiver papel aprovador (ex: Gerente, Diretor, CFO ou Admin)
+      if (approvalLimit > 0 && r.valor > approvalLimit && user?.role !== 'DIRETOR_CFO' && user?.role !== 'ADMIN') {
+        return false;
+      }
+
+      return true;
+    });
+  });
+
   // Departamentos disponíveis para filtro
   readonly departments = computed(() => {
-    const list = this.requestsService.requests();
+    const list = this.approvalEligibleRequests();
     const depts = new Set<string>();
     list.forEach((req) => depts.add(req.departamento));
     return Array.from(depts).sort();
@@ -123,27 +168,25 @@ export class ApprovalsComponent {
 
   // Métricas para os quick-cards
   readonly pendingCount = computed(() => {
-    return this.requestsService.requests().filter((r) => r.status === 'PENDENTE').length;
+    return this.approvalEligibleRequests().filter((r) => r.status === 'PENDENTE').length;
   });
 
   readonly pendingTotalValue = computed(() => {
-    return this.requestsService
-      .requests()
+    return this.approvalEligibleRequests()
       .filter((r) => r.status === 'PENDENTE')
       .reduce((sum, r) => sum + r.valor, 0);
   });
 
   readonly adjustmentCount = computed(() => {
-    return this.requestsService.requests().filter((r) => r.status === 'AJUSTE_SOLICITADO').length;
+    return this.approvalEligibleRequests().filter((r) => r.status === 'EM_AJUSTE').length;
   });
 
   readonly approvedCount = computed(() => {
-    return this.requestsService.requests().filter((r) => r.status === 'APROVADA').length;
+    return this.approvalEligibleRequests().filter((r) => r.status === 'APROVADA').length;
   });
 
   readonly totalDeliberationsCount = computed(() => {
-    return this.requestsService
-      .requests()
+    return this.approvalEligibleRequests()
       .filter((r) => r.status === 'APROVADA' || r.status === 'REJEITADA').length;
   });
 
@@ -154,14 +197,14 @@ export class ApprovalsComponent {
   });
 
   readonly pendingPercent = computed(() => {
-    const total = this.requestsService.requests().length;
+    const total = this.approvalEligibleRequests().length;
     if (total === 0) return 0;
     return Math.round((this.pendingCount() / total) * 100);
   });
 
   // Lista filtrada e ordenada de aprovações
   readonly filteredRequests = computed<RequestItem[]>(() => {
-    let list = [...this.requestsService.requests()];
+    let list = [...this.approvalEligibleRequests()];
     const tab = this.currentTab();
     const query = this.searchQuery().trim().toLowerCase();
     const dept = this.selectedDepartment();
@@ -174,7 +217,7 @@ export class ApprovalsComponent {
     if (tab === 'pendentes') {
       list = list.filter((r) => r.status === 'PENDENTE');
     } else if (tab === 'ajustes') {
-      list = list.filter((r) => r.status === 'AJUSTE_SOLICITADO');
+      list = list.filter((r) => r.status === 'EM_AJUSTE');
     } else if (tab === 'aprovadas') {
       list = list.filter((r) => r.status === 'APROVADA');
     }
@@ -487,10 +530,9 @@ export class ApprovalsComponent {
         return 'status-success';
       case 'PENDENTE':
         return 'status-warning';
-      case 'AJUSTE_SOLICITADO':
+      case 'EM_AJUSTE':
         return 'status-adjust';
       case 'REJEITADA':
-      case 'CANCELADA':
         return 'status-danger';
       default:
         return 'status-neutral';

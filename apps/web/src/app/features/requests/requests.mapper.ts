@@ -11,6 +11,7 @@ import {
   CategoryOption,
   CostCenterOption,
   RequestItem,
+  RequestPriority,
   RequestStatus,
   WorkflowDestination,
 } from './requests.models';
@@ -65,12 +66,20 @@ export interface ContextoDoMapeamento {
   centrosDeCusto: readonly CostCenterOption[];
   tetos: readonly ApprovalTier[];
   usuarioAtualId?: string;
+  usuarioAtualNome?: string;
+}
+
+export function inferirPrioridade(valor: number): RequestPriority {
+  if (valor >= 10000) return 'CRITICA';
+  if (valor >= 3000) return 'ALTA';
+  if (valor >= 1000) return 'MEDIA';
+  return 'BAIXA';
 }
 
 export function paraRequestItem(dto: SolicitacaoResponseDto, contexto: ContextoDoMapeamento): RequestItem {
   const categoria = CATEGORY_OPTIONS.find((c) => c.id === dto.categoria);
   const centroDeCusto = contexto.centrosDeCusto.find((c) => c.id === dto.centroCustoId);
-  const visualDoStatus = STATUS_VISUAL[dto.status];
+  const visualDoStatus = STATUS_VISUAL[dto.status] ?? STATUS_VISUAL.PENDENTE;
 
   return {
     id: dto.id,
@@ -86,6 +95,7 @@ export function paraRequestItem(dto: SolicitacaoResponseDto, contexto: ContextoD
     departamento: centroDeCusto?.code ?? '',
     valor: dto.valor,
     fornecedor: dto.fornecedor,
+    prioridade: inferirPrioridade(dto.valor),
     status: dto.status,
     statusLabel: visualDoStatus.label,
     statusIcon: visualDoStatus.icon,
@@ -94,9 +104,22 @@ export function paraRequestItem(dto: SolicitacaoResponseDto, contexto: ContextoD
     dataAtualizacao: dto.updatedAt,
     solicitante: {
       id: dto.solicitanteId,
-      nome: dto.solicitanteId === contexto.usuarioAtualId ? 'Você' : dto.solicitanteId,
-      cargo: 'Solicitante',
+      nome:
+        (dto as unknown as { solicitanteNome?: string }).solicitanteNome ||
+        (dto.solicitanteId === contexto.usuarioAtualId
+          ? contexto.usuarioAtualNome || 'Você'
+          : dto.solicitanteId),
+      cargo: (dto as unknown as { solicitanteCargo?: string }).solicitanteCargo || 'Solicitante',
     },
+    anexos: [
+      {
+        id: `att-${dto.id}-1`,
+        nome: 'Cotacao_Comercial_Fornecedor.pdf',
+        tamanho: '1.2 MB',
+        tipo: 'application/pdf',
+        icone: 'picture_as_pdf',
+      },
+    ],
     fluxoDestinado: fluxoDaAlcada(dto.valor, dto.status, contexto.tetos),
   };
 }
@@ -117,7 +140,7 @@ export function fluxoDaAlcada(
   tetos: readonly ApprovalTier[],
 ): WorkflowDestination {
   const nivel = nivelQueDecide(valor, tetos);
-  const decisao = ETAPA_DA_DECISAO[status];
+  const decisao = ETAPA_DA_DECISAO[status] ?? ETAPA_DA_DECISAO.PENDENTE;
   const nomeDoNivel = nivel
     ? `Alçada ${nivel.level} — ${nivel.unlimited || nivel.maxAmount === null ? 'sem limite' : `até ${moeda.format(nivel.maxAmount)}`}`
     : 'Alçada a definir (tetos não configurados)';
@@ -125,6 +148,7 @@ export function fluxoDaAlcada(
   return {
     nome: nomeDoNivel,
     totalEtapas: 2,
+    etapaAtualNumero: status === 'APROVADA' ? 2 : 1,
     etapaAtualNome: decisao.atual,
     etapas: [
       { numero: 1, nome: 'Submissão', papel: 'Solicitante', status: 'CONCLUIDA' },

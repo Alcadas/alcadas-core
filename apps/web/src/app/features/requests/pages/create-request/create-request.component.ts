@@ -19,7 +19,7 @@ export class CreateRequestComponent {
 
   // Estado do Formulário
   readonly formTitulo = signal<string>('');
-  readonly formCategoria = signal<RequestCategory>('EQUIPAMENTOS_TI');
+  readonly formCategoria = signal<RequestCategory>('EQUIPAMENTOS');
   readonly formCentroCustoId = signal<string>('cc-ti');
   readonly formValor = signal<number | null>(null);
   readonly formPrioridade = signal<RequestPriority>('MEDIA');
@@ -31,6 +31,14 @@ export class CreateRequestComponent {
   readonly isSubmitting = signal<boolean>(false);
   readonly formErrors = signal<Record<string, string>>({});
   readonly toastMessage = signal<string | null>(null);
+
+  constructor() {
+    this.requestsService.ensureLoaded();
+    const firstCc = this.requestsService.costCenters()[0]?.id;
+    if (firstCc) {
+      this.formCentroCustoId.set(firstCc);
+    }
+  }
 
   // Esteira Dinâmica Sugerida conforme Valor e Centro de Custo
   readonly suggestedWorkflow = computed(() => {

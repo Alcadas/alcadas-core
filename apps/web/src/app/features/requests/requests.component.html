@@ -306,16 +306,31 @@
                   </td>
 
                   <td class="td-actions" (click)="$event.stopPropagation()">
-                    <button
-                      type="button"
-                      class="btn-view-trilha"
-                      title="Ver detalhes da solicitação e trilha de aprovação"
-                      (click)="openDetailDrawer(req)"
-                      aria-label="Ver detalhes da solicitação {{ req.codigo }}"
-                    >
-                      <span>Trilha</span>
-                      <span class="material-symbols-rounded">chevron_right</span>
-                    </button>
+                    <div class="table-actions-cell">
+                      @if (canEditRequest(req)) {
+                        <button
+                          type="button"
+                          class="btn-action-edit"
+                          title="Editar dados da solicitação"
+                          (click)="openEditModal(req, $event)"
+                          aria-label="Editar solicitação {{ req.codigo }}"
+                        >
+                          <span class="material-symbols-rounded">edit</span>
+                          <span>Editar</span>
+                        </button>
+                      }
+
+                      <button
+                        type="button"
+                        class="btn-view-trilha"
+                        title="Ver detalhes da solicitação e trilha de aprovação"
+                        (click)="openDetailDrawer(req)"
+                        aria-label="Ver detalhes da solicitação {{ req.codigo }}"
+                      >
+                        <span>Trilha</span>
+                        <span class="material-symbols-rounded">chevron_right</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               }
@@ -532,50 +547,17 @@
             <p>{{ req.descricao }}</p>
           </div>
         </div>
-
-        <!-- Decisão do aprovador (US-03) -->
-        @if (canDecideSelected()) {
-          <div class="detail-section">
-            <h4 class="detail-section-title">
-              <span class="material-symbols-rounded">gavel</span>
-              <span>Sua decisão</span>
-            </h4>
-            <div class="form-group">
-              <label for="motivoDecisao" class="form-label">
-                Motivo (obrigatório para rejeitar ou pedir ajuste — mín. {{ motivoMinimo }} caracteres)
-              </label>
-              <textarea
-                id="motivoDecisao"
-                class="form-control form-textarea"
-                rows="3"
-                [ngModel]="decisionMotivo()"
-                (ngModelChange)="decisionMotivo.set($event)"
-                name="motivoDecisao"
-                [class.has-error]="decisionError()"
-              ></textarea>
-              @if (decisionError()) {
-                <span class="error-msg" role="alert">{{ decisionError() }}</span>
-              }
-            </div>
-          </div>
-        }
       </div>
     }
 
     <div drawer-footer class="drawer-footer-actions">
-      @if (canDecideSelected()) {
-        <button type="button" class="btn-drawer-danger" (click)="decide('rejeitar')" [disabled]="isDeciding()">
-          <span class="material-symbols-rounded">cancel</span>
-          <span>Rejeitar</span>
-        </button>
-        <button type="button" class="btn-drawer-cancel" (click)="decide('ajuste')" [disabled]="isDeciding()">
-          <span class="material-symbols-rounded">edit_note</span>
-          <span>Pedir ajuste</span>
-        </button>
-        <button type="button" class="btn-drawer-submit" (click)="decide('aprovar')" [disabled]="isDeciding()">
-          <span class="material-symbols-rounded">check_circle</span>
-          <span>Aprovar</span>
-        </button>
+      @if (selectedRequest(); as req) {
+        @if (canEditRequest(req)) {
+          <button type="button" class="btn-drawer-edit" (click)="openEditModal(req)">
+            <span class="material-symbols-rounded">edit</span>
+            <span>Editar Solicitação</span>
+          </button>
+        }
       }
       <button type="button" class="btn-drawer-cancel" (click)="closeDetailDrawer()">
         Fechar
@@ -583,6 +565,149 @@
     </div>
   </app-right-drawer>
 </div>
+
+<!-- ========================================================================= -->
+<!-- MODAL DE EDIÇÃO DE SOLICITAÇÃO (PELO SOLICITANTE)                         -->
+<!-- ========================================================================= -->
+@if (isEditModalOpen() && editingRequest(); as editReq) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-edit-title">
+    <button
+      type="button"
+      class="modal-backdrop"
+      (click)="closeEditModal()"
+      tabindex="-1"
+      aria-label="Fechar modal de edição"
+    ></button>
+
+    <div class="modal-card-edit">
+      <div class="modal-edit-header">
+        <div class="title-row">
+          <span class="material-symbols-rounded icon-edit">edit_note</span>
+          <div>
+            <h3 id="modal-edit-title">Editar Solicitação {{ editReq.codigo }}</h3>
+            <p class="edit-sub">Atualize os dados e reenvie a solicitação para a esteira de governança</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-sm" (click)="closeEditModal()" aria-label="Fechar">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <div class="modal-edit-body">
+        <!-- Campo: Título -->
+        <div class="form-group">
+          <label for="editTituloInput" class="form-label">Título da Demanda <span class="required">*</span></label>
+          <input
+            id="editTituloInput"
+            type="text"
+            class="form-input"
+            [ngModel]="editFormTitulo()"
+            (ngModelChange)="editFormTitulo.set($event)"
+            placeholder="Ex: Aquisição de licenças adicionais..."
+          />
+          @if (editFormErrors()['titulo']) {
+            <span class="error-msg">{{ editFormErrors()['titulo'] }}</span>
+          }
+        </div>
+
+        <!-- Linha: Valor e Categoria -->
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="editValorInput" class="form-label">Valor Estimado (R$) <span class="required">*</span></label>
+            <input
+              id="editValorInput"
+              type="number"
+              step="0.01"
+              min="0.01"
+              class="form-input"
+              [ngModel]="editFormValor()"
+              (ngModelChange)="editFormValor.set($event)"
+              placeholder="0,00"
+            />
+            @if (editFormErrors()['valor']) {
+              <span class="error-msg">{{ editFormErrors()['valor'] }}</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="editCategoriaSelect" class="form-label">Categoria <span class="required">*</span></label>
+            <select
+              id="editCategoriaSelect"
+              class="form-select"
+              [ngModel]="editFormCategoria()"
+              (ngModelChange)="editFormCategoria.set($event)"
+            >
+              @for (cat of requestsService.categories; track cat.id) {
+                <option [value]="cat.id">{{ cat.label }}</option>
+              }
+            </select>
+            @if (editFormErrors()['categoria']) {
+              <span class="error-msg">{{ editFormErrors()['categoria'] }}</span>
+            }
+          </div>
+        </div>
+
+        <!-- Linha: Centro de Custo e Fornecedor -->
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="editCcSelect" class="form-label">Centro de Custo <span class="required">*</span></label>
+            <select
+              id="editCcSelect"
+              class="form-select"
+              [ngModel]="editFormCentroCustoId()"
+              (ngModelChange)="editFormCentroCustoId.set($event)"
+            >
+              @for (cc of requestsService.costCenters(); track cc.id) {
+                <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
+              }
+            </select>
+            @if (editFormErrors()['centroCusto']) {
+              <span class="error-msg">{{ editFormErrors()['centroCusto'] }}</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="editFornecedorInput" class="form-label">Fornecedor / Parceiro (Opcional)</label>
+            <input
+              id="editFornecedorInput"
+              type="text"
+              class="form-input"
+              [ngModel]="editFormFornecedor()"
+              (ngModelChange)="editFormFornecedor.set($event)"
+              placeholder="Nome da empresa fornecedora..."
+            />
+          </div>
+        </div>
+
+        <!-- Campo: Justificativa -->
+        <div class="form-group">
+          <label for="editJustificativaInput" class="form-label">Justificativa / Motivo do Ajuste <span class="required">*</span></label>
+          <textarea
+            id="editJustificativaInput"
+            class="form-textarea"
+            rows="3"
+            [ngModel]="editFormJustificativa()"
+            (ngModelChange)="editFormJustificativa.set($event)"
+            placeholder="Descreva detalhadamente a finalidade e as correções realizadas..."
+          ></textarea>
+          @if (editFormErrors()['justificativa']) {
+            <span class="error-msg">{{ editFormErrors()['justificativa'] }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="modal-edit-footer">
+        <button type="button" class="btn-edit-cancel" (click)="closeEditModal()" [disabled]="isSavingEdit()">
+          Cancelar
+        </button>
+        <button type="button" class="btn-edit-save" (click)="saveEditRequest()" [disabled]="isSavingEdit()">
+          <span class="material-symbols-rounded">save</span>
+          <span>{{ isSavingEdit() ? 'Salvando...' : 'Salvar Alterações e Reenviar' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
 <!-- ========================================================================= -->
 <!-- TOAST FLUTUANTE DE FEEDBACK                                               -->

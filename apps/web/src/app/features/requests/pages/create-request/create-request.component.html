@@ -92,8 +92,8 @@
                 (ngModelChange)="formCentroCustoId.set($event)"
                 name="centroCustoId"
               >
-                @for (cc of requestsService.costCenters; track cc.id) {
-                  <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }} ({{ cc.departamento }})</option>
+                @for (cc of requestsService.costCenters(); track cc.id) {
+                  <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}{{ cc.departamento ? ' (' + cc.departamento + ')' : '' }}</option>
                 }
               </select>
             </div>
