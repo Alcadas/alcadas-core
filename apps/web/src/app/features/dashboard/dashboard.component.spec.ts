@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DashboardComponent } from './dashboard.component';
 import { AuthService } from '../../core/auth/auth.service';
+import { RequestsService } from '../requests/services/requests.service';
 
 describe('DashboardComponent', () => {
   let component: DashboardComponent;
@@ -21,6 +22,8 @@ describe('DashboardComponent', () => {
       ],
     }).compileComponents();
 
+    const requestsService = TestBed.inject(RequestsService);
+    requestsService.seedForTesting();
     fixture = TestBed.createComponent(DashboardComponent);
     component = fixture.componentInstance;
     jest.advanceTimersByTime(700);

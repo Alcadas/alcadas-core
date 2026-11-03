@@ -8,7 +8,7 @@
   contextIcon="account_tree"
   contextTitle="Gestão de Alçadas & Tetos"
   [contextSubtitle]="limitsService.filteredRules().length + ' esteiras de aprovação configuradas na organização'"
-  [tabs]="pageHeaderTabs"
+  [tabs]="pageHeaderTabs()"
   [activeTab]="limitsService.activeTab()"
   (tabChange)="selectTab($event)"
 >
@@ -238,11 +238,9 @@
           <div class="form-field">
             <label for="deptSelect">Departamento / Centro</label>
             <select id="deptSelect" [ngModel]="newRuleDept()" (ngModelChange)="newRuleDept.set($event)">
-              <option value="Tecnologia & Infra">Tecnologia & Infra</option>
-              <option value="Controladoria & Finanças">Controladoria & Finanças</option>
-              <option value="Gente & Gestão">Gente & Gestão</option>
-              <option value="Engenharia & Produção">Engenharia & Produção</option>
-              <option value="Operações & Viagens">Operações & Viagens</option>
+              @for (dept of limitsService.departments(); track dept.id) {
+                <option [value]="dept.name">{{ dept.code }} — {{ dept.name }}</option>
+              }
             </select>
           </div>
 

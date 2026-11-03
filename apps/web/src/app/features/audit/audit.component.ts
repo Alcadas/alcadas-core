@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { RequestsService } from '../requests/services/requests.service';
 
 @Component({
   selector: 'app-audit',
@@ -18,7 +19,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
       <div header-actions class="header-actions-group">
         <span class="status-pill status-success">
           <span class="status-dot"></span>
-          <span>1.428 Elos Íntegros</span>
+          <span>{{ requestsService.stats().total }} Elo(s) Íntegro(s)</span>
         </span>
       </div>
     </app-page-header>
@@ -47,4 +48,10 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
     p { margin: 0; color: #64748b; font-size: 0.85rem; }
   `]
 })
-export class AuditComponent {}
+export class AuditComponent {
+  protected readonly requestsService = inject(RequestsService);
+
+  constructor() {
+    this.requestsService.ensureLoaded();
+  }
+}

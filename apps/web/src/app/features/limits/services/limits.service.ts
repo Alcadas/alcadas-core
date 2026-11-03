@@ -1,10 +1,18 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { AuthService } from '../../../core/auth/auth.service';
+import { APP_CONFIG } from '../../../core/config/app-config';
+import { SettingsService } from '../../settings/services/settings.service';
 import { LimitRuleItem, RuleTemplateItem } from '../limits.models';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LimitsService {
+  private readonly http = inject(HttpClient, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
+  private readonly settingsService = inject(SettingsService, { optional: true });
+  private readonly apiBaseUrl = inject(APP_CONFIG, { optional: true })?.apiBaseUrl ?? '/api';
   // Catálogo Central de Modelos de Regras (Padrões + Customizadas)
   readonly ruleTemplatesState = signal<RuleTemplateItem[]>([
     {
@@ -179,113 +187,53 @@ export class LimitsService {
     this.ruleTemplatesState.update((list) => list.filter((t) => t.title !== title));
   }
 
-  // Lista central de regras de alçada
-  private readonly rulesState = signal<LimitRuleItem[]>([
-    {
-      id: 'ALC-7781',
-      title: 'Alçada de Compras de TI & Hardware Cloud',
-      department: 'Tecnologia & Infra',
-      assignedTo: 'Atribuído a Diretoria TI',
-      employmentType: 'Infraestrutura Crítica',
-      locationOrCenter: 'CC-1042 · São Paulo Tech Hub',
-      channelOrOrigin: 'Portal Alçadas',
-      status: 'ACTIVE',
-      statusLabel: 'Ativa',
-      ceilingAmount: 85000,
-      quorumLabel: '2 Aprovadores (Quórum Duplo)',
-      slaHours: 24,
-      sodEnforced: true,
-      createdAt: '14 de Abril 2026',
-      accentColor: '#644EF3',
-      currentStepLabel: 'Parecer Gerencial',
-      steps: [
-        { name: 'Solicitação', status: 'completed', icon: 'description' },
-        { name: 'Triagem SoD', status: 'completed', icon: 'security' },
-        { name: 'Parecer Gerencial', status: 'active', icon: 'person' },
-        { name: 'Aprovação CFO', status: 'pending', icon: 'payments' },
-        { name: 'Homologação SHA-256', status: 'pending', icon: 'verified' },
-      ],
-    },
-    {
-      id: 'ALC-7782',
-      title: 'Contratação de Terceiros e Consultoria Especializada',
-      department: 'Gente & Gestão',
-      assignedTo: 'Atribuído a Recursos Humanos & Jurídico',
-      employmentType: 'Serviços Jurídicos / Consultivos',
-      locationOrCenter: 'CC-2010 · Matriz Administrativa',
-      channelOrOrigin: 'SaaS Externo',
-      status: 'ACTIVE',
-      statusLabel: 'Ativa',
-      ceilingAmount: 150000,
-      quorumLabel: '3 Aprovadores (Unânime)',
-      slaHours: 48,
-      sodEnforced: true,
-      createdAt: '18 de Maio 2026',
-      accentColor: '#8B5CF6',
-      currentStepLabel: 'Aprovação Diretoria',
-      steps: [
-        { name: 'Solicitação', status: 'completed', icon: 'description' },
-        { name: 'Triagem SoD', status: 'completed', icon: 'security' },
-        { name: 'Parecer Jurídico', status: 'completed', icon: 'gavel' },
-        { name: 'Aprovação Diretoria', status: 'active', icon: 'group' },
-        { name: 'Homologação SHA-256', status: 'pending', icon: 'verified' },
-      ],
-    },
-    {
-      id: 'ALC-7783',
-      title: 'Despesas de Viagem, Hospedagem e Representação',
-      department: 'Controladoria & Finanças',
-      assignedTo: 'Atribuído a Controladoria',
-      employmentType: 'Despesas Operacionais',
-      locationOrCenter: 'CC-3050 · Operações Regionais',
-      channelOrOrigin: 'App Mobile',
-      status: 'COMPLETED',
-      statusLabel: 'Homologada',
-      ceilingAmount: 12000,
-      quorumLabel: '1 Assinatura (Gerente)',
-      slaHours: 12,
-      sodEnforced: true,
-      createdAt: '22 de Junho 2026',
-      accentColor: '#10B981',
-      currentStepLabel: 'Concluído',
-      steps: [
-        { name: 'Solicitação', status: 'completed', icon: 'description' },
-        { name: 'Triagem SoD', status: 'completed', icon: 'security' },
-        { name: 'Recibos & Comprovantes', status: 'completed', icon: 'receipt_long' },
-        { name: 'Aprovação Gerencial', status: 'completed', icon: 'person_check' },
-        { name: 'Blockchain SHA-256', status: 'completed', icon: 'verified' },
-      ],
-    },
-    {
-      id: 'ALC-7784',
-      title: 'Aquisição de Ativos e Maquinário Industrial',
-      department: 'Engenharia & Produção',
-      assignedTo: 'Atribuído a Diretoria Industrial',
-      employmentType: 'Capex / Imobilizado',
-      locationOrCenter: 'CC-4010 · Planta Fabril Sul',
-      channelOrOrigin: 'ERP SAP',
-      status: 'DRAFT',
-      statusLabel: 'Rascunho',
-      ceilingAmount: 350000,
-      quorumLabel: 'Conselho de Administração',
-      slaHours: 72,
-      sodEnforced: true,
-      createdAt: '05 de Julho 2026',
-      accentColor: '#F59E0B',
-      currentStepLabel: 'Em Definição',
-      steps: [
-        { name: 'Solicitação', status: 'completed', icon: 'description' },
-        { name: 'Viabilidade Financeira', status: 'pending', icon: 'analytics' },
-        { name: 'Parecer Técnico', status: 'pending', icon: 'engineering' },
-        { name: 'Conselho Consultivo', status: 'pending', icon: 'account_balance' },
-        { name: 'Homologação SHA-256', status: 'pending', icon: 'verified' },
-      ],
-    },
-  ]);
+  // Lista central de regras de alçada (inicia vazia e carrega do Firestore via API)
+  private readonly rulesState = signal<LimitRuleItem[]>([]);
+
+  readonly allRules = this.rulesState.asReadonly();
 
   // Filtros ativos
   readonly activeTab = signal<string>('all');
   readonly searchQuery = signal<string>('');
+
+  readonly departments = computed(
+    () => this.settingsService?.organization().departments ?? [],
+  );
+
+  constructor() {
+    this.loadFromBackend();
+  }
+
+  /**
+   * Carrega fluxos e regras do Firestore via API (/api/organizacao/fluxos).
+   */
+  loadFromBackend(onRulesCatalogLoaded?: (catalog: unknown[]) => void): void {
+    if (!this.http || !this.authService?.isAuthenticated?.()) return;
+    this.http
+      .get<{ workflows?: LimitRuleItem[]; rulesCatalog?: unknown[] }>(
+        `${this.apiBaseUrl}/organizacao/fluxos`,
+      )
+      .subscribe({
+        next: (res) => {
+          const remotos = Array.isArray(res?.workflows) ? res.workflows : [];
+          this.rulesState.set(remotos);
+          if (onRulesCatalogLoaded && Array.isArray(res?.rulesCatalog)) {
+            onRulesCatalogLoaded(res.rulesCatalog);
+          }
+        },
+        error: () => undefined,
+      });
+  }
+
+  persistWorkflowsToBackend(rulesCatalog?: unknown[]): void {
+    if (!this.http || !this.authService?.isAuthenticated?.()) return;
+    this.http
+      .put(`${this.apiBaseUrl}/organizacao/fluxos`, {
+        workflows: this.rulesState(),
+        ...(rulesCatalog ? { rulesCatalog } : {}),
+      })
+      .subscribe({ error: () => undefined });
+  }
 
   // Lista filtrada e reativa
   readonly filteredRules = computed(() => {
@@ -319,6 +267,7 @@ export class LimitsService {
 
   deleteRule(id: string): void {
     this.rulesState.update((list) => list.filter((r) => r.id !== id));
+    this.persistWorkflowsToBackend();
   }
 
   duplicateRule(id: string): LimitRuleItem | undefined {
@@ -338,6 +287,7 @@ export class LimitsService {
     };
 
     this.rulesState.update((list) => [copy, ...list]);
+    this.persistWorkflowsToBackend();
     return copy;
   }
 
@@ -369,6 +319,7 @@ export class LimitsService {
     };
 
     this.rulesState.update((list) => [newRule, ...list]);
+    this.persistWorkflowsToBackend();
     return newRule;
   }
 }
