@@ -1,0 +1,483 @@
+<div class="settings-page-wrapper">
+  <!-- 1. Cabeçalho SaaS de Gestão de Empresas & Clientes -->
+  <header class="settings-identity-header">
+    <div class="identity-left">
+      <div
+        class="identity-avatar-box"
+        style="background: linear-gradient(135deg, #644ef3 0%, #3730a3 100%)"
+        aria-hidden="true"
+      >
+        <span class="material-symbols-rounded">apartment</span>
+      </div>
+      <div class="identity-titles">
+        <h1>Empresas & Clientes (SaaS)</h1>
+        <p>
+          Cadastre empresas clientes, gere contas de diretores/administradores com isolamento estrito por tenant (RNF07) e gerencie acessos.
+        </p>
+      </div>
+    </div>
+
+    <div class="identity-actions">
+      @if (feedbackMessage()) {
+        <div class="save-toast-inline" role="status">
+          <span class="material-symbols-rounded">check_circle</span>
+          <span>{{ feedbackMessage() }}</span>
+        </div>
+      }
+      @if (!isCreatingTenant()) {
+        <button
+          type="button"
+          class="btn-settings primary"
+          (click)="openCreateTenant()"
+        >
+          <span class="material-symbols-rounded">add_business</span>
+          <span>Cadastrar Empresa & Cliente</span>
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- 2. Indicadores Executivos SaaS -->
+  <div class="saas-kpi-grid">
+    <div class="saas-kpi-card">
+      <div class="kpi-icon-box purple">
+        <span class="material-symbols-rounded">domain</span>
+      </div>
+      <div class="kpi-data">
+        <span class="kpi-label">Empresas Clientes (Tenants)</span>
+        <strong class="kpi-value">{{ tenants().length }} registradas · {{ activeTenantsCount() }} ativas</strong>
+      </div>
+    </div>
+
+    <div class="saas-kpi-card">
+      <div class="kpi-icon-box green">
+        <span class="material-symbols-rounded">group</span>
+      </div>
+      <div class="kpi-data">
+        <span class="kpi-label">Contas de Clientes & Colaboradores</span>
+        <strong class="kpi-value">{{ totalUsersCount() }} contas provisionadas</strong>
+      </div>
+    </div>
+
+    <div class="saas-kpi-card">
+      <div class="kpi-icon-box blue">
+        <span class="material-symbols-rounded">verified_user</span>
+      </div>
+      <div class="kpi-data">
+        <span class="kpi-label">Isolamento Multi-Tenant (RNF07)</span>
+        <strong class="kpi-value">Ativo · Escopo individual por empresa</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Formulário de Onboarding: Nova Empresa + Conta do Cliente Titular -->
+  @if (isCreatingTenant()) {
+    <form
+      class="inline-editor-card saas-onboarding-card"
+      [formGroup]="newTenantForm"
+      (ngSubmit)="saveNewTenant()"
+      novalidate
+    >
+      <div class="editor-card-head">
+        <div>
+          <h3>Onboarding de Nova Empresa & Conta de Cliente Titular</h3>
+          <p class="editor-sub">
+            Ao confirmar, o sistema criará um ambiente isolado (tenant) para a empresa e gerará as credenciais do cliente administrador.
+          </p>
+        </div>
+        <button type="button" class="btn-settings ghost" (click)="cancelCreateTenant()">
+          Cancelar
+        </button>
+      </div>
+
+      <div class="onboarding-block-title">
+        <span class="material-symbols-rounded">domain</span>
+        <span>1. Dados Corporativos da Empresa Cliente</span>
+      </div>
+
+      <div class="settings-subgrid">
+        <div class="col-2 sub-field">
+          <label for="tradeName">Nome Fantasia da Empresa *</label>
+          <input
+            id="tradeName"
+            class="settings-input"
+            formControlName="tradeName"
+            placeholder="Ex: Horizon Saúde"
+            (input)="autoFillSlug()"
+          />
+        </div>
+        <div class="col-2 sub-field">
+          <label for="legalName">Razão Social *</label>
+          <input
+            id="legalName"
+            class="settings-input"
+            formControlName="legalName"
+            placeholder="Ex: Horizon Serviços Médicos S.A."
+          />
+        </div>
+        <div class="col-2 sub-field">
+          <label for="cnpj">CNPJ *</label>
+          <input
+            id="cnpj"
+            class="settings-input"
+            formControlName="cnpj"
+            placeholder="11.222.333/0001-81"
+            (input)="maskCnpj()"
+          />
+        </div>
+
+        <div class="col-2 sub-field">
+          <label for="tenantId">Identificador Tenant (Slug) *</label>
+          <input
+            id="tenantId"
+            class="settings-input"
+            formControlName="tenantId"
+            placeholder="Ex: horizon-saude"
+          />
+        </div>
+        <div class="col-2 sub-field">
+          <label for="corporateEmail">E-mail Institucional *</label>
+          <input
+            id="corporateEmail"
+            type="email"
+            class="settings-input"
+            formControlName="corporateEmail"
+            placeholder="contato@empresa.com.br"
+          />
+        </div>
+        <div class="col-1 sub-field">
+          <label for="plan">Plano SaaS *</label>
+          <select id="plan" class="settings-select" formControlName="plan">
+            <option value="ENTERPRISE">Enterprise</option>
+            <option value="CORPORATE">Corporate</option>
+            <option value="GROWTH">Growth</option>
+          </select>
+        </div>
+        <div class="col-1 sub-field">
+          <label for="maxUsers">Licenças *</label>
+          <input
+            id="maxUsers"
+            type="number"
+            class="settings-input"
+            formControlName="maxUsers"
+          />
+        </div>
+      </div>
+
+      <div class="onboarding-block-title" style="margin-top: 1.25rem">
+        <span class="material-symbols-rounded">badge</span>
+        <span>2. Conta de Acesso do Cliente (Diretor / Administrador da Empresa)</span>
+      </div>
+
+      <div class="settings-subgrid">
+        <div class="col-2 sub-field">
+          <label for="ownerName">Nome Completo do Cliente *</label>
+          <input
+            id="ownerName"
+            class="settings-input"
+            formControlName="ownerName"
+            placeholder="Ex: Eduardo Martins"
+          />
+        </div>
+        <div class="col-2 sub-field">
+          <label for="ownerEmail">E-mail de Login do Cliente *</label>
+          <input
+            id="ownerEmail"
+            type="email"
+            class="settings-input"
+            formControlName="ownerEmail"
+            placeholder="eduardo@empresa.com.br"
+          />
+        </div>
+        <div class="col-2 sub-field">
+          <label for="ownerPassword">Senha Inicial de Acesso *</label>
+          <input
+            id="ownerPassword"
+            type="text"
+            class="settings-input"
+            formControlName="ownerPassword"
+            placeholder="Ex: 123456"
+          />
+        </div>
+
+        <div class="col-2 sub-field">
+          <label for="ownerJobTitle">Cargo na Empresa *</label>
+          <input
+            id="ownerJobTitle"
+            class="settings-input"
+            formControlName="ownerJobTitle"
+            placeholder="Ex: Diretor Executivo (CEO)"
+          />
+        </div>
+        <div class="col-2 sub-field">
+          <label for="ownerRole">Nível de Acesso Inicial *</label>
+          <select id="ownerRole" class="settings-select" formControlName="ownerRole">
+            <option value="DIRETOR">Diretor (Acesso Total à Empresa + Delegações)</option>
+            <option value="ADMINISTRADOR">Administrador da Empresa (Organização + Delegações)</option>
+            <option value="CFO">CFO / Diretoria Financeira</option>
+          </select>
+        </div>
+        <div class="col-2 sub-field">
+          <label for="ownerApprovalLimit">Alçada Financeira Inicial (R$) *</label>
+          <input
+            id="ownerApprovalLimit"
+            type="number"
+            class="settings-input"
+            formControlName="ownerApprovalLimit"
+          />
+        </div>
+      </div>
+
+      @if (formError()) {
+        <span class="field-error" style="margin-top: 0.75rem">{{ formError() }}</span>
+      }
+
+      <div class="editor-card-foot">
+        <button type="button" class="btn-settings" (click)="cancelCreateTenant()">
+          Cancelar
+        </button>
+        <button type="submit" class="btn-settings primary">
+          <span class="material-symbols-rounded">check</span>
+          <span>Criar Empresa & Gerar Conta do Cliente</span>
+        </button>
+      </div>
+    </form>
+  }
+
+  <!-- 4. Barra de Busca de Empresas e Clientes -->
+  <div class="employees-toolbar" style="margin-top: 1.25rem">
+    <div class="search-emp-box">
+      <span class="material-symbols-rounded">search</span>
+      <input
+        type="text"
+        placeholder="Buscar empresa por nome fantasia, razão social, CNPJ, tenantId ou cliente..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
+    </div>
+  </div>
+
+  <!-- 5. Lista de Empresas Clientes e suas Contas Vinculadas -->
+  <div class="tenants-list">
+    @for (tenant of filteredTenants(); track tenant.tenantId) {
+      <section class="tenant-card">
+        <div class="tenant-card-header">
+          <div class="tenant-main-info">
+            <div class="tenant-avatar">
+              {{ initials(tenant.organization.tradeName) }}
+            </div>
+            <div>
+              <div class="tenant-title-row">
+                <h2>{{ tenant.organization.tradeName }}</h2>
+                <span class="cc-tag">tenant: {{ tenant.tenantId }}</span>
+                <span class="settings-pill primary">{{ tenant.plan }}</span>
+                <span
+                  class="settings-pill"
+                  [class.success]="tenant.status === 'ATIVO'"
+                  [class.warning]="tenant.status === 'SUSPENSO'"
+                >
+                  {{ tenant.status }}
+                </span>
+              </div>
+              <p class="tenant-sub">
+                {{ tenant.organization.legalName }} · CNPJ {{ tenant.organization.cnpj }} ·
+                <strong>{{ tenant.organization.departments.length }}</strong> departamentos ·
+                <strong>{{ tenant.organization.employees.length }}</strong> usuários cadastrados
+              </p>
+            </div>
+          </div>
+
+          <div class="tenant-actions">
+            <button
+              type="button"
+              class="btn-settings"
+              (click)="openAddClientUser(tenant.tenantId)"
+            >
+              <span class="material-symbols-rounded">person_add</span>
+              <span>Nova Conta de Cliente</span>
+            </button>
+            <button
+              type="button"
+              class="btn-settings"
+              (click)="inspectTenantOrganization(tenant)"
+              title="Gerir dados, departamentos e funcionários desta empresa"
+            >
+              <span class="material-symbols-rounded">domain</span>
+              <span>Ver Organização</span>
+            </button>
+            <button
+              type="button"
+              class="btn-settings"
+              (click)="inspectTenantDelegations(tenant)"
+              title="Configurar profissões e permissões de acesso desta empresa"
+            >
+              <span class="material-symbols-rounded">admin_panel_settings</span>
+              <span>Ver Delegações</span>
+            </button>
+            @if (tenant.tenantId !== 'startop') {
+              <button
+                type="button"
+                class="btn-settings"
+                [class.danger]="tenant.status === 'ATIVO'"
+                (click)="toggleTenantStatus(tenant)"
+              >
+                <span>{{ tenant.status === 'ATIVO' ? 'Suspender' : 'Reativar' }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Sub-formulário para adicionar mais uma conta de cliente/diretor nesta empresa -->
+        @if (addingUserToTenantId() === tenant.tenantId) {
+          <form
+            class="inline-editor-card"
+            style="margin-top: 1rem"
+            [formGroup]="newClientUserForm"
+            (ngSubmit)="saveClientUser(tenant.tenantId)"
+            novalidate
+          >
+            <div class="editor-card-head">
+              <h3>
+                Nova Conta de Cliente / Gestor para {{ tenant.organization.tradeName }} (#{{ tenant.tenantId }})
+              </h3>
+              <button type="button" class="btn-settings ghost" (click)="cancelAddClientUser()">
+                Cancelar
+              </button>
+            </div>
+
+            <div class="settings-subgrid">
+              <div class="col-2 sub-field">
+                <label for="newCliName">Nome Completo *</label>
+                <input
+                  id="newCliName"
+                  class="settings-input"
+                  formControlName="fullName"
+                  placeholder="Ex: Fernanda Oliveira"
+                />
+              </div>
+              <div class="col-2 sub-field">
+                <label for="newCliEmail">E-mail de Login *</label>
+                <input
+                  id="newCliEmail"
+                  type="email"
+                  class="settings-input"
+                  formControlName="email"
+                  placeholder="fernanda@empresa.com.br"
+                />
+              </div>
+              <div class="col-2 sub-field">
+                <label for="newCliPass">Senha de Acesso *</label>
+                <input
+                  id="newCliPass"
+                  type="text"
+                  class="settings-input"
+                  formControlName="password"
+                />
+              </div>
+              <div class="col-2 sub-field">
+                <label for="newCliJob">Cargo *</label>
+                <input
+                  id="newCliJob"
+                  class="settings-input"
+                  formControlName="jobTitle"
+                />
+              </div>
+              <div class="col-2 sub-field">
+                <label for="newCliRole">Nível de Acesso *</label>
+                <select id="newCliRole" class="settings-select" formControlName="role">
+                  <option value="DIRETOR">Diretor (Acesso Geral da Empresa)</option>
+                  <option value="ADMINISTRADOR">Administrador da Empresa</option>
+                  <option value="GERENTE">Gerente Aprovador</option>
+                  <option value="SOLICITANTE">Colaborador / Solicitante</option>
+                  <option value="AUDITOR">Auditor & Compliance</option>
+                </select>
+              </div>
+              <div class="col-2 sub-field">
+                <label for="newCliLimit">Alçada Financeira (R$) *</label>
+                <input
+                  id="newCliLimit"
+                  type="number"
+                  class="settings-input"
+                  formControlName="approvalLimit"
+                />
+              </div>
+            </div>
+
+            @if (formError()) {
+              <span class="field-error">{{ formError() }}</span>
+            }
+
+            <div class="editor-card-foot">
+              <button type="button" class="btn-settings" (click)="cancelAddClientUser()">
+                Cancelar
+              </button>
+              <button type="submit" class="btn-settings primary">
+                <span class="material-symbols-rounded">check</span>
+                <span>Gerar Conta na Empresa</span>
+              </button>
+            </div>
+          </form>
+        }
+
+        <!-- Lista de Contas / Clientes / Funcionários desta Empresa -->
+        <div class="tenant-accounts-box">
+          <div class="accounts-caption">
+            <span>Contas de Acesso Vinculadas a <strong>{{ tenant.organization.tradeName }}</strong></span>
+            <span>Credenciais prontas para login em <code>/login</code> ou acesso rápido em 1 clique</span>
+          </div>
+
+          <div class="accounts-table-wrap">
+            <table class="accounts-table">
+              <thead>
+                <tr>
+                  <th>Usuário / Cliente</th>
+                  <th>E-mail de Login</th>
+                  <th>Senha</th>
+                  <th>Papel & Alçada</th>
+                  <th style="text-align: right">Acesso Rápido</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (emp of tenant.organization.employees; track emp.id) {
+                  <tr>
+                    <td>
+                      <div class="acc-user-cell">
+                        <span class="acc-avatar">{{ initials(emp.fullName) }}</span>
+                        <div>
+                          <strong>{{ emp.fullName }}</strong>
+                          @if (emp.isCompanyAdmin || emp.role === 'DIRETOR' || emp.role === 'ADMINISTRADOR') {
+                            <span class="admin-chip">Titular / Admin</span>
+                          }
+                          <div class="acc-job">{{ emp.jobTitle }} · {{ emp.departmentName }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><code>{{ emp.email }}</code></td>
+                    <td><code>{{ emp.password || '123456' }}</code></td>
+                    <td>
+                      <span class="role-badge">{{ emp.role }}</span>
+                      <span class="limit-hint">
+                        {{ emp.approvalLimit > 0 ? formatCurrency(emp.approvalLimit) : 'Sem alçada' }}
+                      </span>
+                    </td>
+                    <td style="text-align: right">
+                      <button
+                        type="button"
+                        class="btn-impersonate"
+                        (click)="impersonateAccount(emp.email)"
+                        title="Entrar imediatamente no sistema com a visão isolada deste usuário"
+                      >
+                        <span class="material-symbols-rounded">login</span>
+                        <span>Entrar como este usuário</span>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    }
+  </div>
+</div>

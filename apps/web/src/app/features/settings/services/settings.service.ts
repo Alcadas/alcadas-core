@@ -1,80 +1,144 @@
-import { Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { APP_CONFIG } from '../../../core/config/app-config';
+import { lerClaimsDoJwt } from '../../../core/auth/jwt';
 import { UserProfile } from '../models/user-profile.model';
 import {
   ApiKeyItem,
+  EmployeeRoleType,
   IntegrationConnector,
   NotificationChannelItem,
   OrganizationData,
   OrganizationDepartment,
   OrganizationEmployee,
   OrganizationPolicies,
+  SaasClientTenant,
+  SaasPlanType,
+  SaasTenantStatus,
+  TenantProfession,
 } from '../models/organization.model';
 
-@Injectable({ providedIn: 'root' })
-export class SettingsService {
-  readonly userProfile = signal<UserProfile>({
-    fullName: 'Julia Campos Santana',
-    displayName: 'Julia Santana',
-    cpf: '048.721.930-15',
-    bio: 'Gerente Financeira responsável pela validação orçamentária de Capex, contratos de tecnologia e liberação de alçadas corporativas.',
-    avatarUrl: null,
-    avatarColor: '#0f172a',
-    email: 'julia.santana@startop.com.br',
-    additionalEmails: [
-      { email: 'julia.santana@startop.com.br', isPrimary: true, verified: true },
-      { email: 'diretoria.fin@startop.com.br', isPrimary: false, verified: true },
-    ],
-    phone: '+55 (61) 99350-0062',
-    location: 'Brasília, DF — Brasil',
-    timezone: 'America/Sao_Paulo (GMT-03:00)',
-    company: 'Startop Sistemas & Governança LTDA',
-    cnpj: '11.222.333/0001-81',
-    jobTitle: 'Gerente Financeira Sênior',
-    department: 'Controladoria & Finanças',
-    employeeId: 'STP-0142',
-    roles: ['Gerente', 'Aprovador Titular', 'Comitê Capex'],
-    approvalLimit: 50000,
-    costCenters: ['CC-101 · Clínicas', 'CC-204 · Obras & Expansão', 'CC-305 · Cloud & TI'],
-    activeDelegation: null,
-    signatureStyle: 'drawn',
-    certificateIssuer: 'ICP-Brasil · SHA-256 ECDSA Ativo',
-    lastAccess: new Date(),
-    isActive: true,
-    recentApprovals: [
-      {
-        id: 'apr-1',
-        code: '#REQ-2048',
-        title: 'Renovação Cluster Kubernetes Produção AWS',
-        department: 'Tecnologia & Infra',
-        amount: 38400,
-        action: 'APROVADA',
-        date: 'Hoje, 14:22',
-        hash: '0x9f8b...4e21',
-      },
-      {
-        id: 'apr-2',
-        code: '#REQ-2041',
-        title: 'Aquisição de Equipamentos Diagnóstico Unidade Sul',
-        department: 'Operações & Logística',
-        amount: 49900,
-        action: 'APROVADA',
-        date: 'Ontem, 17:05',
-        hash: '0x3a1c...8b90',
-      },
-      {
-        id: 'apr-3',
-        code: '#REQ-2035',
-        title: 'Consultoria Externa de Auditoria Tributária',
-        department: 'Controladoria & Finanças',
-        amount: 21500,
-        action: 'VALIDADA',
-        date: '29 Out, 11:18',
-        hash: '0x7d4e...1c03',
-      },
-    ],
-  });
+const STORAGE_KEY_TENANTS = 'alcadas.saas.tenants.v1';
+const STORAGE_KEY_SESSION = 'alcadas.sessao';
 
-  readonly organization = signal<OrganizationData>({
+export const TODAS_FUNCIONALIDADES_SISTEMA: string[] = [
+  'dashboard',
+  'minhas_aprovacoes',
+  'solicitacoes',
+  'meus_fluxos',
+  'minhas_regras',
+  'trilha',
+  'motor_riscos',
+  'delegacoes',
+  'organizacao',
+];
+
+export function criarProfissoesPadrao(): TenantProfession[] {
+  return [
+    {
+      id: 1,
+      nome: 'Diretor',
+      systemRole: 'DIRETOR_CFO',
+      funcionalidades: [
+        'dashboard',
+        'minhas_aprovacoes',
+        'meus_fluxos',
+        'minhas_regras',
+        'trilha',
+        'motor_riscos',
+        'delegacoes',
+        'organizacao',
+      ],
+    },
+    {
+      id: 2,
+      nome: 'Engenheiro',
+      systemRole: 'SOLICITANTE',
+      funcionalidades: ['solicitacoes'],
+    },
+    {
+      id: 3,
+      nome: 'Administrador',
+      systemRole: 'ADMIN',
+      funcionalidades: [
+        'dashboard',
+        'minhas_aprovacoes',
+        'solicitacoes',
+        'meus_fluxos',
+        'minhas_regras',
+        'delegacoes',
+        'organizacao',
+      ],
+    },
+    {
+      id: 4,
+      nome: 'Auditor',
+      systemRole: 'AUDITOR',
+      funcionalidades: ['dashboard', 'trilha', 'motor_riscos'],
+    },
+    {
+      id: 5,
+      nome: 'Gerente Aprovador',
+      systemRole: 'APROVADOR_N2',
+      funcionalidades: ['dashboard', 'minhas_aprovacoes', 'meus_fluxos'],
+    },
+  ];
+}
+
+export function mapearRoleParaProfissaoId(
+  role: EmployeeRoleType,
+  profissoes: TenantProfession[],
+): number {
+  const mapaNome: Record<EmployeeRoleType, string[]> = {
+    DIRETOR: ['diretor', 'cfo'],
+    CFO: ['diretor', 'cfo'],
+    ADMINISTRADOR: ['administrador', 'admin'],
+    GERENTE: ['gerente', 'aprovador', 'diretor'],
+    ANALISTA: ['gerente', 'engenheiro', 'analista'],
+    SOLICITANTE: ['engenheiro', 'solicitante'],
+    AUDITOR: ['auditor'],
+  };
+  const candidatos = mapaNome[role] ?? ['engenheiro'];
+  for (const termo of candidatos) {
+    const achada = profissoes.find((p) => p.nome.toLowerCase().includes(termo));
+    if (achada) return achada.id;
+  }
+  return profissoes[0]?.id ?? 1;
+}
+
+export function mapearProfissaoParaRole(nomeProfissao: string): EmployeeRoleType {
+  const n = nomeProfissao.toLowerCase();
+  if (n.includes('diretor')) return 'DIRETOR';
+  if (n.includes('cfo')) return 'CFO';
+  if (n.includes('admin')) return 'ADMINISTRADOR';
+  if (n.includes('gerente') || n.includes('coordenador')) return 'GERENTE';
+  if (n.includes('auditor') || n.includes('compliance')) return 'AUDITOR';
+  if (n.includes('analista')) return 'ANALISTA';
+  return 'SOLICITANTE';
+}
+
+export function mapearRoleParaClaimBackend(
+  role: EmployeeRoleType,
+): 'ADMIN' | 'DIRETOR_CFO' | 'APROVADOR_N2' | 'APROVADOR_N1' | 'SOLICITANTE' | 'AUDITOR' {
+  switch (role) {
+    case 'DIRETOR':
+    case 'CFO':
+      return 'DIRETOR_CFO';
+    case 'ADMINISTRADOR':
+      return 'ADMIN';
+    case 'GERENTE':
+      return 'APROVADOR_N2';
+    case 'ANALISTA':
+      return 'APROVADOR_N1';
+    case 'AUDITOR':
+      return 'AUDITOR';
+    default:
+      return 'SOLICITANTE';
+  }
+}
+
+function criarTenantsIniciais(): SaasClientTenant[] {
+  const startopOrg: OrganizationData = {
     cnpj: '11.222.333/0001-81',
     legalName: 'Startop Sistemas & Governança Corporativa LTDA',
     tradeName: 'Startop Enterprise',
@@ -153,6 +217,8 @@ export class SettingsService {
         approvalLimit: 50000,
         status: 'ATIVO',
         joinedAt: '12/03/2023',
+        password: '123456',
+        profissaoId: 5,
       },
       {
         id: 'emp-2',
@@ -167,6 +233,9 @@ export class SettingsService {
         approvalLimit: 200000,
         status: 'ATIVO',
         joinedAt: '05/01/2022',
+        password: '123456',
+        profissaoId: 1,
+        isCompanyAdmin: true,
       },
       {
         id: 'emp-3',
@@ -175,12 +244,15 @@ export class SettingsService {
         email: 'rafael.costa@startop.com.br',
         phone: '+55 (11) 98741-3302',
         jobTitle: 'Head de Tecnologia & Cloud',
-        role: 'GERENTE',
+        role: 'ADMINISTRADOR',
         departmentId: 'dep-ti',
         departmentName: 'Tecnologia & Infraestrutura',
         approvalLimit: 75000,
         status: 'ATIVO',
         joinedAt: '19/08/2023',
+        password: '123456',
+        profissaoId: 3,
+        isCompanyAdmin: true,
       },
       {
         id: 'emp-4',
@@ -195,6 +267,8 @@ export class SettingsService {
         approvalLimit: 15000,
         status: 'ATIVO',
         joinedAt: '10/02/2024',
+        password: '123456',
+        profissaoId: 2,
       },
       {
         id: 'emp-5',
@@ -209,6 +283,8 @@ export class SettingsService {
         approvalLimit: 0,
         status: 'ATIVO',
         joinedAt: '03/06/2024',
+        password: '123456',
+        profissaoId: 2,
       },
       {
         id: 'emp-6',
@@ -223,6 +299,8 @@ export class SettingsService {
         approvalLimit: 30000,
         status: 'FERIAS',
         joinedAt: '14/05/2022',
+        password: '123456',
+        profissaoId: 4,
       },
     ],
     policies: {
@@ -238,6 +316,235 @@ export class SettingsService {
       requireCostCenterOnRequests: true,
       auditRetentionYears: 7,
     },
+  };
+
+  const nagoyaOrg: OrganizationData = {
+    cnpj: '45.987.123/0001-08',
+    legalName: 'Nagoya Indústria & Tecnologia Automotiva S.A.',
+    tradeName: 'Nagoya Company',
+    stateRegistration: '110.042.490.114',
+    taxRegime: 'Lucro Real',
+    corporateEmail: 'diretoria@nagoya.com.br',
+    corporatePhone: '+55 (11) 4002-8922',
+    website: 'https://nagoya.com.br',
+    address: {
+      zip: '04538-132',
+      street: 'Av. Brigadeiro Faria Lima',
+      number: '3477',
+      complement: 'Torre Norte · 18º Andar',
+      district: 'Itaim Bibi',
+      city: 'São Paulo',
+      state: 'SP',
+    },
+    departments: [
+      {
+        id: 'nag-dep-dir',
+        code: 'DIR',
+        name: 'Diretoria & Estratégia',
+        costCenter: 'CC-NAG-01',
+        monthlyBudget: 850000,
+        managerName: 'Roberto Takahashi',
+        color: '#644ef3',
+      },
+      {
+        id: 'nag-dep-eng',
+        code: 'ENG',
+        name: 'Engenharia Industrial',
+        costCenter: 'CC-NAG-02',
+        monthlyBudget: 520000,
+        managerName: 'Lucas Watanabe',
+        color: '#10b981',
+      },
+    ],
+    employees: [
+      {
+        id: 'nag-emp-1',
+        employeeCode: 'NAG-0001',
+        fullName: 'Roberto Takahashi',
+        email: 'roberto@nagoya.com.br',
+        phone: '+55 (11) 99800-1001',
+        jobTitle: 'CEO & Diretor Geral',
+        role: 'DIRETOR',
+        departmentId: 'nag-dep-dir',
+        departmentName: 'Diretoria & Estratégia',
+        approvalLimit: 500000,
+        status: 'ATIVO',
+        joinedAt: '10/01/2025',
+        password: '123456',
+        profissaoId: 1,
+        isCompanyAdmin: true,
+      },
+      {
+        id: 'nag-emp-2',
+        employeeCode: 'NAG-0002',
+        fullName: 'Lucas Watanabe',
+        email: 'lucas@nagoya.com.br',
+        phone: '+55 (11) 99800-1002',
+        jobTitle: 'Engenheiro de Produção',
+        role: 'SOLICITANTE',
+        departmentId: 'nag-dep-eng',
+        departmentName: 'Engenharia Industrial',
+        approvalLimit: 0,
+        status: 'ATIVO',
+        joinedAt: '15/02/2025',
+        password: '123456',
+        profissaoId: 2,
+      },
+    ],
+    policies: {
+      defaultCurrency: 'BRL',
+      autoApproveBelow: 1000,
+      defaultSlaHours: 18,
+      autoEscalateOnSla: true,
+      strictSod: true,
+      requireCryptographicSignature: true,
+      dualApprovalThreshold: 150000,
+      minQuotesCount: 3,
+      minQuotesThreshold: 15000,
+      requireCostCenterOnRequests: true,
+      auditRetentionYears: 7,
+    },
+  };
+
+  return [
+    {
+      tenantId: 'startop',
+      plan: 'ENTERPRISE',
+      status: 'ATIVO',
+      createdAt: '05/01/2024',
+      maxUsers: 100,
+      ownerName: 'Mariana Alves Rocha',
+      ownerEmail: 'mariana.alves@startop.com.br',
+      ownerRole: 'DIRETOR',
+      organization: startopOrg,
+      profissoes: criarProfissoesPadrao(),
+    },
+    {
+      tenantId: 'nagoya-corp',
+      plan: 'ENTERPRISE',
+      status: 'ATIVO',
+      createdAt: '10/01/2025',
+      maxUsers: 50,
+      ownerName: 'Roberto Takahashi',
+      ownerEmail: 'roberto@nagoya.com.br',
+      ownerRole: 'DIRETOR',
+      organization: nagoyaOrg,
+      profissoes: criarProfissoesPadrao(),
+    },
+  ];
+}
+
+function carregarTenantsSalvos(): SaasClientTenant[] {
+  try {
+    const bruto = localStorage.getItem(STORAGE_KEY_TENANTS);
+    if (!bruto) return criarTenantsIniciais();
+    const parsed: unknown = JSON.parse(bruto);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return (parsed as SaasClientTenant[]).map((t) => ({
+        ...t,
+        profissoes: (t.profissoes || criarProfissoesPadrao()).map((p) => {
+          if (p.systemRole === 'APROVADOR_N2' || p.systemRole === 'DIRETOR_CFO') {
+            return {
+              ...p,
+              funcionalidades: p.funcionalidades.filter((f) => f !== 'solicitacoes'),
+            };
+          }
+          return p;
+        }),
+      }));
+    }
+    return criarTenantsIniciais();
+  } catch {
+    return criarTenantsIniciais();
+  }
+}
+
+function salvarTenantsNoStorage(tenants: SaasClientTenant[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_TENANTS, JSON.stringify(tenants));
+  } catch {
+    // Ignora se localStorage estiver bloqueado
+  }
+}
+
+function lerContextoSessaoSalva(): {
+  tenantId: string;
+  email: string;
+  role: string;
+  name: string;
+} {
+  try {
+    const bruto = sessionStorage.getItem(STORAGE_KEY_SESSION);
+    if (!bruto) {
+      return { tenantId: 'startop', email: '', role: '', name: '' };
+    }
+    const sessao = JSON.parse(bruto) as { idToken?: string };
+    const claims = sessao?.idToken ? lerClaimsDoJwt(sessao.idToken) : null;
+    return {
+      tenantId: typeof claims?.['tenantId'] === 'string' && claims['tenantId'] ? claims['tenantId'] : 'startop',
+      email: typeof claims?.['email'] === 'string' ? claims['email'] : '',
+      role: typeof claims?.['role'] === 'string' ? claims['role'] : '',
+      name: typeof claims?.['name'] === 'string' ? claims['name'] : '',
+    };
+  } catch {
+    return { tenantId: 'startop', email: '', role: '', name: '' };
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class SettingsService {
+  private readonly http = inject(HttpClient, { optional: true });
+  private readonly appConfig = inject(APP_CONFIG, { optional: true });
+  private readonly initialCtx = lerContextoSessaoSalva();
+
+  readonly tenants = signal<SaasClientTenant[]>(carregarTenantsSalvos());
+  readonly activeTenantId = signal<string>(this.initialCtx.tenantId);
+  readonly activeUserEmail = signal<string>(this.initialCtx.email);
+  readonly activeUserRole = signal<string>(this.initialCtx.role);
+
+  readonly activeTenant = computed<SaasClientTenant>(() => {
+    const lista = this.tenants();
+    const id = this.activeTenantId();
+    return lista.find((t) => t.tenantId === id) ?? lista[0];
+  });
+
+  readonly organization = computed<OrganizationData>(() => this.activeTenant().organization);
+  readonly activeProfissoes = computed<TenantProfession[]>(() => this.activeTenant().profissoes);
+
+  readonly isPlatformSuperAdmin = computed<boolean>(() => {
+    const role = this.activeUserRole();
+    const email = this.activeUserEmail().toLowerCase();
+    return role === 'SUPER_USER' || email === 'dev@alcadas.com';
+  });
+
+  readonly userProfile = signal<UserProfile>({
+    fullName: 'Desenvolvedor',
+    displayName: 'Desenvolvedor',
+    cpf: '000.000.000-00',
+    bio: 'Conta de Acesso Geral de Desenvolvedor e Administração SaaS Multi-Tenant.',
+    avatarUrl: null,
+    avatarColor: '#0f172a',
+    email: 'dev@alcadas.com',
+    additionalEmails: [
+      { email: 'dev@alcadas.com', isPrimary: true, verified: true },
+    ],
+    phone: '+55 (61) 99999-0000',
+    location: 'Brasília, DF — Brasil',
+    timezone: 'America/Sao_Paulo (GMT-03:00)',
+    company: 'Startop Sistemas & Governança LTDA',
+    cnpj: '11.222.333/0001-81',
+    jobTitle: 'Desenvolvedor (Super Admin)',
+    department: 'Engenharia de Plataforma',
+    employeeId: 'DEV-0001',
+    roles: ['SUPER_USER', 'Desenvolvedor', 'Admin Geral'],
+    approvalLimit: 9999999,
+    costCenters: [],
+    activeDelegation: null,
+    signatureStyle: 'drawn',
+    certificateIssuer: 'ICP-Brasil · SHA-256 ECDSA Ativo',
+    lastAccess: new Date(),
+    isActive: true,
+    recentApprovals: [],
   });
 
   readonly notifications = signal<NotificationChannelItem[]>([
@@ -353,6 +660,398 @@ export class SettingsService {
     },
   ]);
 
+  constructor() {
+    if (this.initialCtx.email) {
+      this.sincronizarPerfilComColaboradorLogado(
+        this.initialCtx.email,
+        this.initialCtx.tenantId,
+        this.initialCtx.name,
+        this.initialCtx.role,
+      );
+    }
+  }
+
+  private get apiUrl(): string {
+    return this.appConfig?.apiBaseUrl ?? '/api';
+  }
+
+  /**
+   * Carrega os tenants persistidos no Firestore via API; se o Firestore estiver vazio,
+   * envia os tenants atuais para o Firestore (garantindo sincronização de departamentos/centros de custo).
+   */
+  carregarOuSincronizarTenantsComBackend(): void {
+    if (!this.http) return;
+    this.http
+      .get<{ items: SaasClientTenant[] }>(`${this.apiUrl}/saas/tenants`)
+      .subscribe({
+        next: (res) => {
+          const remotos = Array.isArray(res?.items) ? res.items : [];
+          if (remotos.length > 0) {
+            const locais = this.tenants();
+            const mapa = new Map<string, SaasClientTenant>();
+            for (const l of locais) mapa.set(l.tenantId, l);
+            for (const r of remotos) {
+              if (r && r.tenantId && r.organization) {
+                mapa.set(r.tenantId, r);
+              }
+            }
+            const mesclados = Array.from(mapa.values());
+            this.tenants.set(mesclados);
+            salvarTenantsNoStorage(mesclados);
+          } else {
+            this.http
+              ?.post(`${this.apiUrl}/saas/tenants/sync`, { tenants: this.tenants() })
+              .subscribe({ error: () => undefined });
+          }
+        },
+        error: () => undefined,
+      });
+  }
+
+  private persistirTenantNoBackend(tenant: SaasClientTenant): void {
+    if (!this.http) return;
+    this.http
+      .put(`${this.apiUrl}/saas/tenants/${encodeURIComponent(tenant.tenantId)}`, tenant)
+      .subscribe({ error: () => undefined });
+  }
+
+  /**
+   * Sincroniza o tenant ativo e os dados do perfil pessoal sempre que o usuário faz login ou troca de sessão.
+   */
+  syncSessionContext(ctx: { email?: string; tenantId?: string; role?: string; name?: string } | null): void {
+    if (!ctx) {
+      this.activeTenantId.set('startop');
+      this.activeUserEmail.set('');
+      this.activeUserRole.set('');
+      return;
+    }
+    const tenantId = ctx.tenantId || 'startop';
+    this.activeTenantId.set(tenantId);
+    this.activeUserEmail.set(ctx.email || '');
+    this.activeUserRole.set(ctx.role || '');
+    if (ctx.email) {
+      this.sincronizarPerfilComColaboradorLogado(ctx.email, tenantId, ctx.name, ctx.role);
+    }
+  }
+
+  /**
+   * Busca uma conta de cliente ou colaborador cadastrada em qualquer empresa (tenant) pelo e-mail.
+   */
+  findAccountByEmail(email: string): {
+    tenant: SaasClientTenant;
+    employee: OrganizationEmployee;
+    profissao: TenantProfession;
+  } | null {
+    const emailLimpo = email.trim().toLowerCase();
+    if (!emailLimpo) return null;
+
+    for (const tenant of this.tenants()) {
+      const emp = tenant.organization.employees.find(
+        (e) => e.email.trim().toLowerCase() === emailLimpo,
+      );
+      if (emp) {
+        const profId =
+          emp.profissaoId ?? mapearRoleParaProfissaoId(emp.role, tenant.profissoes);
+        const profissao =
+          tenant.profissoes.find((p) => p.id === profId) ??
+          tenant.profissoes[0] ??
+          criarProfissoesPadrao()[0];
+        return { tenant, employee: emp, profissao };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Retorna as chaves de funcionalidades liberadas para o usuário logado com base na matriz de Delegações (/delegacoes)
+   * da empresa dele. O Admin Geral da plataforma (SUPER_USER) tem acesso a todas as telas.
+   */
+  readonly currentUserAllowedFeatures = computed<string[]>(() => {
+    if (this.isPlatformSuperAdmin()) {
+      return [...TODAS_FUNCIONALIDADES_SISTEMA, 'clientes'];
+    }
+    const email = this.activeUserEmail();
+    const match = this.findAccountByEmail(email);
+    if (match) {
+      return match.profissao.funcionalidades;
+    }
+    const role = this.activeUserRole();
+    if (role === 'ADMIN' || role === 'DIRETOR_CFO') {
+      return [...TODAS_FUNCIONALIDADES_SISTEMA];
+    }
+    return [...TODAS_FUNCIONALIDADES_SISTEMA];
+  });
+
+  /**
+   * Verifica se o usuário atual pode acessar uma determinada rota da aplicação conforme as delegações da empresa.
+   */
+  canCurrentUserAccessUrl(url: string): boolean {
+    if (this.isPlatformSuperAdmin()) return true;
+    const permitidas = this.currentUserAllowedFeatures();
+
+    if (url.includes('/configuracoes/clientes')) {
+      return this.isPlatformSuperAdmin();
+    }
+    if (url.includes('/configuracoes/delegacoes') || url.includes('/delegacoes')) {
+      return permitidas.includes('delegacoes') || permitidas.includes('organizacao');
+    }
+    if (url.includes('/configuracoes/organizacao') || url.includes('/configuracoes/empresa')) {
+      return permitidas.includes('organizacao') || permitidas.includes('delegacoes');
+    }
+    // Perfil pessoal, segurança e notificações estão sempre liberados para o próprio usuário logado
+    if (url.includes('/configuracoes')) {
+      return true;
+    }
+    if (url.includes('/aprovacoes')) return permitidas.includes('minhas_aprovacoes');
+    if (url.includes('/solicitacoes')) return permitidas.includes('solicitacoes');
+    if (url.includes('/alcadas/regras')) return permitidas.includes('minhas_regras');
+    if (url.includes('/alcadas')) return permitidas.includes('meus_fluxos');
+    if (url.includes('/auditoria')) return permitidas.includes('trilha');
+    if (url.includes('/riscos')) return permitidas.includes('motor_riscos');
+    if (url.includes('/dashboard')) return permitidas.includes('dashboard');
+    return true;
+  }
+
+  getFirstAllowedRouteForCurrentUser(): string {
+    const permitidas = this.currentUserAllowedFeatures();
+    const mapaRota: Record<string, string> = {
+      dashboard: '/dashboard',
+      solicitacoes: '/solicitacoes',
+      minhas_aprovacoes: '/aprovacoes',
+      meus_fluxos: '/alcadas/minhas-alcadas',
+      minhas_regras: '/alcadas/regras',
+      trilha: '/auditoria',
+      motor_riscos: '/riscos',
+      delegacoes: '/configuracoes/delegacoes',
+      organizacao: '/configuracoes/organizacao',
+    };
+    for (const chave of permitidas) {
+      if (mapaRota[chave]) return mapaRota[chave];
+    }
+    return '/configuracoes/perfil';
+  }
+
+  // =========================================================================
+  // GESTÃO SAAS MULTI-TENANT (CADASTRO DE EMPRESAS E CONTAS DE CLIENTES)
+  // =========================================================================
+
+  registerClientTenant(payload: {
+    tenantId?: string;
+    tradeName: string;
+    legalName: string;
+    cnpj: string;
+    corporateEmail: string;
+    corporatePhone: string;
+    plan: SaasPlanType;
+    maxUsers: number;
+    ownerName: string;
+    ownerEmail: string;
+    ownerPassword: string;
+    ownerJobTitle: string;
+    ownerRole: EmployeeRoleType;
+    ownerApprovalLimit: number;
+  }): SaasClientTenant {
+    const slugBase = (payload.tenantId || payload.tradeName)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const tenantId = slugBase || `empresa-${Date.now()}`;
+    const sigla = payload.tradeName
+      .replace(/[^A-Za-z]/g, '')
+      .slice(0, 3)
+      .toUpperCase() || 'EMP';
+
+    const profissoes = criarProfissoesPadrao();
+    const profissaoId = mapearRoleParaProfissaoId(payload.ownerRole, profissoes);
+    const deptId = `dep-${Date.now()}`;
+    const hoje = new Intl.DateTimeFormat('pt-BR').format(new Date());
+
+    const novoTenant: SaasClientTenant = {
+      tenantId,
+      plan: payload.plan,
+      status: 'ATIVO',
+      createdAt: hoje,
+      maxUsers: payload.maxUsers || 50,
+      ownerName: payload.ownerName.trim(),
+      ownerEmail: payload.ownerEmail.trim().toLowerCase(),
+      ownerRole: payload.ownerRole,
+      profissoes,
+      organization: {
+        cnpj: payload.cnpj,
+        legalName: payload.legalName.trim(),
+        tradeName: payload.tradeName.trim(),
+        stateRegistration: 'Isento / Em homologação',
+        taxRegime: 'Lucro Real',
+        corporateEmail: payload.corporateEmail.trim().toLowerCase(),
+        corporatePhone: payload.corporatePhone.trim() || '+55 (11) 3000-0000',
+        website: '',
+        address: {
+          zip: '01310-100',
+          street: 'Av. Paulista',
+          number: '1000',
+          complement: 'Conjunto 101',
+          district: 'Bela Vista',
+          city: 'São Paulo',
+          state: 'SP',
+        },
+        departments: [
+          {
+            id: deptId,
+            code: 'DIR',
+            name: 'Diretoria & Administração Geral',
+            costCenter: `CC-${sigla}-01`,
+            monthlyBudget: Math.max(payload.ownerApprovalLimit * 2, 200000),
+            managerName: payload.ownerName.trim(),
+            color: '#644ef3',
+          },
+        ],
+        employees: [
+          {
+            id: `emp-${Date.now()}`,
+            employeeCode: `${sigla}-0001`,
+            fullName: payload.ownerName.trim(),
+            email: payload.ownerEmail.trim().toLowerCase(),
+            phone: payload.corporatePhone.trim(),
+            jobTitle: payload.ownerJobTitle.trim() || 'Diretor Executivo',
+            role: payload.ownerRole,
+            departmentId: deptId,
+            departmentName: 'Diretoria & Administração Geral',
+            approvalLimit: payload.ownerApprovalLimit,
+            status: 'ATIVO',
+            joinedAt: hoje,
+            password: payload.ownerPassword || '123456',
+            profissaoId,
+            isCompanyAdmin: true,
+          },
+        ],
+        policies: {
+          defaultCurrency: 'BRL',
+          autoApproveBelow: 500,
+          defaultSlaHours: 24,
+          autoEscalateOnSla: true,
+          strictSod: true,
+          requireCryptographicSignature: true,
+          dualApprovalThreshold: 100000,
+          minQuotesCount: 3,
+          minQuotesThreshold: 10000,
+          requireCostCenterOnRequests: true,
+          auditRetentionYears: 7,
+        },
+      },
+    };
+
+    this.tenants.update((lista) => {
+      const atualizada = [novoTenant, ...lista];
+      salvarTenantsNoStorage(atualizada);
+      return atualizada;
+    });
+    this.persistirTenantNoBackend(novoTenant);
+
+    return novoTenant;
+  }
+
+  addClientAccountToTenant(
+    tenantId: string,
+    payload: {
+      fullName: string;
+      email: string;
+      password: string;
+      jobTitle: string;
+      role: EmployeeRoleType;
+      approvalLimit: number;
+      isCompanyAdmin?: boolean;
+    },
+  ): OrganizationEmployee | null {
+    let criado: OrganizationEmployee | null = null;
+    const hoje = new Intl.DateTimeFormat('pt-BR').format(new Date());
+
+    this.tenants.update((lista) => {
+      const atualizada = lista.map((t) => {
+        if (t.tenantId !== tenantId) return t;
+        const sigla =
+          t.organization.tradeName
+            .replace(/[^A-Za-z]/g, '')
+            .slice(0, 3)
+            .toUpperCase() || 'EMP';
+        const dept = t.organization.departments[0];
+        const profissaoId = mapearRoleParaProfissaoId(payload.role, t.profissoes);
+        criado = {
+          id: `emp-${Date.now()}`,
+          employeeCode: `${sigla}-0${100 + t.organization.employees.length + 1}`,
+          fullName: payload.fullName.trim(),
+          email: payload.email.trim().toLowerCase(),
+          phone: t.organization.corporatePhone,
+          jobTitle: payload.jobTitle.trim() || 'Gestor Corporativo',
+          role: payload.role,
+          departmentId: dept?.id ?? 'dep-dir',
+          departmentName: dept?.name ?? 'Diretoria Geral',
+          approvalLimit: payload.approvalLimit,
+          status: 'ATIVO',
+          joinedAt: hoje,
+          password: payload.password || '123456',
+          profissaoId,
+          isCompanyAdmin: payload.isCompanyAdmin ?? true,
+        };
+        return {
+          ...t,
+          organization: {
+            ...t.organization,
+            employees: [criado, ...t.organization.employees],
+          },
+        };
+      });
+      salvarTenantsNoStorage(atualizada);
+      const atualizado = atualizada.find((t) => t.tenantId === tenantId);
+      if (atualizado) {
+        this.persistirTenantNoBackend(atualizado);
+      }
+      return atualizada;
+    });
+
+    return criado;
+  }
+
+  updateTenantStatus(tenantId: string, status: SaasTenantStatus): void {
+    this.tenants.update((lista) => {
+      const atualizada = lista.map((t) => (t.tenantId === tenantId ? { ...t, status } : t));
+      salvarTenantsNoStorage(atualizada);
+      const atualizado = atualizada.find((t) => t.tenantId === tenantId);
+      if (atualizado) {
+        this.persistirTenantNoBackend(atualizado);
+      }
+      return atualizada;
+    });
+  }
+
+  removeTenant(tenantId: string): void {
+    if (tenantId === 'startop') return;
+    this.tenants.update((lista) => {
+      const atualizada = lista.filter((t) => t.tenantId !== tenantId);
+      salvarTenantsNoStorage(atualizada);
+      return atualizada;
+    });
+    if (this.activeTenantId() === tenantId) {
+      this.activeTenantId.set('startop');
+    }
+  }
+
+  // =========================================================================
+  // GESTÃO DE PROFISSÕES E DELEGAÇÕES DA EMPRESA ATIVA (/delegacoes)
+  // =========================================================================
+
+  updateActiveProfissoes(profissoes: TenantProfession[]): void {
+    this.atualizarTenantAtivo((t) => ({
+      ...t,
+      profissoes,
+    }));
+  }
+
+  // =========================================================================
+  // GESTÃO DA ORGANIZAÇÃO ATIVA (/configuracoes/organizacao)
+  // =========================================================================
+
   updateUserProfile(patch: Partial<UserProfile>): void {
     this.userProfile.update((prev) => ({
       ...prev,
@@ -415,7 +1114,7 @@ export class SettingsService {
       >
     >,
   ): void {
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       ...patch,
     }));
@@ -433,7 +1132,7 @@ export class SettingsService {
       ...dept,
       id: `dep-${Date.now()}`,
     };
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       departments: [...prev.departments, created],
     }));
@@ -441,26 +1140,30 @@ export class SettingsService {
   }
 
   updateDepartment(id: string, patch: Partial<OrganizationDepartment>): void {
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       departments: prev.departments.map((d) => (d.id === id ? { ...d, ...patch } : d)),
     }));
   }
 
   removeDepartment(id: string): void {
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       departments: prev.departments.filter((d) => d.id !== id),
     }));
   }
 
   addEmployee(emp: Omit<OrganizationEmployee, 'id' | 'joinedAt'>): OrganizationEmployee {
+    const profissoes = this.activeProfissoes();
+    const profissaoId = emp.profissaoId ?? mapearRoleParaProfissaoId(emp.role, profissoes);
     const created: OrganizationEmployee = {
       ...emp,
       id: `emp-${Date.now()}`,
       joinedAt: new Intl.DateTimeFormat('pt-BR').format(new Date()),
+      password: emp.password || '123456',
+      profissaoId,
     };
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       employees: [created, ...prev.employees],
     }));
@@ -468,21 +1171,34 @@ export class SettingsService {
   }
 
   updateEmployee(id: string, patch: Partial<OrganizationEmployee>): void {
-    this.organization.update((prev) => ({
+    const profissoes = this.activeProfissoes();
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
-      employees: prev.employees.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      employees: prev.employees.map((e) => {
+        if (e.id !== id) return e;
+        const nextRole = patch.role ?? e.role;
+        const nextProfissaoId =
+          patch.profissaoId ??
+          (patch.role ? mapearRoleParaProfissaoId(nextRole, profissoes) : e.profissaoId);
+        return {
+          ...e,
+          ...patch,
+          profissaoId: nextProfissaoId,
+          password: patch.password || e.password || '123456',
+        };
+      }),
     }));
   }
 
   removeEmployee(id: string): void {
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       employees: prev.employees.filter((e) => e.id !== id),
     }));
   }
 
   updatePolicies(policies: OrganizationPolicies): void {
-    this.organization.update((prev) => ({
+    this.atualizarOrganizacaoAtiva((prev) => ({
       ...prev,
       policies,
     }));
@@ -530,5 +1246,95 @@ export class SettingsService {
 
   revokeApiKey(id: string): void {
     this.apiKeys.update((prev) => prev.filter((k) => k.id !== id));
+  }
+
+  private atualizarTenantAtivo(
+    updater: (tenant: SaasClientTenant) => SaasClientTenant,
+  ): void {
+    const activeId = this.activeTenant().tenantId;
+    this.tenants.update((lista) => {
+      const atualizada = lista.map((t) => (t.tenantId === activeId ? updater(t) : t));
+      salvarTenantsNoStorage(atualizada);
+      const atualizado = atualizada.find((t) => t.tenantId === activeId);
+      if (atualizado) {
+        this.persistirTenantNoBackend(atualizado);
+      }
+      return atualizada;
+    });
+  }
+
+  private atualizarOrganizacaoAtiva(
+    updater: (org: OrganizationData) => OrganizationData,
+  ): void {
+    this.atualizarTenantAtivo((t) => ({
+      ...t,
+      organization: updater(t.organization),
+    }));
+  }
+
+  private sincronizarPerfilComColaboradorLogado(
+    email: string,
+    tenantId: string,
+    name?: string,
+    role?: string,
+  ): void {
+    const emailLimpo = email.trim().toLowerCase();
+    if (emailLimpo === 'dev@alcadas.com' || role === 'SUPER_USER') {
+      const tenant = this.activeTenant();
+      this.userProfile.update((prev) => ({
+        ...prev,
+        fullName: 'Desenvolvedor',
+        displayName: 'Desenvolvedor',
+        email: 'dev@alcadas.com',
+        additionalEmails: [{ email: 'dev@alcadas.com', isPrimary: true, verified: true }],
+        company: tenant.organization.legalName,
+        cnpj: tenant.organization.cnpj,
+        jobTitle: 'Desenvolvedor (Super Admin)',
+        department: 'Engenharia de Plataforma',
+        employeeId: 'DEV-0001',
+        roles: ['SUPER_USER', 'Desenvolvedor', 'Admin Geral'],
+        approvalLimit: 9999999,
+        costCenters: tenant.organization.departments.map((d) => `${d.costCenter} · ${d.name}`),
+        recentApprovals: [],
+      }));
+      return;
+    }
+
+    const match = this.findAccountByEmail(emailLimpo);
+    if (match) {
+      const { tenant, employee, profissao } = match;
+      if (tenant.tenantId !== tenantId) {
+        this.activeTenantId.set(tenant.tenantId);
+      }
+      this.userProfile.update((prev) => ({
+        ...prev,
+        fullName: employee.fullName,
+        displayName: employee.fullName.split(' ').slice(0, 2).join(' '),
+        email: employee.email,
+        additionalEmails: [{ email: employee.email, isPrimary: true, verified: true }],
+        phone: employee.phone || prev.phone,
+        company: tenant.organization.legalName,
+        cnpj: tenant.organization.cnpj,
+        jobTitle: employee.jobTitle,
+        department: employee.departmentName,
+        employeeId: employee.employeeCode,
+        roles: [profissao.nome, employee.role],
+        approvalLimit: employee.approvalLimit,
+        costCenters: [employee.departmentName],
+        recentApprovals: [],
+      }));
+      return;
+    }
+
+    const nomeExibicao = name || email.split('@')[0] || 'Usuário';
+    this.userProfile.update((prev) => ({
+      ...prev,
+      fullName: nomeExibicao,
+      displayName: nomeExibicao,
+      email,
+      additionalEmails: [{ email, isPrimary: true, verified: true }],
+      roles: [role || 'SOLICITANTE'],
+      recentApprovals: [],
+    }));
   }
 }

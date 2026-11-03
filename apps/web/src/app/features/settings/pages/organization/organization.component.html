@@ -10,9 +10,9 @@
         <span class="material-symbols-rounded">domain</span>
       </div>
       <div class="identity-titles">
-        <h1>Organização & Empresa</h1>
+        <h1>Organização & Empresa · {{ org().tradeName }}</h1>
         <p>
-          Gerencie os dados fiscais da empresa, departamentos, quadro de funcionários e políticas globais do projeto.
+          Ambiente isolado da empresa (<code>tenant: {{ settingsService.activeTenantId() }}</code>) — gerencie dados fiscais, departamentos, funcionários e políticas.
         </p>
       </div>
     </div>
@@ -494,14 +494,25 @@
           </p>
         </div>
         @if (!isEmployeeFormOpen()) {
-          <button
-            type="button"
-            class="btn-settings primary"
-            (click)="openNewEmployeeForm()"
-          >
-            <span class="material-symbols-rounded">person_add</span>
-            <span>Registrar Funcionário</span>
-          </button>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap">
+            <a
+              routerLink="/configuracoes/delegacoes"
+              class="btn-settings"
+              style="text-decoration: none"
+              title="Controlar quais telas e ferramentas cada profissão e funcionário pode acessar"
+            >
+              <span class="material-symbols-rounded">admin_panel_settings</span>
+              <span>Controlar Acessos em Delegações</span>
+            </a>
+            <button
+              type="button"
+              class="btn-settings primary"
+              (click)="openNewEmployeeForm()"
+            >
+              <span class="material-symbols-rounded">person_add</span>
+              <span>Registrar Funcionário</span>
+            </button>
+          </div>
         }
       </div>
 
@@ -602,6 +613,18 @@
                 <option value="FERIAS">Em Férias / Ausente</option>
                 <option value="INATIVO">Inativo / Bloqueado</option>
               </select>
+            </div>
+            <div class="col-2 sub-field">
+              <label for="empPass">Senha de Acesso ao Sistema *</label>
+              <input
+                id="empPass"
+                type="text"
+                class="settings-input"
+                [ngModel]="employeePassword()"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="employeePassword.set($event)"
+                placeholder="Ex: 123456"
+              />
             </div>
           </div>
 
