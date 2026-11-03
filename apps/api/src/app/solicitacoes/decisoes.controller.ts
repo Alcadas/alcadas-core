@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -85,6 +86,27 @@ export class DecisoesController {
     @Body() dto: DecisaoAjusteDto,
   ): Promise<SolicitacaoResponseDto> {
     return this.decisoesService.solicitarAjuste(user, id, dto);
+  }
+
+  /**
+   * T05: PUT /api/solicitacoes/:id — Edição / Ajuste da solicitação pelo solicitante
+   */
+  @Put(':id')
+  @Roles(...PAPEIS_LEITURA_TRILHA)
+  @HttpCode(HttpStatus.OK)
+  async atualizarSolicitacao(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      centroCustoId?: string;
+      categoria?: string;
+      valor?: number;
+      justificativa?: string;
+      fornecedor?: string | null;
+    },
+  ): Promise<SolicitacaoResponseDto> {
+    return this.decisoesService.atualizarOuReenviarSolicitacao(user, id, dto);
   }
 
   /**

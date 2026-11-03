@@ -21,4 +21,12 @@ export class CriarSolicitacaoDto {
   @IsString()
   @IsOptional()
   fornecedor?: string;
+
+  @IsString()
+  @IsOptional()
+  solicitanteNome?: string;
+
+  @IsString()
+  @IsOptional()
+  solicitanteCargo?: string;
 }

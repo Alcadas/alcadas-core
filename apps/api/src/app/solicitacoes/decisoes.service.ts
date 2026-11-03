@@ -105,6 +105,78 @@ export class DecisoesService {
     return this.decidirComMotivo(user, solicitacaoId, 'SOLICITAR_AJUSTE', dto?.versao, motivo);
   }
 
+  /** T05 — PUT /api/solicitacoes/{id} (Edição e reenvio pelo solicitante) */
+  async atualizarOuReenviarSolicitacao(
+    user: AuthenticatedUser,
+    solicitacaoId: string,
+    dto: {
+      centroCustoId?: string;
+      categoria?: string;
+      valor?: number;
+      justificativa?: string;
+      fornecedor?: string | null;
+    },
+  ): Promise<SolicitacaoResponseDto> {
+    const { solicitacao, collectionUsed } = await this.maquinaEstados.buscarNoTenant(
+      user.tenantId,
+      solicitacaoId,
+    );
+
+    if (solicitacao.status === 'APROVADA' || solicitacao.status === 'REJEITADA') {
+      throw new BadRequestException(
+        'Solicitações já finalizadas (aprovadas ou rejeitadas) não podem ser editadas.',
+      );
+    }
+
+    const agora = new Date().toISOString();
+    const atualizada: SolicitacaoResponseDto = {
+      ...solicitacao,
+      centroCustoId: dto.centroCustoId ?? solicitacao.centroCustoId,
+      categoria: dto.categoria ?? solicitacao.categoria,
+      valor: typeof dto.valor === 'number' && dto.valor > 0 ? dto.valor : solicitacao.valor,
+      justificativa:
+        typeof dto.justificativa === 'string' && dto.justificativa.trim()
+          ? dto.justificativa.trim()
+          : solicitacao.justificativa,
+      fornecedor:
+        dto.fornecedor !== undefined ? (dto.fornecedor ?? undefined) : solicitacao.fornecedor,
+      status: 'PENDENTE',
+      versao: solicitacao.versao + 1,
+      updatedAt: agora,
+    };
+
+    await this.firestore.setTenantDocument(
+      user.tenantId,
+      collectionUsed,
+      solicitacao.id,
+      atualizada,
+    );
+    if (collectionUsed !== 'requests') {
+      await this.firestore.setTenantDocument(user.tenantId, 'requests', solicitacao.id, atualizada);
+    }
+
+    await this.auditoria.recordEvent({
+      tenantId: user.tenantId,
+      requestId: solicitacao.id,
+      tipoEvento: 'REENVIO_SOLICITACAO',
+      authorId: user.userId,
+      authorRole: user.role,
+      timestampUtc: agora,
+      payload: {
+        transicao: 'T05',
+        de: solicitacao.status,
+        para: 'PENDENTE',
+        versao: atualizada.versao,
+        valor: atualizada.valor,
+        categoria: atualizada.categoria,
+        centroCustoId: atualizada.centroCustoId,
+        justificativa: atualizada.justificativa,
+      },
+    });
+
+    return atualizada;
+  }
+
   /** GET /api/solicitacoes/{id}/trilha — elos ordenados por sequência (US-07). */
   async obterTrilha(user: AuthenticatedUser, solicitacaoId: string): Promise<EloAuditoriaDto[]> {
     await this.assertPodeLerTrilha(user, solicitacaoId);
