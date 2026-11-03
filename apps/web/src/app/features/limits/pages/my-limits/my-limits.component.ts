@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -29,14 +29,19 @@ export class MyLimitsComponent {
   readonly newRuleAmount = signal(25000);
   readonly newRuleQuorum = signal('2 Aprovadores (Quórum Duplo)');
 
-  // Tabs do topo
-  readonly pageHeaderTabs: PageHeaderTab[] = [
-    { id: 'all', label: 'Todas', icon: 'shield', badge: 7 },
-    { id: 'active', label: 'Ativas', icon: 'check_circle', badge: 5, badgeVariant: 'success' },
-    { id: 'draft', label: 'Rascunhos', icon: 'edit_note', badge: 2, badgeVariant: 'warning' },
-    { id: 'completed', label: 'Homologadas', icon: 'task_alt' },
-    { id: 'templates', label: 'Modelos', icon: 'auto_awesome' },
-  ];
+  // Tabs do topo com contadores sincronizados com o banco de dados
+  readonly pageHeaderTabs = computed<PageHeaderTab[]>(() => {
+    const all = this.limitsService.allRules();
+    const activeCount = all.filter((r) => r.status === 'ACTIVE').length;
+    const draftCount = all.filter((r) => r.status === 'DRAFT').length;
+    return [
+      { id: 'all', label: 'Todas', icon: 'shield', badge: all.length },
+      { id: 'active', label: 'Ativas', icon: 'check_circle', badge: activeCount, badgeVariant: 'success' },
+      { id: 'draft', label: 'Rascunhos', icon: 'edit_note', badge: draftCount, badgeVariant: 'warning' },
+      { id: 'completed', label: 'Homologadas', icon: 'task_alt' },
+      { id: 'templates', label: 'Modelos', icon: 'auto_awesome' },
+    ];
+  });
 
   selectTab(tabId: string): void {
     this.limitsService.activeTab.set(tabId);
@@ -65,6 +70,10 @@ export class MyLimitsComponent {
 
   openCreateModal(): void {
     this.newRuleTitle.set('');
+    const depts = this.limitsService.departments();
+    if (depts.length > 0) {
+      this.newRuleDept.set(depts[0].name);
+    }
     this.newRuleAmount.set(25000);
     this.isCreateModalOpen.set(true);
   }
@@ -100,9 +109,9 @@ export class MyLimitsComponent {
   }
 
   constructor() {
-    // Simula carregamento de regras e políticas da API
+    this.limitsService.loadFromBackend();
     setTimeout(() => {
       this.isLoading.set(false);
-    }, 500);
+    }, 300);
   }
 }

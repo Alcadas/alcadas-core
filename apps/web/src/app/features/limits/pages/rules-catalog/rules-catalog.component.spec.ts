@@ -15,6 +15,7 @@ describe('RulesCatalogComponent', () => {
 
     fixture = TestBed.createComponent(RulesCatalogComponent);
     component = fixture.componentInstance;
+    component.seedForTesting();
     fixture.detectChanges();
   });
 

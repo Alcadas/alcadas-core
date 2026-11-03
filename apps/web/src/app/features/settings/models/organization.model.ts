@@ -43,6 +43,42 @@ export interface OrganizationEmployee {
   approvalLimit: number;
   status: EmployeeStatusType;
   joinedAt: string;
+  /** Senha de acesso ao sistema definida pelo Admin/Diretor da empresa */
+  password?: string;
+  /** Vínculo com a Profissão/Perfil de permissões da tela de Delegações (/delegacoes) */
+  profissaoId?: number;
+  /** Indica se é a conta titular/cliente proprietária da empresa no SaaS */
+  isCompanyAdmin?: boolean;
+}
+
+export interface TenantProfession {
+  id: number;
+  nome: string;
+  systemRole?:
+    | 'SUPER_USER'
+    | 'ADMIN'
+    | 'DIRETOR_CFO'
+    | 'APROVADOR_N2'
+    | 'APROVADOR_N1'
+    | 'SOLICITANTE'
+    | 'AUDITOR';
+  funcionalidades: string[];
+}
+
+export type SaasPlanType = 'ENTERPRISE' | 'CORPORATE' | 'GROWTH';
+export type SaasTenantStatus = 'ATIVO' | 'TRIAL' | 'SUSPENSO';
+
+export interface SaasClientTenant {
+  tenantId: string;
+  plan: SaasPlanType;
+  status: SaasTenantStatus;
+  createdAt: string;
+  maxUsers: number;
+  ownerName: string;
+  ownerEmail: string;
+  ownerRole: EmployeeRoleType;
+  organization: OrganizationData;
+  profissoes: TenantProfession[];
 }
 
 export interface OrganizationPolicies {

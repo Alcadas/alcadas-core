@@ -3,6 +3,10 @@ import { StatusSolicitacao } from '@alcadas-core/models';
 /** Status da tela = status da API (ADR-005). */
 export type RequestStatus = StatusSolicitacao;
 
+export type RequestPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+
+export type RequestCategory = string;
+
 export type ApprovalStepStatus = 'CONCLUIDA' | 'EM_ANALISE' | 'PENDENTE' | 'REJEITADA' | 'AJUSTE';
 
 export interface StepSignature {
@@ -27,8 +31,17 @@ export interface ApprovalStep {
 export interface WorkflowDestination {
   nome: string;
   totalEtapas: number;
+  etapaAtualNumero?: number;
   etapaAtualNome: string;
   etapas: ApprovalStep[];
+}
+
+export interface RequestAttachment {
+  id: string;
+  nome: string;
+  tamanho: string;
+  tipo: string;
+  icone: string;
 }
 
 /** Solicitação pronta para a tela, montada a partir do `SolicitacaoResponseDto` da API. */
@@ -46,6 +59,7 @@ export interface RequestItem {
   departamento: string;
   valor: number;
   fornecedor?: string;
+  prioridade: RequestPriority;
   status: RequestStatus;
   statusLabel: string;
   statusIcon: string;
@@ -58,6 +72,7 @@ export interface RequestItem {
     nome: string;
     cargo: string;
   };
+  anexos: RequestAttachment[];
   fluxoDestinado: WorkflowDestination;
 }
 
@@ -76,6 +91,7 @@ export interface CostCenterOption {
   id: string;
   code: string;
   nome: string;
+  departamento?: string;
 }
 
 export interface CategoryOption {
@@ -93,6 +109,18 @@ export interface CreateRequestDto {
   valor: number;
   justificativa: string;
   fornecedor?: string;
+}
+
+/** Dados estendidos da página de criação local/API. */
+export interface CreateRequestFormPayload {
+  titulo?: string;
+  centroCustoId: string;
+  categoria: string;
+  valor: number;
+  prioridade?: RequestPriority;
+  justificativa: string;
+  fornecedor?: string;
+  anexos?: Array<{ nome: string; tamanho: string; tipo: string }>;
 }
 
 export type DecisionAction = 'aprovar' | 'rejeitar' | 'ajuste';

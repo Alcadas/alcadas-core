@@ -4,11 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE, justificativaSuficiente } from '@alcadas-core/models';
 import { AuthService } from '../../core/auth/auth.service';
 import { podeDecidir } from '../../core/auth/roles';
+import { SettingsService } from '../settings/services/settings.service';
 import { mensagemDeErroDaApi } from '../../core/http/api-error';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
-import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { fluxoDaAlcada } from './requests.mapper';
 import {
   ApprovalStep,
@@ -49,6 +49,7 @@ const MENSAGEM_DE_SUCESSO: Record<DecisionAction, string> = {
 export class RequestsComponent implements OnInit {
   protected readonly requestsService = inject(RequestsService);
   private readonly authService = inject(AuthService);
+  private readonly settingsService = inject(SettingsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -93,6 +94,18 @@ export class RequestsComponent implements OnInit {
   readonly isCreateDrawerOpen = signal<boolean>(false);
   readonly isDetailDrawerOpen = signal<boolean>(false);
   readonly selectedRequest = signal<RequestItem | null>(null);
+
+  // Modal / Modo de Edição pelo Solicitante
+  readonly isEditModalOpen = signal<boolean>(false);
+  readonly editingRequest = signal<RequestItem | null>(null);
+  readonly editFormTitulo = signal<string>('');
+  readonly editFormValor = signal<number | null>(null);
+  readonly editFormCategoria = signal<string>('');
+  readonly editFormCentroCustoId = signal<string>('');
+  readonly editFormJustificativa = signal<string>('');
+  readonly editFormFornecedor = signal<string>('');
+  readonly editFormErrors = signal<Record<string, string>>({});
+  readonly isSavingEdit = signal<boolean>(false);
 
   // Toast
   readonly toastMessage = signal<string | null>(null);
@@ -140,6 +153,44 @@ export class RequestsComponent implements OnInit {
     );
   });
 
+  /**
+   * Verifica se uma solicitação pertence ao usuário logado ou se o usuário tem privilégio de super admin / admin da empresa.
+   */
+  isRequestOwnedByCurrentUser(r: RequestItem): boolean {
+    if (this.settingsService.isPlatformSuperAdmin()) return true;
+    const user = this.authService.currentUser();
+    if (!user) return true;
+    // Administradores, Diretores e Gerentes Aprovadores da empresa podem ver as solicitações da organização
+    if (
+      user.role === 'ADMIN' ||
+      user.role === 'DIRETOR_CFO' ||
+      user.role === 'SUPER_USER' ||
+      user.role === 'APROVADOR_N2' ||
+      user.role === 'APROVADOR_N1'
+    ) {
+      return true;
+    }
+    const myId = user.id;
+    const myEmail = (user.email || '').trim().toLowerCase();
+    const myName = (user.name || '').trim().toLowerCase();
+
+    return (
+      (myId && r.solicitante.id === myId) ||
+      (myEmail && r.solicitante.id?.toLowerCase() === myEmail) ||
+      (myName && r.solicitante.nome?.trim().toLowerCase() === myName) ||
+      r.solicitante.nome === 'Você'
+    );
+  }
+
+  /**
+   * Permite editar se a solicitação for do usuário logado e estiver em status PENDENTE ou EM_AJUSTE.
+   */
+  canEditRequest(r: RequestItem | null): boolean {
+    if (!r) return false;
+    if (r.status !== 'PENDENTE' && r.status !== 'EM_AJUSTE') return false;
+    return this.isRequestOwnedByCurrentUser(r);
+  }
+
   readonly filteredRequests = computed<RequestItem[]>(() => {
     const aba = this.currentTab();
     const busca = this.searchQuery().trim().toLowerCase();
@@ -148,6 +199,7 @@ export class RequestsComponent implements OnInit {
 
     const lista = this.requestsService.requests().filter(
       (r) =>
+        this.isRequestOwnedByCurrentUser(r) &&
         (aba === 'todas' || r.status === STATUS_POR_ABA[aba]) &&
         (categoria === 'TODAS' || r.categoria === categoria) &&
         (centro === 'TODOS' || r.centroCustoId === centro) &&
@@ -249,9 +301,9 @@ export class RequestsComponent implements OnInit {
   }
 
   // Criação
-  // Navegação para a página de criação de nova solicitação
   openCreateDrawer(): void {
-    this.goToCreatePage();
+    this.resetCreateForm();
+    this.isCreateDrawerOpen.set(true);
   }
 
   closeCreateDrawer(): void {
@@ -339,6 +391,67 @@ export class RequestsComponent implements OnInit {
         this.decisionError.set(mensagemDeErroDaApi(erro));
       },
     });
+  }
+
+  openEditModal(req: RequestItem, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.editingRequest.set(req);
+    this.editFormTitulo.set(req.titulo);
+    this.editFormValor.set(req.valor);
+    this.editFormCategoria.set(req.categoria);
+    this.editFormCentroCustoId.set(req.centroCustoId);
+    this.editFormJustificativa.set(req.descricao);
+    this.editFormFornecedor.set(req.fornecedor || '');
+    this.editFormErrors.set({});
+    this.isEditModalOpen.set(true);
+  }
+
+  closeEditModal(): void {
+    this.isEditModalOpen.set(false);
+    this.editingRequest.set(null);
+    this.editFormErrors.set({});
+  }
+
+  saveEditRequest(): void {
+    const req = this.editingRequest();
+    if (!req) return;
+
+    const errors: Record<string, string> = {};
+    const valor = this.editFormValor();
+    const titulo = this.editFormTitulo().trim();
+    const justificativa = this.editFormJustificativa().trim();
+
+    if (!titulo) errors['titulo'] = 'Informe o título da solicitação.';
+    if (!this.editFormCentroCustoId()) errors['centroCusto'] = 'Selecione o centro de custo.';
+    if (!this.editFormCategoria()) errors['categoria'] = 'Selecione a categoria.';
+    if (valor === null || !(valor > 0)) errors['valor'] = 'Informe um valor válido maior que zero.';
+    if (!justificativa) errors['justificativa'] = 'Informe a justificativa.';
+
+    this.editFormErrors.set(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    this.isSavingEdit.set(true);
+    const atualizado = this.requestsService.updateRequest(req.id, {
+      titulo,
+      descricao: justificativa,
+      categoria: this.editFormCategoria(),
+      centroCustoId: this.editFormCentroCustoId(),
+      valor: valor ?? req.valor,
+      fornecedor: this.editFormFornecedor().trim() || undefined,
+    });
+
+    this.isSavingEdit.set(false);
+    this.closeEditModal();
+    if (atualizado) {
+      if (this.selectedRequest()?.id === req.id) {
+        this.selectedRequest.set(atualizado);
+        this.loadTrail(atualizado.id);
+      }
+      this.showToast(
+        `Solicitação ${atualizado.codigo} atualizada e reenviada com sucesso para a esteira!`,
+        'success',
+      );
+    }
   }
 
   // Apresentação

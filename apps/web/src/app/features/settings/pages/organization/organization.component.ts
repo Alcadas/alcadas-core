@@ -1,5 +1,6 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import {
   FormBuilder,
   FormsModule,
@@ -28,7 +29,7 @@ export type OrganizationTabType =
 @Component({
   selector: 'app-organization',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   templateUrl: './organization.component.html',
   styleUrl: './organization.component.scss',
 })
@@ -38,6 +39,7 @@ export class OrganizationComponent {
 
   readonly activeTab = signal<OrganizationTabType>('company');
   readonly savedMessage = signal<string | null>(null);
+  readonly employeePassword = signal('123456');
 
   // Estado de Departamentos
   readonly isAddingDepartment = signal(false);
@@ -175,6 +177,27 @@ export class OrganizationComponent {
     ],
   });
 
+  constructor() {
+    effect(() => {
+      const current = this.org();
+      this.companyForm.patchValue(
+        {
+          tradeName: current.tradeName,
+          legalName: current.legalName,
+          cnpj: current.cnpj,
+          stateRegistration: current.stateRegistration,
+          taxRegime: current.taxRegime,
+          corporateEmail: current.corporateEmail,
+          corporatePhone: current.corporatePhone,
+          website: current.website,
+          address: current.address,
+        },
+        { emitEvent: false },
+      );
+      this.policiesForm.patchValue(current.policies, { emitEvent: false });
+    });
+  }
+
   selectTab(tab: OrganizationTabType): void {
     this.activeTab.set(tab);
     this.savedMessage.set(null);
@@ -306,6 +329,7 @@ export class OrganizationComponent {
       approvalLimit: 0,
       status: 'ATIVO',
     });
+    this.employeePassword.set('123456');
     this.employeeError.set('');
     this.isEmployeeFormOpen.set(true);
   }
@@ -323,6 +347,7 @@ export class OrganizationComponent {
       approvalLimit: emp.approvalLimit,
       status: emp.status,
     });
+    this.employeePassword.set(emp.password || '123456');
     this.employeeError.set('');
     this.isEmployeeFormOpen.set(true);
   }
@@ -343,19 +368,22 @@ export class OrganizationComponent {
     const editingId = this.editingEmployeeId();
     const deptObj = this.org().departments.find((d) => d.id === val.departmentId);
     const departmentName = deptObj ? deptObj.name : 'Geral';
+    const password = this.employeePassword().trim() || '123456';
 
     if (editingId) {
       this.settingsService.updateEmployee(editingId, {
         ...val,
         departmentName,
+        password,
       });
-      this.showFeedback('Cadastro do funcionário atualizado.');
+      this.showFeedback('Cadastro e credenciais do funcionário atualizados.');
     } else {
       this.settingsService.addEmployee({
         ...val,
         departmentName,
+        password,
       });
-      this.showFeedback('Funcionário registrado com sucesso na organização.');
+      this.showFeedback('Funcionário registrado com sucesso e sincronizado com Delegações.');
     }
     this.cancelEmployeeForm();
   }

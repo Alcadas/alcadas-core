@@ -69,10 +69,10 @@
   <section class="usage-card">
     <div class="usage-header">
       <div class="usage-title-wrap">
-        <div class="plan-badge">Ciclo Orçamentário 2024 / Q4</div>
-        <h2 class="usage-title">Consumo de Alçadas por Categoria de Serviço</h2>
+        <div class="plan-badge">Ciclo Orçamentário 2026 • {{ settingsService.organization().tradeName }}</div>
+        <h2 class="usage-title">Consumo de Alçadas por Departamento</h2>
         <p class="usage-subtitle">
-          <strong>R$ {{ usedBudget() | number:'1.0-0' }}</strong> de R$ {{ totalBudget() | number:'1.0-0' }} comprometidos neste ciclo (81.2% da dotação autorizada)
+          <strong>R$ {{ usedBudget() | number:'1.0-0' }}</strong> de R$ {{ totalBudget() | number:'1.0-0' }} comprometidos neste ciclo ({{ budgetPercentage() }}% da dotação autorizada)
         </p>
       </div>
 
@@ -131,15 +131,15 @@
     <!-- Indicadores Numéricos Chave (KPIs) -->
     <div class="usage-kpis">
       <div class="kpi-item">
-        <span class="kpi-number">R$ 487.3k</span>
+        <span class="kpi-number">R$ {{ (usedBudget() / 1000) | number:'1.1-1' }}k</span>
         <span class="kpi-label">Comprometido no Período</span>
       </div>
       <div class="kpi-item">
-        <span class="kpi-number">42</span>
+        <span class="kpi-number">{{ requestsService.stats().total }}</span>
         <span class="kpi-label">Solicitações Processadas</span>
       </div>
       <div class="kpi-item">
-        <span class="kpi-number highlight-alert">3</span>
+        <span class="kpi-number highlight-alert">{{ requestsService.stats().pendentes }}</span>
         <span class="kpi-label">Aprovações Pendentes</span>
       </div>
       <div class="kpi-item">
@@ -187,7 +187,7 @@
             <span class="box-label">Trilha Criptográfica SHA-256</span>
             <span class="box-tag">Imutável</span>
           </div>
-          <p class="box-value">1.428 Elos</p>
+          <p class="box-value">{{ requestsService.stats().total }} Elo(s)</p>
           <span class="box-foot">Cadeia íntegra • Verificação em 0.24s</span>
         </div>
 

@@ -1,17 +1,28 @@
 <aside class="sidebar" [class.collapsed]="isCollapsed()">
   <!-- 1. Workspace Header (Alinhado exatamente à altura do header de conteúdo) -->
-  <div class="sidebar-header">
-    <button type="button" class="workspace-info" (click)="selectItem(mainMenuItems()[0])">
+  <div class="sidebar-header" [class.has-dropdown-open]="isTenantDropdownOpen()">
+    <button
+      type="button"
+      class="workspace-info"
+      [class.cursor-pointer]="settingsService.isPlatformSuperAdmin()"
+      (click)="toggleTenantDropdown($event)"
+      [title]="settingsService.isPlatformSuperAdmin() ? 'Trocar empresa gerenciada' : settingsService.organization().tradeName"
+    >
       <div class="workspace-logo-wrap">
         <img src="/alcadas.png" alt="Startop Alçadas" class="workspace-logo" />
       </div>
       @if (!isCollapsed()) {
         <div class="workspace-details">
           <div class="workspace-name-wrap">
-            <span class="workspace-name">Startop</span>
-            <span class="material-symbols-rounded chevron-down">expand_more</span>
+            <span class="workspace-name">{{ settingsService.organization().tradeName }}</span>
+            <span
+              class="material-symbols-rounded chevron-down"
+              [class.rotated]="isTenantDropdownOpen()"
+            >
+              expand_more
+            </span>
           </div>
-          <span class="workspace-sub">Workflow system</span>
+          <span class="workspace-sub">Tenant: {{ settingsService.activeTenantId() }}</span>
         </div>
       }
     </button>
@@ -27,6 +38,49 @@
         {{ isCollapsed() ? 'dock_to_right' : 'dock_to_left' }}
       </span>
     </button>
+
+    <!-- Dropdown de Troca de Empresa para Desenvolvedor / Super Admin -->
+    @if (!isCollapsed() && isTenantDropdownOpen()) {
+      <div class="tenant-dropdown-menu">
+        <div class="dropdown-header">
+          <span class="dropdown-title">Empresas Cadastradas</span>
+          <span class="dropdown-badge">{{ settingsService.tenants().length }}</span>
+        </div>
+
+        <div class="tenant-list-scroll">
+          @for (tenant of settingsService.tenants(); track tenant.tenantId) {
+            <button
+              type="button"
+              class="tenant-item-btn"
+              [class.is-active]="tenant.tenantId === settingsService.activeTenantId()"
+              (click)="selectTenant(tenant.tenantId, $event)"
+            >
+              <div class="tenant-avatar">
+                <span>{{ tenant.organization.tradeName.slice(0, 2).toUpperCase() }}</span>
+              </div>
+              <div class="tenant-info">
+                <strong class="tenant-name">{{ tenant.organization.tradeName }}</strong>
+                <span class="tenant-meta">tenant: {{ tenant.tenantId }} • {{ tenant.plan }}</span>
+              </div>
+              @if (tenant.tenantId === settingsService.activeTenantId()) {
+                <span class="material-symbols-rounded check-icon">check</span>
+              }
+            </button>
+          }
+        </div>
+
+        <div class="dropdown-footer">
+          <a
+            routerLink="/configuracoes/clientes"
+            class="btn-manage-tenants"
+            (click)="isTenantDropdownOpen.set(false)"
+          >
+            <span class="material-symbols-rounded">domain_add</span>
+            <span>+ Cadastrar / Gerir Empresas</span>
+          </a>
+        </div>
+      </div>
+    }
   </div>
 
   <!-- 2. Quick Search -->
@@ -171,14 +225,14 @@
     >
       <div class="user-avatar-wrap">
         <span class="user-avatar-badge">
-          {{ (authService.currentUser()?.name || 'A').charAt(0).toUpperCase() }}
+          {{ (authService.currentUser()?.name || settingsService.userProfile().displayName || 'D').charAt(0).toUpperCase() }}
         </span>
       </div>
 
       @if (!isCollapsed()) {
         <div class="user-meta">
-          <span class="user-name">{{ authService.currentUser()?.name || 'Gestor de Alçadas' }}</span>
-          <span class="user-role">{{ authService.currentUser()?.role || 'Aprovador Titular' }}</span>
+          <span class="user-name">{{ authService.currentUser()?.name || settingsService.userProfile().displayName || 'Desenvolvedor' }}</span>
+          <span class="user-role">{{ authService.currentUser()?.profissaoNome || settingsService.userProfile().jobTitle || authService.currentUser()?.role || 'Desenvolvedor' }}</span>
         </div>
       }
     </a>

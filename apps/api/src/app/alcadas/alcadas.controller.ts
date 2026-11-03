@@ -35,7 +35,7 @@ export class AlcadasController {
   // ===========================================================================
 
   @Post('centros-custo')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'DIRETOR_CFO', 'SUPER_USER')
   @HttpCode(HttpStatus.CREATED)
   async createCostCenter(
     @CurrentUser() user: AuthenticatedUser,
@@ -52,7 +52,7 @@ export class AlcadasController {
   }
 
   @Post('tenants/:tenantId/cost-centers')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'DIRETOR_CFO', 'SUPER_USER')
   @HttpCode(HttpStatus.CREATED)
   async createTenantCostCenter(
     @CurrentUser() user: AuthenticatedUser,
@@ -77,7 +77,7 @@ export class AlcadasController {
   // ===========================================================================
 
   @Put('alcadas/tetos')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'DIRETOR_CFO', 'SUPER_USER')
   async upsertApprovalTiers(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: UpsertApprovalMatrixDto | ApprovalTierInputDto,
@@ -87,7 +87,7 @@ export class AlcadasController {
   }
 
   @Post('alcadas/tetos')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'DIRETOR_CFO', 'SUPER_USER')
   @HttpCode(HttpStatus.OK)
   async postApprovalTiers(
     @CurrentUser() user: AuthenticatedUser,
@@ -107,7 +107,7 @@ export class AlcadasController {
   }
 
   @Put('tenants/:tenantId/tiers')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'DIRETOR_CFO', 'SUPER_USER')
   async upsertTenantTiers(
     @CurrentUser() user: AuthenticatedUser,
     @Param('tenantId') paramTenantId: string,

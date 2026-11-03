@@ -24,6 +24,22 @@ export const SETTINGS_ROUTES: Routes = [
           ),
       },
       {
+        path: 'delegacoes',
+        title: 'Delegações & Controle de Acesso · Alçadas',
+        loadComponent: () =>
+          import('../delegations/delegations.component').then(
+            (m) => m.DelegationsComponent,
+          ),
+      },
+      {
+        path: 'clientes',
+        title: 'Empresas & Clientes (SaaS) · Alçadas',
+        loadComponent: () =>
+          import('./pages/clients/clients.component').then(
+            (m) => m.ClientsComponent,
+          ),
+      },
+      {
         path: 'empresa',
         pathMatch: 'full',
         redirectTo: 'organizacao',

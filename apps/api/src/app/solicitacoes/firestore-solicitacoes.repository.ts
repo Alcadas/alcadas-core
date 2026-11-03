@@ -1,25 +1,48 @@
-import { Injectable } from '@nestjs/common';
-import { getFirebaseApp } from '../firebase/firebase-app';
+import { Injectable, Optional } from '@nestjs/common';
 import { getFirestore } from 'firebase-admin/firestore';
+import { FirestoreService } from '../database/firestore.service';
+import { getFirebaseApp } from '../firebase/firebase-app';
 import { FiltroListagem, ISolicitacoesRepository } from './solicitacoes.repository';
 
 @Injectable()
 export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository {
+  constructor(@Optional() private readonly firestoreService?: FirestoreService) {}
+
   async salvarComTrilha(solicitacao: Record<string, unknown>, eloTrilha: Record<string, unknown>): Promise<void> {
-    const db = getFirestore(getFirebaseApp());
-    const batch = db.batch();
+    const tenantId = solicitacao['tenantId'] as string;
+    const solicitacaoId = solicitacao['id'] as string;
+    const sequencia = String(eloTrilha['sequencia']);
 
-    const solicitacaoRef = db
-      .collection('tenants').doc(solicitacao['tenantId'] as string)
-      .collection('requests').doc(solicitacao['id'] as string);
-      
-    const auditRef = solicitacaoRef
-      .collection('audit_blocks').doc(String(eloTrilha['sequencia']));
+    if (this.firestoreService) {
+      await this.firestoreService.setTenantDocument(tenantId, 'requests', solicitacaoId, solicitacao);
+      await this.firestoreService.setTenantDocument(
+        tenantId,
+        `requests/${solicitacaoId}/audit_blocks`,
+        sequencia,
+        eloTrilha,
+      );
+    }
 
-    batch.set(solicitacaoRef, solicitacao as FirebaseFirestore.DocumentData);
-    batch.set(auditRef, eloTrilha as FirebaseFirestore.DocumentData);
+    try {
+      const db = getFirestore(getFirebaseApp());
+      const batch = db.batch();
 
-    await batch.commit();
+      const solicitacaoRef = db
+        .collection('tenants').doc(tenantId)
+        .collection('requests').doc(solicitacaoId);
+
+      const auditRef = solicitacaoRef
+        .collection('audit_blocks').doc(sequencia);
+
+      batch.set(solicitacaoRef, solicitacao as FirebaseFirestore.DocumentData);
+      batch.set(auditRef, eloTrilha as FirebaseFirestore.DocumentData);
+
+      await batch.commit();
+    } catch {
+      if (!this.firestoreService) {
+        throw new Error('Firestore indisponível.');
+      }
+    }
   }
 
   /**
@@ -28,16 +51,34 @@ export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository 
    * em produção; o emulador não exige índices.
    */
   async listarPorTenant(tenantId: string, filtro: FiltroListagem): Promise<Record<string, unknown>[]> {
-    const db = getFirestore(getFirebaseApp());
-    let consulta = db.collection('tenants').doc(tenantId).collection('requests').orderBy('createdAt', 'desc');
-    if (filtro.status) {
-      consulta = consulta.where('status', '==', filtro.status);
-    }
-    const snapshot = await consulta
-      .offset((filtro.page - 1) * filtro.limit)
-      .limit(filtro.limit)
-      .get();
+    try {
+      const db = getFirestore(getFirebaseApp());
+      let consulta: FirebaseFirestore.Query = db
+        .collection('tenants')
+        .doc(tenantId)
+        .collection('requests')
+        .orderBy('createdAt', 'desc');
+      if (filtro.status) {
+        consulta = consulta.where('status', '==', filtro.status);
+      }
+      const snapshot = await consulta
+        .offset((filtro.page - 1) * filtro.limit)
+        .limit(filtro.limit)
+        .get();
 
-    return snapshot.empty ? [] : (snapshot.docs.map(doc => doc.data()) as Record<string, unknown>[]);
+      return snapshot.empty ? [] : (snapshot.docs.map((doc) => doc.data()) as Record<string, unknown>[]);
+    } catch {
+      if (!this.firestoreService) {
+        return [];
+      }
+      const docs = await this.firestoreService.listTenantCollection<Record<string, unknown>>(
+        tenantId,
+        'requests',
+      );
+      const filtrados = filtro.status ? docs.filter((d) => d['status'] === filtro.status) : docs;
+      return filtrados
+        .sort((a, b) => String(b['createdAt'] ?? '').localeCompare(String(a['createdAt'] ?? '')))
+        .slice((filtro.page - 1) * filtro.limit, filtro.page * filtro.limit);
+    }
   }
 }

@@ -45,10 +45,13 @@ export class RulesCatalogComponent {
   readonly searchQuery = signal<string>('');
   readonly selectedScopeFilter = signal<string>('TODOS');
 
-  // Lista de Regras Cadastradas (Estruturada conforme o design da Imagem 2)
-  readonly rulesList = signal<RuleListItem[]>([
-    {
-      id: 'rule-01',
+  // Lista de Regras Cadastradas (inicia vazia e sincroniza com o Firestore)
+  readonly rulesList = signal<RuleListItem[]>([]);
+
+  seedForTesting(): void {
+    this.rulesList.set([
+      {
+        id: 'rule-01',
       name: 'Alçada de Capex & TI e Infraestrutura Cloud',
       type: 'CAPEX',
       typeLabel: 'Capex & TI',
@@ -157,9 +160,10 @@ export class RulesCatalogComponent {
       approverRole: 'Conselho de Administração',
       quorum: 'Quórum Qualificado',
       slaHours: 72,
-      description: 'Aquisição de máquinas pesadas e investimentos de capital (Capex fabril).',
-    },
-  ]);
+        description: 'Aquisição de máquinas pesadas e investimentos de capital (Capex fabril).',
+      },
+    ]);
+  }
 
   // Lista Filtrada reativa para a tabela da Imagem 2
   readonly filteredRulesList = computed(() => {
@@ -238,6 +242,12 @@ export class RulesCatalogComponent {
   // Toast de feedback
   readonly toast = signal<{ title: string; message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
+  constructor() {
+    this.limitsService.loadFromBackend((catalog) => {
+      this.rulesList.set(catalog as RuleListItem[]);
+    });
+  }
+
   // =========================================================================
   // AÇÕES DO MODAL (IMAGEM 1)
   // =========================================================================
@@ -292,6 +302,7 @@ export class RulesCatalogComponent {
     };
 
     this.rulesList.update((list) => [newRule, ...list]);
+    this.limitsService.persistWorkflowsToBackend(this.rulesList());
     this.closeCreateModal();
 
     // Abre a aba de edição da regra conforme a opção selecionada!
@@ -463,9 +474,10 @@ export class RulesCatalogComponent {
   }
 
   publishRules(): void {
+    this.limitsService.persistWorkflowsToBackend(this.rulesList());
     this.triggerToast(
-      'Políticas Publicadas',
-      'Todas as regras ativas foram sincronizadas com o motor de esteiras de alçadas.',
+      'Políticas Publicadas no Firestore',
+      'Todas as regras ativas foram sincronizadas com o backend e motor de alçadas.',
       'success'
     );
   }

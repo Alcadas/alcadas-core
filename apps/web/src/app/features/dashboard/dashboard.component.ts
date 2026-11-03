@@ -7,6 +7,9 @@ import {
   RequestBarChartComponent,
   RequestChartDataPoint,
 } from './components/request-bar-chart/request-bar-chart.component';
+import { RequestsService } from '../requests/services/requests.service';
+import { SettingsService } from '../settings/services/settings.service';
+import { LimitsService } from '../limits/services/limits.service';
 
 export interface QuickActionCard {
   id: string;
@@ -51,253 +54,155 @@ export interface ApprovalRequest {
 })
 export class DashboardComponent {
   protected readonly authService = inject(AuthService);
+  protected readonly requestsService = inject(RequestsService);
+  protected readonly settingsService = inject(SettingsService);
+  protected readonly limitsService = inject(LimitsService);
   private readonly router = inject(Router);
 
   goToNewRequest(): void {
     this.router.navigate(['/solicitacoes/nova']);
   }
 
-  // Dados para o Gráfico Shadcn de Valores por Solicitação com Linha de Média Aceita
-  readonly chartRequests = signal<RequestChartDataPoint[]>([
-    {
-      id: 'req-1',
-      code: 'SOL-104',
-      title: 'Expansão de Clusters Kubernetes AWS',
-      department: 'Tecnologia da Informação',
-      deptCode: 'TI',
-      value: 38500,
-      requester: 'Lucas Siqueira',
-      date: 'Hoje',
-    },
-    {
-      id: 'req-2',
-      code: 'SOL-103',
-      title: 'Auditoria de Conformidade e Pentest',
-      department: 'Controladoria & Finanças',
-      deptCode: 'FIN',
-      value: 48900,
-      requester: 'Mariana Duarte',
-      date: 'Hoje',
-    },
-    {
-      id: 'req-3',
-      code: 'SOL-102',
-      title: 'Contratação de Sondagem de Terreno',
-      department: 'Engenharia & Obras',
-      deptCode: 'ENG',
-      value: 18200,
-      requester: 'Carlos Eduardo',
-      date: 'Ontem',
-    },
-    {
-      id: 'req-4',
-      code: 'SOL-098',
-      title: 'Licenciamento de Softwares CAD/BIM',
-      department: 'Arquitetura & Projetos',
-      deptCode: 'ARQ',
-      value: 29400,
-      requester: 'Beatriz Lima',
-      date: '28 Out',
-    },
-    {
-      id: 'req-5',
-      code: 'SOL-095',
-      title: 'Renovação de Links Fibra Óptica',
-      department: 'Operações & Logística',
-      deptCode: 'OP',
-      value: 12500,
-      requester: 'Roberto Alencar',
-      date: '27 Out',
-    },
-    {
-      id: 'req-6',
-      code: 'SOL-091',
-      title: 'Subscrições Datadog APM & Logs',
-      department: 'Tecnologia da Informação',
-      deptCode: 'TI',
-      value: 58000,
-      requester: 'Guilherme Santos',
-      date: '25 Out',
-    },
-    {
-      id: 'req-7',
-      code: 'SOL-089',
-      title: 'Consultoria Estratégica McKinsey',
-      department: 'Diretoria Executiva',
-      deptCode: 'DIR',
-      value: 92000,
-      requester: 'Fernanda Martins',
-      date: '24 Out',
-    },
-    {
-      id: 'req-8',
-      code: 'SOL-085',
-      title: 'Renovação de Seguros Patrimoniais',
-      department: 'Compliance & Riscos',
-      deptCode: 'JUR',
-      value: 36000,
-      requester: 'Ana Clara Torres',
-      date: '22 Out',
-    },
-  ]);
+  // Dados para o Gráfico Shadcn de Valores por Solicitação sincronizado com o Backend/Firestore
+  readonly chartRequests = computed<RequestChartDataPoint[]>(() => {
+    const reqs = this.requestsService.requests();
+    if (reqs.length === 0) return [];
+    return reqs.slice(0, 8).map((r) => ({
+      id: r.id,
+      code: r.codigo.replace('#', ''),
+      title: r.titulo || r.descricao,
+      department: r.centroCustoNome || r.departamento,
+      deptCode: (r.departamento || r.centroCustoNome || 'GER').slice(0, 3).toUpperCase(),
+      value: r.valor,
+      requester: r.solicitante.nome,
+      date: r.dataCriacao.slice(0, 10),
+    }));
+  });
 
   // Estado de Carregamento dos Dados do Dashboard
-  readonly isLoading = signal(true);
+  readonly isLoading = signal(false);
 
   readonly selectedPeriod = signal<'dia' | 'semana' | 'mes'>('mes');
   readonly selectedTab = signal<'pendentes' | 'todas' | 'aprovadas'>('pendentes');
   readonly searchQuery = signal('');
 
-  readonly quickCards = signal<QuickActionCard[]>([
-    {
-      id: 'aprovacoes',
-      title: 'Aprovações Pendentes',
-      description: '3 pedidos exigem sua assinatura para liberação de empenho.',
-      icon: 'check-circle',
-      tag: '3 Críticas',
-      tagColor: '#dc2626',
-    },
-    {
-      id: 'tetos',
-      title: 'Limites por Cargo',
-      description: 'Alçadas configuradas: seu limite titular é até R$ 50.000/pedido.',
-      icon: 'shield',
-      tag: 'Até R$ 50k',
-      tagColor: '#644EF3',
-    },
-    {
-      id: 'riscos',
-      title: 'Prevenção de Fraudes',
-      description: 'Motor anti-fracionamento monitorando janela móvel de 30 dias.',
-      icon: 'radar',
-      tag: '0 Conflitos',
-      tagColor: '#10B981',
-    },
-    {
-      id: 'auditoria',
-      title: 'Trilha Criptográfica',
-      description: 'Cadeia de elos imutáveis com hashes SHA-256 encadeados.',
-      icon: 'hash',
-      tag: 'Elo #1.428',
-      tagColor: '#059669',
-    },
-  ]);
+  readonly quickCards = computed<QuickActionCard[]>(() => {
+    const stats = this.requestsService.stats();
+    const flowsCount = this.limitsService.filteredRules().length;
+    const depts = this.settingsService.organization().departments;
+    const maxDeptCeiling = depts.reduce((max, d) => (d.monthlyBudget > max ? d.monthlyBudget : max), 50000);
+    const maxCeilingFormatted = `Até R$ ${Math.round(maxDeptCeiling / 1000)}k`;
 
-  readonly budgetSegments = signal<BudgetSegment[]>([
-    {
-      name: 'Infraestrutura Cloud & SaaS',
-      valueFormatted: 'R$ 168.400',
-      value: 168400,
-      percentage: 34.6,
-      color: '#644EF3',
-      departmentCode: 'TI',
-    },
-    {
-      name: 'Serviços de Engenharia & Obra',
-      valueFormatted: 'R$ 142.900',
-      value: 142900,
-      percentage: 29.3,
-      color: '#8B5CF6',
-      departmentCode: 'ENG',
-    },
-    {
-      name: 'Consultoria Especializada',
-      valueFormatted: 'R$ 96.500',
-      value: 96500,
-      percentage: 19.8,
-      color: '#10B981',
-      departmentCode: 'FIN',
-    },
-    {
-      name: 'Materiais & Suprimentos',
-      valueFormatted: 'R$ 79.500',
-      value: 79500,
-      percentage: 16.3,
-      color: '#F59E0B',
-      departmentCode: 'OP',
-    },
-  ]);
+    return [
+      {
+        id: 'aprovacoes',
+        title: 'Aprovações Pendentes',
+        description: `${stats.pendentes} pedido(s) exigem assinatura para liberação de empenho na organização.`,
+        icon: 'check-circle',
+        tag: `${stats.pendentes} Pendente(s)`,
+        tagColor: stats.pendentes > 0 ? '#dc2626' : '#10B981',
+      },
+      {
+        id: 'tetos',
+        title: 'Fluxos & Alçadas',
+        description: `${flowsCount} esteiras ativas sincronizadas com os departamentos da empresa.`,
+        icon: 'shield',
+        tag: maxCeilingFormatted,
+        tagColor: '#644EF3',
+      },
+      {
+        id: 'riscos',
+        title: 'Prevenção de Fraudes',
+        description: 'Motor anti-fracionamento monitorando janela móvel de 30 dias no Firestore.',
+        icon: 'radar',
+        tag: `${stats.rejeitadas} Bloqueio(s)`,
+        tagColor: '#10B981',
+      },
+      {
+        id: 'auditoria',
+        title: 'Trilha Criptográfica',
+        description: 'Cadeia de elos imutáveis com hashes SHA-256 encadeados por solicitação.',
+        icon: 'hash',
+        tag: `${stats.total} Elo(s)`,
+        tagColor: '#059669',
+      },
+    ];
+  });
 
-  readonly totalBudget = signal(600000);
-  readonly usedBudget = signal(487300);
+  readonly totalBudget = computed(() => {
+    const depts = this.settingsService.organization().departments;
+    const sum = depts.reduce((acc, d) => acc + (d.monthlyBudget || 0), 0);
+    return sum > 0 ? sum : 600000;
+  });
 
-  readonly requests = signal<ApprovalRequest[]>([
-    {
-      id: '1',
-      code: 'SOL-2024-104',
-      description: 'Expansão de Clusters Kubernetes AWS',
-      category: 'Infra Cloud',
-      department: 'Tecnologia',
-      deptCode: 'TI',
-      deptColor: '#644EF3',
-      author: 'Lucas Siqueira',
-      value: 38500,
-      valueFormatted: 'R$ 38.500,00',
-      requiredTier: 'Gestor Titular',
-      status: 'PENDENTE',
-      date: 'Hoje, 14:32',
-    },
-    {
-      id: '2',
-      code: 'SOL-2024-103',
-      description: 'Auditoria de Conformidade e Pentest',
-      category: 'Consultoria',
-      department: 'Controladoria',
-      deptCode: 'FIN',
-      deptColor: '#F59E0B',
-      author: 'Mariana Duarte',
-      value: 48900,
-      valueFormatted: 'R$ 48.900,00',
-      requiredTier: 'Gestor Titular',
-      status: 'PENDENTE',
-      date: 'Hoje, 11:15',
-    },
-    {
-      id: '3',
-      code: 'SOL-2024-102',
-      description: 'Contratação de Sondagem de Terreno',
-      category: 'Engenharia',
-      department: 'Engenharia',
-      deptCode: 'ENG',
-      deptColor: '#10B981',
-      author: 'Carlos Eduardo',
-      value: 18200,
-      valueFormatted: 'R$ 18.200,00',
-      requiredTier: 'Coordenador N1',
-      status: 'PENDENTE',
-      date: 'Ontem, 16:40',
-    },
-    {
-      id: '4',
-      code: 'SOL-2024-098',
-      description: 'Licenciamento de Softwares CAD/BIM',
-      category: 'Engenharia',
-      department: 'Arquitetura',
-      deptCode: 'ARQ',
-      deptColor: '#8B5CF6',
-      author: 'Beatriz Lima',
-      value: 29400,
-      valueFormatted: 'R$ 29.400,00',
-      requiredTier: 'Gestor Titular',
-      status: 'APROVADA',
-      date: '28 Out, 10:20',
-    },
-    {
-      id: '5',
-      code: 'SOL-2024-095',
-      description: 'Renovação de Links de Fibra Óptica',
-      category: 'Telecom',
-      department: 'Operações',
-      deptCode: 'OP',
-      deptColor: '#EC4899',
-      author: 'Roberto Alencar',
-      value: 12500,
-      valueFormatted: 'R$ 12.500,00',
-      requiredTier: 'Coordenador N1',
-      status: 'APROVADA',
-      date: '27 Out, 15:10',
-    },
-  ]);
+  readonly usedBudget = computed(() => {
+    const reqs = this.requestsService.requests();
+    const sum = reqs
+      .filter((r) => r.status !== 'REJEITADA')
+      .reduce((acc, r) => acc + r.valor, 0);
+    return sum;
+  });
+
+  readonly budgetPercentage = computed(() => {
+    const total = this.totalBudget();
+    if (!total) return 0;
+    return Math.min(100, Number(((this.usedBudget() / total) * 100).toFixed(1)));
+  });
+
+  readonly budgetSegments = computed<BudgetSegment[]>(() => {
+    const depts = this.settingsService.organization().departments;
+    const reqs = this.requestsService
+      .requests()
+      .filter((r) => r.status !== 'REJEITADA');
+    const colors = ['#644EF3', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#0EA5E9'];
+    const totalUsed = this.usedBudget() || 1;
+
+    return depts.map((dept, index) => {
+      const deptReqs = reqs.filter(
+        (r) =>
+          r.centroCustoId === dept.id ||
+          r.centroCustoNome.toLowerCase().includes(dept.name.toLowerCase()) ||
+          r.departamento.toLowerCase().includes(dept.name.toLowerCase())
+      );
+      const val = deptReqs.reduce((acc, r) => acc + r.valor, 0);
+      const pct = Number(((val / totalUsed) * 100).toFixed(1));
+      return {
+        name: dept.name,
+        valueFormatted: new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+          maximumFractionDigits: 0,
+        }).format(val),
+        value: val,
+        percentage: pct > 0 ? pct : Number((100 / Math.max(depts.length, 1)).toFixed(1)),
+        color: colors[index % colors.length],
+        departmentCode: dept.code,
+      };
+    });
+  });
+
+  readonly requests = computed<ApprovalRequest[]>(() => {
+    return this.requestsService.requests().map((r) => ({
+      id: r.id,
+      code: r.codigo,
+      description: r.titulo || r.descricao,
+      category: r.categoriaLabel,
+      department: r.centroCustoNome || r.departamento,
+      deptCode: (r.departamento || r.centroCustoNome || 'GER').slice(0, 3).toUpperCase(),
+      deptColor: r.categoriaColor || '#644EF3',
+      author: r.solicitante.nome,
+      value: r.valor,
+      valueFormatted: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.valor),
+      requiredTier: r.fluxoDestinado.nome,
+      status:
+        r.status === 'APROVADA'
+          ? ('APROVADA' as const)
+          : r.status === 'PENDENTE'
+          ? ('PENDENTE' as const)
+          : ('EM_AJUSTE' as const),
+      date: r.dataCriacao.slice(0, 10),
+    }));
+  });
 
   readonly filteredRequests = computed(() => {
     const tab = this.selectedTab();
@@ -323,10 +228,11 @@ export class DashboardComponent {
 
   approveRequest(req: ApprovalRequest, event: Event): void {
     event.stopPropagation();
-    this.requests.update((list) =>
-      list.map((item) =>
-        item.id === req.id ? { ...item, status: 'APROVADA' as const } : item
-      )
+    this.requestsService.approveRequest(
+      req.id,
+      undefined,
+      'Aprovado via Dashboard',
+      this.authService.currentUser()?.name || 'Aprovador',
     );
   }
 
@@ -339,9 +245,8 @@ export class DashboardComponent {
   }
 
   constructor() {
-    // Simula carregamento de métricas e limites da API
-    setTimeout(() => {
-      this.isLoading.set(false);
-    }, 650);
+    this.settingsService.carregarOuSincronizarTenantsComBackend();
+    this.requestsService.ensureLoaded();
+    this.limitsService.loadFromBackend();
   }
 }

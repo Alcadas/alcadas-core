@@ -23,6 +23,8 @@ export class SolicitacoesService {
       tenantId,
       centroCustoId: dto.centroCustoId,
       solicitanteId,
+      solicitanteNome: dto.solicitanteNome || null,
+      solicitanteCargo: dto.solicitanteCargo || null,
       valor: dto.valor,
       categoria: dto.categoria,
       justificativa: dto.justificativa || '',

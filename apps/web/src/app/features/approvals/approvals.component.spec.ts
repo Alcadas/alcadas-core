@@ -17,6 +17,7 @@ describe('ApprovalsComponent', () => {
     fixture = TestBed.createComponent(ApprovalsComponent);
     component = fixture.componentInstance;
     requestsService = TestBed.inject(RequestsService);
+    requestsService.seedForTesting();
     fixture.detectChanges();
   });
 
@@ -36,7 +37,7 @@ describe('ApprovalsComponent', () => {
     component.setTab('ajustes');
     expect(component.activeTab()).toBe('ajustes');
     component.filteredRequests().forEach((req) => {
-      expect(req.status).toBe('AJUSTE_SOLICITADO');
+      expect(req.status).toBe('EM_AJUSTE');
     });
 
     component.setTab('aprovadas');
@@ -62,10 +63,10 @@ describe('ApprovalsComponent', () => {
       expect(r.departamento).toBe('TI & Engenharia');
     });
 
-    component.setCategoryFilter('EQUIPAMENTOS_TI');
-    expect(component.selectedCategory()).toBe('EQUIPAMENTOS_TI');
+    component.setCategoryFilter('EQUIPAMENTOS');
+    expect(component.selectedCategory()).toBe('EQUIPAMENTOS');
     component.filteredRequests().forEach((r) => {
-      expect(r.categoria).toBe('EQUIPAMENTOS_TI');
+      expect(r.categoria).toBe('EQUIPAMENTOS');
     });
 
     component.setCostCenterFilter('cc-ti');
@@ -194,7 +195,7 @@ describe('ApprovalsComponent', () => {
 
       expect(component.adjustingRequest()).toBeNull();
       const updated = requestsService.getRequestById(pendingReq.id);
-      expect(updated?.status).toBe('AJUSTE_SOLICITADO');
+      expect(updated?.status).toBe('EM_AJUSTE');
     }
   });
 

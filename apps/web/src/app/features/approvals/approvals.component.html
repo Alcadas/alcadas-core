@@ -164,7 +164,7 @@
             (ngModelChange)="setCostCenterFilter($event)"
           >
             <option value="TODOS">Todos os Centros</option>
-            @for (cc of requestsService.costCenters; track cc.id) {
+            @for (cc of requestsService.costCenters(); track cc.id) {
               <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
             }
           </select>
@@ -640,19 +640,39 @@
           <div class="drawer-action-footer">
             <button
               type="button"
-              class="btn-drawer-sign"
-              (click)="closeDetailDrawer(); openSignModal(req)"
+              class="btn-drawer-reject"
+              (click)="closeDetailDrawer(); openRejectModal(req)"
+              title="Recusar solicitação"
             >
-              <span class="material-symbols-rounded">draw</span>
-              <span>Assinar & Aprovar Agora</span>
+              <span class="material-symbols-rounded">close</span>
+              <span>Recusar</span>
             </button>
             <button
               type="button"
               class="btn-drawer-adjust"
               (click)="closeDetailDrawer(); openAdjustmentModal(req)"
+              title="Pedir ajuste ao solicitante"
             >
               <span class="material-symbols-rounded">edit_note</span>
               <span>Solicitar Ajuste</span>
+            </button>
+            <button
+              type="button"
+              class="btn-drawer-validate"
+              (click)="closeDetailDrawer(); openValidateModal(req)"
+              title="Registrar parecer técnico"
+            >
+              <span class="material-symbols-rounded">task_alt</span>
+              <span>Validar</span>
+            </button>
+            <button
+              type="button"
+              class="btn-drawer-sign"
+              (click)="closeDetailDrawer(); openSignModal(req)"
+              title="Assinar e aprovar"
+            >
+              <span class="material-symbols-rounded">draw</span>
+              <span>Assinar & Aprovar</span>
             </button>
           </div>
         }
