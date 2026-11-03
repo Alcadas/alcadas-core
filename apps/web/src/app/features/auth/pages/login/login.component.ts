@@ -45,4 +45,19 @@ export class LoginComponent {
       },
     });
   }
+
+  enterAsDeveloper(): void {
+    this.errorMessage.set(null);
+    if (typeof this.authService.loginAsDeveloper === 'function') {
+      this.authService.loginAsDeveloper();
+      void this.router.navigate(['/dashboard']);
+      return;
+    }
+
+    this.loginForm.patchValue({
+      email: 'dev@alcadas.com',
+      password: 'dev123456',
+    });
+    this.onSubmit();
+  }
 }

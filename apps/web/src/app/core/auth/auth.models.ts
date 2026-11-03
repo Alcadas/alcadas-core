@@ -12,6 +12,11 @@ export interface AuthUser {
   role?: string;
   /** Empresa do usuário (custom claim `tenantId`) — RNF07. */
   tenantId?: string;
+  /** Profissão vinculada na matriz de Delegações (/delegacoes) da empresa. */
+  profissaoId?: number;
+  profissaoNome?: string;
+  /** Lista de chaves de funcionalidades liberadas para este usuário na empresa. */
+  allowedFeatures?: string[];
 }
 
 /** Sessão guardada no sessionStorage enquanto a aba estiver aberta. */
