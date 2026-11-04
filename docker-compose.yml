@@ -9,6 +9,7 @@ services:
     volumes:
       - ./firebase.json:/app/firebase.json:ro
       - ./.firebaserc:/app/.firebaserc:ro
+      - ./firestore.rules:/app/firestore.rules:ro
       - firebase-cache:/root/.cache/firebase/emulators
     ports:
       - "4000:4000" # Firebase Emulator UI
@@ -16,11 +17,32 @@ services:
       - "9099:9099" # Authentication
     command: firebase emulators:start --project demo-alcadas
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('net').connect(8080, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"const net=require('net'); Promise.all([new Promise((res,rej)=>net.connect(8080,'127.0.0.1').on('connect',res).on('error',rej)), new Promise((res,rej)=>net.connect(9099,'127.0.0.1').on('connect',res).on('error',rej))]).then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
       interval: 3s
       timeout: 3s
       retries: 20
       start_period: 5s
+
+  seed:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.workspace
+    image: alcadas-workspace:latest
+    container_name: alcadas-seed
+    working_dir: /app
+    volumes:
+      - .:/app
+      - api-node-modules:/app/node_modules
+    command: npx ts-node -T -O '{"module":"NodeNext","moduleResolution":"NodeNext"}' scripts/seed.ts
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
+      - FIRESTORE_EMULATOR_HOST=firebase:8080
+      - FIREBASE_PROJECT_ID=demo-alcadas
+    depends_on:
+      firebase:
+        condition: service_healthy
+    restart: "no"
 
   api:
     build:
@@ -44,6 +66,8 @@ services:
     depends_on:
       firebase:
         condition: service_healthy
+      seed:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
       interval: 5s

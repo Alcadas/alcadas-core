@@ -23,6 +23,12 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Configurar Java 21 (necessário para emuladores Firebase)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Instalar Dependências
         run: npm ci
 
@@ -34,3 +40,6 @@ jobs:
 
       - name: Executar Build (Frontend e Backend)
         run: npx nx run-many --target=build --all --parallel=3
+
+      - name: Testes de API (autorização, contrato, EP/BVA) com emuladores
+        run: npx firebase-tools emulators:exec --project demo-alcadas "npx nx e2e api-e2e"

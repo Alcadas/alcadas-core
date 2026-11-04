@@ -93,24 +93,26 @@ Com apenas um comando, todos os serviços (Firebase Emulators, NestJS API e Angu
 
 ---
 
-## 🔐 Entrando no Sistema Localmente
+## 🔐 Acesso Imediato com Seed Automático (Zero Setup — Checkpoint 2)
 
-O frontend autentica no **Firebase Auth Emulator** e envia o ID token para a API em toda chamada ([ADR-012](https://github.com/Alcadas/alcadas-docs/blob/main/docs/arquitetura/adrs/ADR-012-autenticacao-frontend-rest.md)). Enquanto o seed automático (issue #10) não existe, crie os usuários uma vez pelo Emulator UI:
+O ecossistema conta com **carga de dados 100% automatizada** pelo serviço `seed` orquestrado no Docker Compose (`scripts/seed.ts`). Ao rodar `docker compose up`, o Firebase Auth Emulator e o Firestore Emulator são automaticamente populados com as duas empresas, usuários com suas respectivas claims RBAC, centros de custo, faixas de alçada e solicitações para teste de isolamento.
 
-1. Abra [http://localhost:4000/auth](http://localhost:4000/auth) e clique em **Add user**.
-2. Informe e-mail e senha (ex.: `gerente@startop.test` / `senha123`).
-3. Em **Custom Claims**, cole o JSON com a empresa e o papel:
+### Usuários Pré-Cadastrados para a Demonstração:
 
-   | Usuário       | Custom Claims                                                  |
-   | :------------ | :------------------------------------------------------------- |
-   | Solicitante   | `{"tenantId":"startop","role":"SOLICITANTE","name":"Ana"}`     |
-   | Gerente (N2)  | `{"tenantId":"startop","role":"APROVADOR_N2","name":"Carlos"}` |
-   | Administrador | `{"tenantId":"startop","role":"ADMIN","name":"Admin"}`         |
-   | Outra empresa | `{"tenantId":"empresa-b","role":"SOLICITANTE","name":"Zeca"}`  |
+| Organização | Papel / Função | E-mail | Senha Padrão | Capacidade / Alçada |
+| :--- | :--- | :--- | :--- | :--- |
+| **Startop** | Administrador | `admin@startop.test` | `123456` | Gestão de Organização e Centros de Custo |
+| **Startop** | Solicitante | `solicitante@startop.test` | `123456` | Criação e reenvio de solicitações |
+| **Startop** | Gerente Aprovador (N2) | `gerente@startop.test` | `123456` | Aprovação/Rejeição/Ajuste até **R$ 5.000,00** |
+| **Startop** | Auditor | `auditor@startop.test` | `123456` | Trilha de Auditoria SHA-256 e Motor de Riscos |
+| **Empresa B** | Solicitante | `solicitante@empresab.test` | `123456` | Cenários de Isolamento Multi-Tenant |
 
-4. Entre em [http://localhost:4200/login](http://localhost:4200/login) com o e-mail e a senha criados.
-
-> Os dados dos emuladores somem quando o container `firebase` é recriado. O guia completo da integração está em [`alcadas-docs/docs/arquitetura/integracao-front-back.md`](https://github.com/Alcadas/alcadas-docs/blob/main/docs/arquitetura/integracao-front-back.md).
+### Passo a Passo da Demonstração (Sem Ajuste Manual):
+1. Execute `docker compose up -d` (ou `npm run docker:up`).
+2. Acesse [http://localhost:4200/login](http://localhost:4200/login).
+3. Faça login diretamente com `solicitante@startop.test` e senha `123456` para submeter novos pedidos.
+4. Faça logout e entre com `gerente@startop.test` para avaliar e aprovar solicitações pendentes.
+5. Inspecione os emuladores visualmente na [Firebase Emulator UI](http://localhost:4000) (Auth e Firestore).
 
 ---
 

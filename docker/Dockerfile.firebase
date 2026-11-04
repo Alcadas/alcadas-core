@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:24-alpine
 
 # Instala OpenJDK 21 JRE, bash e utilitários
 RUN apk add --no-cache openjdk21-jre bash curl

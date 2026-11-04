@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:24-alpine
 
 # Utilitários de sistema para healthchecks e scripts
 RUN apk add --no-cache curl bash
