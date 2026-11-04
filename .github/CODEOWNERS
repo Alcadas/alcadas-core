@@ -8,7 +8,7 @@
 # A última regra que casar com o arquivo vence.
 
 # Padrão: Tech Lead revisa tudo que não tiver dono mais específico
-*                               @SchneiderCode1
+*                               @SchneiderCode1 @phenric26
 
 # Backend (NestJS)
 /apps/api/                      @LuizFelipe81 @SchneiderCode1
@@ -32,5 +32,5 @@
 /.env.example                   @phenric26 @SchneiderCode1
 
 # Regras do repositório (este arquivo e o template de PR)
-/.github/CODEOWNERS             @SchneiderCode1
+/.github/CODEOWNERS             @SchneiderCode1 @phenric26
 /.github/PULL_REQUEST_TEMPLATE.md @SchneiderCode1 @Szervinsk

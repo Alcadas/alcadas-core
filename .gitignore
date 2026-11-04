@@ -48,3 +48,6 @@ Thumbs.db
 
 firebase-debug.log
 firestore-debug.log
+
+.agents/
+SKILLS.md
