@@ -1,0 +1,17 @@
+FROM node:22-alpine
+
+# Instala OpenJDK 21 JRE, bash e utilitários
+RUN apk add --no-cache openjdk21-jre bash curl
+
+# Instala firebase-tools na camada de imagem
+RUN npm install -g firebase-tools
+
+# Prepara e pré-baixa os binários do emulador Firestore e UI
+RUN firebase setup:emulators:firestore && \
+    firebase setup:emulators:ui
+
+WORKDIR /app
+
+EXPOSE 4000 8080 9099
+
+CMD ["firebase", "emulators:start", "--project", "demo-alcadas"]

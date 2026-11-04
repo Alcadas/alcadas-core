@@ -72,10 +72,10 @@ Com apenas um comando, todos os serviços (Firebase Emulators, NestJS API e Angu
 
 2. **Suba o ambiente completo:**
    ```bash
-   docker compose up --build
+   docker compose up -d
    ```
 
-Leva alguns minutos para subir todos os containers
+   > 💡 Na primeira execução, o Docker constrói as imagens otimizadas com dependências cacheadas. As inicializações subsequentes sobem em segundos com validação automática de saúde (*healthchecks*).
 
 
 ---
