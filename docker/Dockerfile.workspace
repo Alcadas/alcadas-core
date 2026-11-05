@@ -8,8 +8,10 @@ WORKDIR /app
 # Maximiza o reaproveitamento de cache copiando apenas manifestos primeiro
 COPY package.json package-lock.json ./
 
-# Instala todas as dependências do monorepo Nx
-RUN npm ci --prefer-offline --no-audit
+# Instala todas as dependências do monorepo Nx e remove o cache transitório
+RUN npm ci --prefer-offline --no-audit && \
+    npm cache clean --force && \
+    rm -rf /root/.npm
 
 # Script de entrypoint
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
