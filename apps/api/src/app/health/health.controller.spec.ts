@@ -12,6 +12,15 @@ describe('HealthController', () => {
     expect(controllerCom(false).healthz()).toEqual({ status: 'ok' });
   });
 
+  it('/healthz inclui o commit SHA quando definido em variavel de ambiente', () => {
+    process.env['RENDER_GIT_COMMIT'] = 'a1b2c3d4e5';
+    try {
+      expect(controllerCom(false).healthz()).toEqual({ status: 'ok', commit: 'a1b2c3d4e5' });
+    } finally {
+      delete process.env['RENDER_GIT_COMMIT'];
+    }
+  });
+
   it('/readyz responde ok quando o Firestore está acessível', async () => {
     await expect(controllerCom(true).readyz()).resolves.toEqual({ status: 'ok', firestore: 'ok' });
   });
