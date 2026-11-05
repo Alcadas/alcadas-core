@@ -389,7 +389,7 @@ async function seedFirestore(): Promise<void> {
     tenantId: 'empresa-b',
     centroCustoId: 'cc-empresab-01',
     valor: 2500,
-    categoria: 'SERVICOS',
+    categoria: 'SERVICOS_TERCEIROS',
     justificativa: 'Consultoria técnica externa de auditoria e validação de isolamento multi-tenant',
     status: 'PENDENTE',
     versao: 1,
@@ -409,7 +409,7 @@ async function seedFirestore(): Promise<void> {
     payload: {
       centroCustoId: 'cc-empresab-01',
       valor: 2500,
-      categoria: 'SERVICOS',
+      categoria: 'SERVICOS_TERCEIROS',
       justificativa: 'Consultoria técnica externa de auditoria e validação de isolamento multi-tenant',
     },
   });
@@ -426,7 +426,7 @@ async function seedFirestore(): Promise<void> {
     payload: {
       centroCustoId: 'cc-empresab-01',
       valor: 2500,
-      categoria: 'SERVICOS',
+      categoria: 'SERVICOS_TERCEIROS',
     },
   });
 
