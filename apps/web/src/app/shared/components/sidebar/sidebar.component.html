@@ -1,0 +1,252 @@
+<aside class="sidebar" [class.collapsed]="isCollapsed()">
+  <!-- 1. Workspace Header (Alinhado exatamente à altura do header de conteúdo) -->
+  <div class="sidebar-header" [class.has-dropdown-open]="isTenantDropdownOpen()">
+    <button
+      type="button"
+      class="workspace-info"
+      [class.cursor-pointer]="settingsService.isPlatformSuperAdmin()"
+      (click)="toggleTenantDropdown($event)"
+      [title]="settingsService.isPlatformSuperAdmin() ? 'Trocar empresa gerenciada' : settingsService.organization().tradeName"
+    >
+      <div class="workspace-logo-wrap">
+        <img src="/alcadas.png" alt="Startop Alçadas" class="workspace-logo" />
+      </div>
+      @if (!isCollapsed()) {
+        <div class="workspace-details">
+          <div class="workspace-name-wrap">
+            <span class="workspace-name">{{ settingsService.organization().tradeName }}</span>
+            <span
+              class="material-symbols-rounded chevron-down"
+              [class.rotated]="isTenantDropdownOpen()"
+            >
+              expand_more
+            </span>
+          </div>
+          <span class="workspace-sub">Tenant: {{ settingsService.activeTenantId() }}</span>
+        </div>
+      }
+    </button>
+
+    <button
+      type="button"
+      class="btn-toggle-collapse"
+      [attr.aria-label]="isCollapsed() ? 'Expandir menu lateral' : 'Recolher menu lateral'"
+      [title]="isCollapsed() ? 'Expandir menu lateral' : 'Recolher menu lateral'"
+      (click)="toggleCollapse()"
+    >
+      <span class="material-symbols-rounded collapse-icon">
+        {{ isCollapsed() ? 'dock_to_right' : 'dock_to_left' }}
+      </span>
+    </button>
+
+    <!-- Dropdown de Troca de Empresa para Desenvolvedor / Super Admin -->
+    @if (!isCollapsed() && isTenantDropdownOpen()) {
+      <div class="tenant-dropdown-menu">
+        <div class="dropdown-header">
+          <span class="dropdown-title">Empresas Cadastradas</span>
+          <span class="dropdown-badge">{{ settingsService.tenants().length }}</span>
+        </div>
+
+        <div class="tenant-list-scroll">
+          @for (tenant of settingsService.tenants(); track tenant.tenantId) {
+            <button
+              type="button"
+              class="tenant-item-btn"
+              [class.is-active]="tenant.tenantId === settingsService.activeTenantId()"
+              (click)="selectTenant(tenant.tenantId, $event)"
+            >
+              <div class="tenant-avatar">
+                <span>{{ tenant.organization.tradeName.slice(0, 2).toUpperCase() }}</span>
+              </div>
+              <div class="tenant-info">
+                <strong class="tenant-name">{{ tenant.organization.tradeName }}</strong>
+                <span class="tenant-meta">tenant: {{ tenant.tenantId }} • {{ tenant.plan }}</span>
+              </div>
+              @if (tenant.tenantId === settingsService.activeTenantId()) {
+                <span class="material-symbols-rounded check-icon">check</span>
+              }
+            </button>
+          }
+        </div>
+
+        <div class="dropdown-footer">
+          <a
+            routerLink="/configuracoes/clientes"
+            class="btn-manage-tenants"
+            (click)="isTenantDropdownOpen.set(false)"
+          >
+            <span class="material-symbols-rounded">domain_add</span>
+            <span>+ Cadastrar / Gerir Empresas</span>
+          </a>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- 2. Quick Search -->
+  <div class="search-section">
+    <div class="search-input-wrap">
+      <span class="material-symbols-rounded search-icon">search</span>
+      @if (!isCollapsed()) {
+        <input
+          type="text"
+          placeholder="Pesquisar..."
+          aria-label="Pesquisar ferramentas e workflows"
+        />
+        <div class="search-badges">
+          <kbd class="kbd-badge">/</kbd>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- 3. Navigation Menu -->
+  <div class="sidebar-scrollable">
+    <div class="menu-group">
+      @if (!isCollapsed()) {
+        <div class="group-title">Menu principal</div>
+      }
+
+      <nav class="nav-list">
+        @for (item of mainMenuItems(); track item.id) {
+          <div class="nav-item-wrapper" [class.has-open-submenu]="isSubmenuOpen(item.id)">
+            <button
+              type="button"
+              class="nav-item"
+              [class.active]="activeItem() === item.id"
+              (click)="selectItem(item)"
+              [title]="isCollapsed() ? item.label : ''"
+            >
+              <span class="material-symbols-rounded nav-icon">{{ item.icon }}</span>
+
+              @if (!isCollapsed()) {
+                <span class="item-label">{{ item.label }}</span>
+
+                @if (item.badge) {
+                  <span class="item-badge" [style.background-color]="item.badgeColor || '#644EF3'">
+                    {{ item.badge }}
+                  </span>
+                }
+
+                @if (item.hasSubmenu) {
+                  <span
+                    class="material-symbols-rounded item-chevron"
+                    [class.rotated]="isSubmenuOpen(item.id)"
+                  >
+                    expand_more
+                  </span>
+                }
+              }
+            </button>
+
+            <!-- Submenu (ex: Meus Fluxos e Minhas Regras) -->
+            @if (!isCollapsed() && item.hasSubmenu && item.subItems && isSubmenuOpen(item.id)) {
+              <div class="sub-nav-list">
+                @for (sub of item.subItems; track sub.id) {
+                  <button
+                    type="button"
+                    class="sub-nav-item"
+                    [class.active]="activeSubItem() === sub.id"
+                    (click)="selectSubItem(sub, $event)"
+                  >
+                    <span class="sub-nav-indicator"></span>
+                    @if (sub.icon) {
+                      <span class="material-symbols-rounded sub-icon">{{ sub.icon }}</span>
+                    }
+                    <span class="sub-label">{{ sub.label }}</span>
+                    @if (sub.badge) {
+                      <span class="sub-badge" [style.background-color]="sub.badgeColor || '#644EF3'">
+                        {{ sub.badge }}
+                      </span>
+                    }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </nav>
+    </div>
+
+    <!-- 4. Departamentos & Centros de Custo -->
+    <div class="menu-group">
+      @if (!isCollapsed()) {
+        <div class="group-title group-title-action">
+          <span>Departamentos</span>
+          <a
+            routerLink="/configuracoes/organizacao"
+            class="btn-add-action"
+            title="Gerir Departamentos e Centros de Custo"
+          >
+            <span class="material-symbols-rounded btn-add-icon">add</span>
+          </a>
+        </div>
+      }
+
+      <div class="dept-list">
+        @for (dept of departments(); track dept.id) {
+          <div
+            class="dept-item"
+            [class.pinned]="dept.isPinned"
+            [title]="isCollapsed() ? dept.name : ''"
+          >
+            <span class="dept-avatar" [style.background-color]="dept.color + '22'" [style.color]="dept.color">
+              {{ dept.code }}
+            </span>
+
+            @if (!isCollapsed()) {
+              <span class="dept-name">{{ dept.name }}</span>
+              <button
+                type="button"
+                class="btn-pin"
+                [class.active]="dept.isPinned"
+                [title]="dept.isPinned ? 'Desafixar departamento' : 'Fixar departamento'"
+                (click)="togglePin(dept.id, $event)"
+              >
+                <span class="material-symbols-rounded pin-icon">push_pin</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+ <!-- 5. User & System Footer -->
+<div class="sidebar-footer">
+  <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
+
+    <a
+      class="user-link"
+      routerLink="/configuracoes/perfil"
+      routerLinkActive="user-link-active"
+      title="Ver meu perfil"
+      aria-label="Ver meu perfil"
+    >
+      <div class="user-avatar-wrap">
+        <span class="user-avatar-badge">
+          {{ (authService.currentUser()?.name || settingsService.userProfile().displayName || 'D').charAt(0).toUpperCase() }}
+        </span>
+      </div>
+
+      @if (!isCollapsed()) {
+        <div class="user-meta">
+          <span class="user-name">{{ authService.currentUser()?.name || settingsService.userProfile().displayName || 'Desenvolvedor' }}</span>
+          <span class="user-role">{{ authService.currentUser()?.profissaoNome || settingsService.userProfile().jobTitle || authService.currentUser()?.role || 'Desenvolvedor' }}</span>
+        </div>
+      }
+    </a>
+
+    @if (!isCollapsed()) {
+      <button
+        type="button"
+        class="btn-logout-sidebar"
+        title="Encerrar sessão"
+        (click)="logout()"
+      >
+        <span class="material-symbols-rounded logout-icon">logout</span>
+      </button>
+    }
+  </div>
+</div>
+</aside>

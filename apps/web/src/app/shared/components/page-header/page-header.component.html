@@ -1,0 +1,141 @@
+<!-- ========================================================================= -->
+<!-- TIER 1: BREADCRUMB, BUSCA E AÇÕES GLOBAIS                                -->
+<!-- ========================================================================= -->
+<header class="page-header-tier1">
+  <!-- Esquerda: Breadcrumb -->
+  <div class="breadcrumb-container">
+    @if (breadcrumbRoot()) {
+      <span class="breadcrumb-root">{{ breadcrumbRoot() }}</span>
+      <span class="breadcrumb-slash">/</span>
+    }
+    <h1 class="breadcrumb-current">{{ breadcrumbCurrent() }}</h1>
+  </div>
+
+  <!-- Centro: Barra de Pesquisa Integrada com Atalho ⌘K -->
+  @if (showSearch()) {
+    <div class="search-container">
+      <div class="search-box">
+        <span class="material-symbols-rounded search-icon">search</span>
+        <input
+          type="text"
+          class="search-input"
+          [placeholder]="searchPlaceholder()"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="onSearchInput($event)"
+          [attr.aria-label]="searchPlaceholder()"
+        />
+        @if (searchQuery()) {
+          <button
+            type="button"
+            class="btn-clear-search"
+            (click)="clearSearch()"
+            title="Limpar busca"
+            aria-label="Limpar busca"
+          >
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        } @else {
+          <kbd class="kbd-badge">⌘K</kbd>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Direita: Ícones Rápidos e Ações Injetadas -->
+  <div class="header-actions-container">
+    @if (showQuickIcons()) {
+      <div class="quick-icons-strip">
+        <button
+          type="button"
+          class="btn-quick-icon"
+          title="Mensagens"
+          aria-label="Mensagens"
+          (click)="onQuickActionClick('messages')"
+        >
+          <span class="material-symbols-rounded">mail</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-quick-icon"
+          title="Calendário e Prazos"
+          aria-label="Calendário e Prazos"
+          (click)="onQuickActionClick('calendar')"
+        >
+          <span class="material-symbols-rounded">calendar_today</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-quick-icon has-badge"
+          title="Notificações e Alertas"
+          aria-label="Notificações e Alertas"
+          (click)="onQuickActionClick('notifications')"
+        >
+          <span class="material-symbols-rounded">notifications</span>
+          @if (hasUnreadAlerts()) {
+            <span class="unread-dot"></span>
+          }
+        </button>
+      </div>
+    }
+
+    <!-- Injeção dos Botões de Ação Específicos de Cada Funcionalidade -->
+    <div class="custom-actions-slot">
+      <ng-content select="[header-actions]"></ng-content>
+    </div>
+  </div>
+</header>
+
+<!-- ========================================================================= -->
+<!-- TIER 2: CONTEXTO, BARRA DE ABAS E AÇÕES SECUNDÁRIAS                      -->
+<!-- ========================================================================= -->
+@if (showTier2()) {
+  <nav class="page-header-tier2" aria-label="Navegação secundária de abas">
+    <!-- Contexto do Módulo / Página -->
+    @if (contextTitle()) {
+      <div class="context-container">
+        @if (contextIcon()) {
+          <div class="context-icon-box">
+            <span class="material-symbols-rounded">{{ contextIcon() }}</span>
+          </div>
+        }
+        <div class="context-text-group">
+          <strong class="context-title">{{ contextTitle() }}</strong>
+          @if (contextSubtitle()) {
+            <span class="context-subtitle">{{ contextSubtitle() }}</span>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Abas de Navegação -->
+    @if (tabs().length > 0) {
+      <div class="tabs-container">
+        @for (tab of tabs(); track tab.id) {
+          <button
+            type="button"
+            class="tab-button"
+            [class.is-active]="activeTab() === tab.id"
+            (click)="selectTab(tab.id)"
+          >
+            @if (tab.icon) {
+              <span class="material-symbols-rounded tab-icon">{{ tab.icon }}</span>
+            }
+            <span class="tab-label">{{ tab.label }}</span>
+            @if (tab.badge !== undefined && tab.badge !== null) {
+              <span class="tab-badge" [ngClass]="'badge-' + (tab.badgeVariant || 'neutral')">
+                {{ tab.badge }}
+              </span>
+            }
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Ações Secundárias Injetadas à Direita (ex: Resumo IA, Toggle de Visualização) -->
+    <div class="tier2-custom-actions">
+      <ng-content select="[tier2-actions]"></ng-content>
+    </div>
+  </nav>
+}

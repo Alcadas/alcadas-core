@@ -1,0 +1,727 @@
+<!-- ========================================================================= -->
+<!-- 1. HEADER COMPONENTIZADO (Formato idêntico à imagem de referência)        -->
+<!-- ========================================================================= -->
+<app-page-header
+  breadcrumbRoot="Solicitações"
+  breadcrumbCurrent="Minhas Solicitações"
+  searchPlaceholder="Search..."
+  [searchQuery]="searchQuery()"
+  (searchQueryChange)="setSearchQuery($event)"
+  contextIcon="receipt_long"
+  contextTitle="Central de Solicitações"
+  [contextSubtitle]="stats().total + ' pedidos · ' + stats().pendentes + ' em tramitação'"
+  [tabs]="headerTabs()"
+  [activeTab]="currentTab()"
+  (tabChange)="setTab($any($event))"
+  [hasUnreadAlerts]="stats().ajustes > 0"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-actions-dropdown" (click)="toggleKpis()">
+      <span>Métricas</span>
+      <span class="material-symbols-rounded dropdown-chevron">expand_more</span>
+    </button>
+
+    <button type="button" class="btn-header-outline" (click)="showToast('Exportando dados em formato CSV...', 'info')">
+      <span class="material-symbols-rounded">file_download</span>
+      <span>Exportar</span>
+    </button>
+
+    <button type="button" class="btn-header-primary" (click)="goToCreatePage()">
+      <span class="material-symbols-rounded">add</span>
+      <span>Nova Solicitação</span>
+    </button>
+  </div>
+
+  <div tier2-actions class="tier2-actions-group">
+    <div class="table-records-counter">
+      <span class="material-symbols-rounded count-icon">table_rows</span>
+      <span><strong>{{ filteredRequests().length }}</strong> registros</span>
+    </div>
+  </div>
+</app-page-header>
+
+<!-- ========================================================================= -->
+<!-- 3. CONTAINER DE CONTEÚDO (Abaixo do Header, onde o drawer lateral fica)    -->
+<!-- ========================================================================= -->
+<div class="requests-body-container">
+  <!-- Conteúdo Rolável da Página -->
+  <main class="page-scrollable-content">
+    <!-- Métricas KPIs (Padrão de quick-cards do dashboard) -->
+    @if (showKpis()) {
+      <section class="quick-cards-grid" aria-label="Indicadores de solicitações">
+        <!-- Card 1: Total -->
+        <article class="quick-card">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-primary">Geral</span>
+            <span class="material-symbols-rounded quick-card-icon">assignment</span>
+          </div>
+          <span class="quick-card-value">{{ stats().total }}</span>
+          <div class="quick-card-progress">
+            <div class="progress-bar">
+              <div class="progress-fill fill-primary" [style.width.%]="stats().totalPercentCompleted"></div>
+            </div>
+            <span class="progress-meta">{{ stats().totalPercentCompleted }}% concluídas</span>
+          </div>
+        </article>
+
+        <!-- Card 2: Em Tramitação -->
+        <article class="quick-card">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-warning">Em Tramitação</span>
+            <span class="material-symbols-rounded quick-card-icon text-warning">hourglass_top</span>
+          </div>
+          <span class="quick-card-value text-warning">{{ stats().pendentes }}</span>
+          <div class="quick-card-bottom-info">
+            <strong class="bottom-amount">{{ stats().pendentesValorTotal | currency:'BRL':'symbol':'1.2-2' }}</strong>
+            <span class="bottom-desc">aguardando parecer</span>
+          </div>
+        </article>
+
+        <!-- Card 3: Aprovadas -->
+        <article class="quick-card">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-success">Aprovadas</span>
+            <span class="material-symbols-rounded quick-card-icon text-success">verified</span>
+          </div>
+          <span class="quick-card-value text-success">{{ stats().aprovadas }}</span>
+          <div class="quick-card-progress">
+            <div class="progress-bar">
+              <div class="progress-fill fill-success" [style.width.%]="stats().taxaAprovacao"></div>
+            </div>
+            <span class="progress-meta">{{ stats().taxaAprovacao }}% taxa de aprovação</span>
+          </div>
+        </article>
+
+        <!-- Card 4: Requer Atenção -->
+        <article class="quick-card" [class.highlight-warning]="stats().ajustes > 0">
+          <div class="quick-card-top">
+            <span class="quick-card-tag tag-adjust">Ajustes</span>
+            <span class="material-symbols-rounded quick-card-icon text-adjust">edit_notifications</span>
+          </div>
+          <span class="quick-card-value text-adjust">{{ stats().ajustes }}</span>
+          <div class="quick-card-bottom-info">
+            <span class="bottom-desc" [class.text-adjust]="stats().ajustes > 0">
+              {{ stats().ajustes > 0 ? 'Documentos ou cotações pendentes' : 'Nenhuma pendência ativa' }}
+            </span>
+          </div>
+        </article>
+      </section>
+    }
+
+    <!-- Toolbar Secundária: Filtros por Categoria, Centro de Custo e Ordenação -->
+    <section class="toolbar-section">
+      <div class="filter-dropdowns">
+        <!-- Filtro Categoria -->
+        <div class="select-wrapper">
+          <label for="categorySelectFilter" class="select-label">Categoria:</label>
+          <select
+            id="categorySelectFilter"
+            class="custom-select"
+            [ngModel]="selectedCategory()"
+            (ngModelChange)="setCategoryFilter($event)"
+          >
+            <option value="TODAS">Todas as Categorias</option>
+            @for (cat of requestsService.categories; track cat.id) {
+              <option [value]="cat.id">{{ cat.label }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Filtro Centro de Custo -->
+        <div class="select-wrapper">
+          <label for="ccSelectFilter" class="select-label">Centro de Custo:</label>
+          <select
+            id="ccSelectFilter"
+            class="custom-select"
+            [ngModel]="selectedCostCenter()"
+            (ngModelChange)="setCostCenterFilter($event)"
+          >
+            <option value="TODOS">Todos os Centros</option>
+            @for (cc of requestsService.costCenters(); track cc.id) {
+              <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Ordenação -->
+        <div class="select-wrapper">
+          <label for="sortBySelect" class="select-label">Ordenar:</label>
+          <select
+            id="sortBySelect"
+            class="custom-select"
+            [ngModel]="sortBy()"
+            (ngModelChange)="setSortBy($event)"
+          >
+            <option value="recentes">Mais Recentes</option>
+            <option value="maior_valor">Maior Valor (R$)</option>
+            <option value="menor_valor">Menor Valor (R$)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="counter-indicator">
+        <span>Exibindo <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VISUALIZAÇÃO EM TABELA SAAS (Única e exclusiva conforme solicitado)         -->
+    <!-- ========================================================================= -->
+    <section class="table-container-card">
+      <div class="table-responsive-wrapper">
+        <table class="requests-table">
+          <thead>
+            <tr>
+              <th class="th-checkbox">
+                <input
+                  type="checkbox"
+                  class="custom-checkbox"
+                  [checked]="isAllSelected()"
+                  (change)="toggleSelectAll()"
+                  aria-label="Selecionar todas as solicitações"
+                />
+              </th>
+              <th class="th-code">Código</th>
+              <th class="th-title">Finalidade & Categoria</th>
+              <th class="th-requester">Solicitante</th>
+              <th class="th-cost-center">Centro de Custo</th>
+              <th class="th-value">Valor</th>
+              <th class="th-workflow">Fluxo & Etapa Atual</th>
+              <th class="th-status">Status</th>
+              <th class="th-date">Data</th>
+              <th class="th-actions">Ações</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @if (requestsService.loadState() === 'carregando') {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box" role="status">
+                    <span class="spinner-small" aria-hidden="true"></span>
+                    <h3 class="empty-title">Carregando…</h3>
+                    <p class="empty-desc">Buscando as solicitações da sua organização.</p>
+                  </div>
+                </td>
+              </tr>
+            } @else if (requestsService.loadState() === 'erro') {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box" role="alert">
+                    <span class="material-symbols-rounded empty-icon">cloud_off</span>
+                    <h3 class="empty-title">Não foi possível carregar as solicitações</h3>
+                    <p class="empty-desc">{{ requestsService.loadError() }}</p>
+                    <button type="button" class="btn-header-outline" (click)="reload()">Tentar novamente</button>
+                  </div>
+                </td>
+              </tr>
+            } @else if (requestsService.requests().length === 0) {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box">
+                    <span class="material-symbols-rounded empty-icon">inbox</span>
+                    <h3 class="empty-title">Nenhuma solicitação ainda</h3>
+                    <p class="empty-desc">Quando alguém da sua organização submeter um pedido, ele aparece aqui.</p>
+                    <button type="button" class="btn-header-outline" (click)="openCreateDrawer()">Criar a primeira</button>
+                  </div>
+                </td>
+              </tr>
+            } @else if (paginatedRequests().length === 0) {
+              <tr>
+                <td colspan="10" class="td-empty">
+                  <div class="empty-state-box">
+                    <span class="material-symbols-rounded empty-icon">search_off</span>
+                    <h3 class="empty-title">Nenhuma solicitação encontrada</h3>
+                    <p class="empty-desc">Tente alterar os filtros selecionados ou digite outros termos de pesquisa.</p>
+                    <button type="button" class="btn-header-outline" (click)="clearFilters()">Limpar Filtros</button>
+                  </div>
+                </td>
+              </tr>
+            } @else {
+              @for (req of paginatedRequests(); track req.id) {
+                <tr
+                  class="request-table-row"
+                  tabindex="0"
+                  [class.is-selected]="selectedIds().has(req.id)"
+                  (click)="openDetailDrawer(req)"
+                  (keydown.enter)="openDetailDrawer(req)"
+                >
+                  <td class="td-checkbox" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      class="custom-checkbox"
+                      [checked]="selectedIds().has(req.id)"
+                      (change)="toggleSelect(req.id)"
+                      aria-label="Selecionar solicitação {{ req.codigo }}"
+                    />
+                  </td>
+
+                  <td class="td-code">
+                    <span class="req-code">{{ req.codigo }}</span>
+                  </td>
+
+                  <td class="td-title">
+                    <span class="req-title-text" [title]="req.titulo">{{ req.titulo }}</span>
+                    <span class="req-category-tag" [style.color]="req.categoriaColor">
+                      <span class="material-symbols-rounded tag-icon">{{ req.categoriaIcon }}</span>
+                      <span>{{ req.categoriaLabel }}</span>
+                    </span>
+                  </td>
+
+                  <td class="td-requester">
+                    <div class="requester-cell">
+                      <span class="requester-name">{{ req.solicitante.nome }}</span>
+                      <span class="requester-role">{{ req.solicitante.cargo }}</span>
+                    </div>
+                  </td>
+
+                  <td class="td-cost-center">
+                    <span class="cost-center-name">{{ req.centroCustoNome }}</span>
+                    <span class="department-name">{{ req.departamento }}</span>
+                  </td>
+
+                  <td class="td-value">
+                    <strong class="value-highlight">{{ req.valor | currency:'BRL':'symbol':'1.2-2' }}</strong>
+                  </td>
+
+                  <td class="td-workflow">
+                    <div class="workflow-cell">
+                      <span class="workflow-name">{{ req.fluxoDestinado.nome }}</span>
+                      <span class="step-current-pill">
+                        <span class="step-dot"></span>
+                        <span>{{ req.fluxoDestinado.etapaAtualNome }}</span>
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="td-status">
+                    <span class="status-pill" [ngClass]="getStatusBadgeClass(req.status)">
+                      <span class="status-dot"></span>
+                      <span>{{ req.statusLabel }}</span>
+                    </span>
+                  </td>
+
+                  <td class="td-date">
+                    <span class="date-text">{{ req.dataCriacao | date:'dd/MM/yyyy' }}</span>
+                  </td>
+
+                  <td class="td-actions" (click)="$event.stopPropagation()">
+                    <div class="table-actions-cell">
+                      @if (canEditRequest(req)) {
+                        <button
+                          type="button"
+                          class="btn-action-edit"
+                          title="Editar dados da solicitação"
+                          (click)="openEditModal(req, $event)"
+                          aria-label="Editar solicitação {{ req.codigo }}"
+                        >
+                          <span class="material-symbols-rounded">edit</span>
+                          <span>Editar</span>
+                        </button>
+                      }
+
+                      <button
+                        type="button"
+                        class="btn-view-trilha"
+                        title="Ver detalhes da solicitação e trilha de aprovação"
+                        (click)="openDetailDrawer(req)"
+                        aria-label="Ver detalhes da solicitação {{ req.codigo }}"
+                      >
+                        <span>Trilha</span>
+                        <span class="material-symbols-rounded">chevron_right</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Rodapé de Paginação -->
+    <footer class="pagination-footer">
+      <div class="pagination-info">
+        <span>Página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong> ({{ filteredRequests().length }} no total)</span>
+        <div class="page-size-selector">
+          <label for="pageSizeSelect">Itens:</label>
+          <select
+            id="pageSizeSelect"
+            class="page-size-select"
+            [ngModel]="pageSize()"
+            (ngModelChange)="setPageSize($event)"
+          >
+            <option [value]="5">5 por página</option>
+            <option [value]="10">10 por página</option>
+            <option [value]="20">20 por página</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pagination-nav">
+        <button
+          type="button"
+          class="page-btn"
+          [disabled]="currentPage() === 1"
+          (click)="setPage(1)"
+          title="Primeira página"
+          aria-label="Primeira página"
+        >
+          <span class="material-symbols-rounded">first_page</span>
+        </button>
+
+        <button
+          type="button"
+          class="page-btn"
+          [disabled]="currentPage() === 1"
+          (click)="setPage(currentPage() - 1)"
+          title="Página anterior"
+          aria-label="Página anterior"
+        >
+          <span class="material-symbols-rounded">chevron_left</span>
+        </button>
+
+        <span class="page-num">{{ currentPage() }}</span>
+
+        <button
+          type="button"
+          class="page-btn"
+          [disabled]="currentPage() === totalPages()"
+          (click)="setPage(currentPage() + 1)"
+          title="Próxima página"
+          aria-label="Próxima página"
+        >
+          <span class="material-symbols-rounded">chevron_right</span>
+        </button>
+
+        <button
+          type="button"
+          class="page-btn"
+          [disabled]="currentPage() === totalPages()"
+          (click)="setPage(totalPages())"
+          title="Última página"
+          aria-label="Última página"
+        >
+          <span class="material-symbols-rounded">last_page</span>
+        </button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- DRAWER LATERAL: DETALHES DA SOLICITAÇÃO (NA DIV DEBAIXO DO HEADER)        -->
+  <!-- ========================================================================= -->
+  <app-right-drawer
+    [isOpen]="isDetailDrawerOpen()"
+    [title]="selectedRequest()?.codigo || 'Detalhes da Solicitação'"
+    [subtitle]="selectedRequest()?.titulo"
+    icon="timeline"
+    width="560px"
+    [badge]="selectedRequest() ? { text: selectedRequest()!.statusLabel, variant: getStatusBadgeVariant(selectedRequest()!.status) } : undefined"
+    (closed)="closeDetailDrawer()"
+  >
+    @if (selectedRequest(); as req) {
+      <div class="detail-container">
+        <!-- Card de Resumo de Valor e Solicitante -->
+        <div class="detail-summary-card">
+          <div class="summary-top">
+            <div class="summary-value-box">
+              <span class="summary-value-label">Valor da Solicitação</span>
+              <strong class="summary-value-amount">
+                {{ req.valor | currency:'BRL':'symbol':'1.2-2' }}
+              </strong>
+            </div>
+            <span class="status-pill" [ngClass]="getStatusBadgeClass(req.status)">
+              <span class="status-dot"></span>
+              <span>{{ req.statusLabel }}</span>
+            </span>
+          </div>
+
+          <div class="summary-meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Centro de Custo</span>
+              <span class="meta-val">{{ req.centroCustoNome }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Departamento</span>
+              <span class="meta-val">{{ req.departamento }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Categoria</span>
+              <span class="meta-val">{{ req.categoriaLabel }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Alçada</span>
+              <span class="meta-val font-semibold">{{ req.fluxoDestinado.nome }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Solicitante</span>
+              <span class="meta-val">{{ req.solicitante.nome }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Submetido em</span>
+              <span class="meta-val">{{ req.dataCriacao | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trilha de Aprovação das Etapas do Fluxo -->
+        <div class="workflow-timeline-section">
+          <div class="timeline-header">
+            <div class="timeline-title-row">
+              <span class="material-symbols-rounded timeline-header-icon">account_tree</span>
+              <div>
+                <h3 class="timeline-heading">Trilha de Auditoria</h3>
+                <p class="timeline-subheading">Registros encadeados com SHA-256 ({{ trailSteps().length }} eventos)</p>
+              </div>
+            </div>
+          </div>
+
+          @if (trailState() === 'carregando') {
+            <p class="timeline-subheading" role="status">Carregando a trilha…</p>
+          } @else if (trailState() === 'erro') {
+            <div role="alert">
+              <p class="timeline-subheading">Não foi possível carregar a trilha.</p>
+              <button type="button" class="btn-header-outline" (click)="loadTrail(req.id)">Tentar novamente</button>
+            </div>
+          } @else if (trailSteps().length === 0) {
+            <p class="timeline-subheading">Nenhum evento registrado na trilha.</p>
+          }
+          <div class="timeline-stepper-vertical">
+            @for (step of trailSteps(); track step.numero) {
+              <div
+                class="timeline-step-item"
+                [class.is-done]="step.status === 'CONCLUIDA'"
+                [class.is-current]="step.status === 'EM_ANALISE' || step.status === 'AJUSTE'"
+                [class.is-reject]="step.status === 'REJEITADA'"
+              >
+                <div class="step-indicator-wrapper">
+                  <div class="step-indicator-badge">
+                    <span class="material-symbols-rounded indicator-icon">{{ getStepStatusIcon(step) }}</span>
+                  </div>
+                  @if (!$last) {
+                    <div class="step-connector-line"></div>
+                  }
+                </div>
+
+                <div class="step-card-content">
+                  <div class="step-card-header">
+                    <div class="step-title-group">
+                      <span class="step-stage-badge">Etapa {{ step.numero }}</span>
+                      <strong class="step-stage-name">{{ step.nome }}</strong>
+                    </div>
+                    @if (step.dataHora) {
+                      <span class="step-timestamp">{{ step.dataHora }}</span>
+                    }
+                  </div>
+
+                  <div class="step-role-row">
+                    <span class="material-symbols-rounded role-icon">person</span>
+                    <span class="role-text">{{ step.papel }}</span>
+                    @if (step.responsavelNome) {
+                      <span class="role-separator">·</span>
+                      <strong class="role-assignee">{{ step.responsavelNome }}</strong>
+                    }
+                  </div>
+
+                  @if (step.comentario) {
+                    <div class="step-comment-box" [class.comment-adjust]="step.status === 'AJUSTE'">
+                      <span class="material-symbols-rounded comment-quote-icon">format_quote</span>
+                      <p class="comment-text">{{ step.comentario }}</p>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Justificativa da Solicitação -->
+        <div class="detail-section">
+          <h4 class="detail-section-title">
+            <span class="material-symbols-rounded">notes</span>
+            <span>Justificativa de Negócio</span>
+          </h4>
+          <div class="justification-text-card">
+            <p>{{ req.descricao }}</p>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div drawer-footer class="drawer-footer-actions">
+      @if (selectedRequest(); as req) {
+        @if (canEditRequest(req)) {
+          <button type="button" class="btn-drawer-edit" (click)="openEditModal(req)">
+            <span class="material-symbols-rounded">edit</span>
+            <span>Editar Solicitação</span>
+          </button>
+        }
+      }
+      <button type="button" class="btn-drawer-cancel" (click)="closeDetailDrawer()">
+        Fechar
+      </button>
+    </div>
+  </app-right-drawer>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL DE EDIÇÃO DE SOLICITAÇÃO (PELO SOLICITANTE)                         -->
+<!-- ========================================================================= -->
+@if (isEditModalOpen() && editingRequest(); as editReq) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-edit-title">
+    <button
+      type="button"
+      class="modal-backdrop"
+      (click)="closeEditModal()"
+      tabindex="-1"
+      aria-label="Fechar modal de edição"
+    ></button>
+
+    <div class="modal-card-edit">
+      <div class="modal-edit-header">
+        <div class="title-row">
+          <span class="material-symbols-rounded icon-edit">edit_note</span>
+          <div>
+            <h3 id="modal-edit-title">Editar Solicitação {{ editReq.codigo }}</h3>
+            <p class="edit-sub">Atualize os dados e reenvie a solicitação para a esteira de governança</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-sm" (click)="closeEditModal()" aria-label="Fechar">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <div class="modal-edit-body">
+        <!-- Campo: Título -->
+        <div class="form-group">
+          <label for="editTituloInput" class="form-label">Título da Demanda <span class="required">*</span></label>
+          <input
+            id="editTituloInput"
+            type="text"
+            class="form-input"
+            [ngModel]="editFormTitulo()"
+            (ngModelChange)="editFormTitulo.set($event)"
+            placeholder="Ex: Aquisição de licenças adicionais..."
+          />
+          @if (editFormErrors()['titulo']) {
+            <span class="error-msg">{{ editFormErrors()['titulo'] }}</span>
+          }
+        </div>
+
+        <!-- Linha: Valor e Categoria -->
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="editValorInput" class="form-label">Valor Estimado (R$) <span class="required">*</span></label>
+            <input
+              id="editValorInput"
+              type="number"
+              step="0.01"
+              min="0.01"
+              class="form-input"
+              [ngModel]="editFormValor()"
+              (ngModelChange)="editFormValor.set($event)"
+              placeholder="0,00"
+            />
+            @if (editFormErrors()['valor']) {
+              <span class="error-msg">{{ editFormErrors()['valor'] }}</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="editCategoriaSelect" class="form-label">Categoria <span class="required">*</span></label>
+            <select
+              id="editCategoriaSelect"
+              class="form-select"
+              [ngModel]="editFormCategoria()"
+              (ngModelChange)="editFormCategoria.set($event)"
+            >
+              @for (cat of requestsService.categories; track cat.id) {
+                <option [value]="cat.id">{{ cat.label }}</option>
+              }
+            </select>
+            @if (editFormErrors()['categoria']) {
+              <span class="error-msg">{{ editFormErrors()['categoria'] }}</span>
+            }
+          </div>
+        </div>
+
+        <!-- Linha: Centro de Custo e Fornecedor -->
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="editCcSelect" class="form-label">Centro de Custo <span class="required">*</span></label>
+            <select
+              id="editCcSelect"
+              class="form-select"
+              [ngModel]="editFormCentroCustoId()"
+              (ngModelChange)="editFormCentroCustoId.set($event)"
+            >
+              @for (cc of requestsService.costCenters(); track cc.id) {
+                <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
+              }
+            </select>
+            @if (editFormErrors()['centroCusto']) {
+              <span class="error-msg">{{ editFormErrors()['centroCusto'] }}</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="editFornecedorInput" class="form-label">Fornecedor / Parceiro (Opcional)</label>
+            <input
+              id="editFornecedorInput"
+              type="text"
+              class="form-input"
+              [ngModel]="editFormFornecedor()"
+              (ngModelChange)="editFormFornecedor.set($event)"
+              placeholder="Nome da empresa fornecedora..."
+            />
+          </div>
+        </div>
+
+        <!-- Campo: Justificativa -->
+        <div class="form-group">
+          <label for="editJustificativaInput" class="form-label">Justificativa / Motivo do Ajuste <span class="required">*</span></label>
+          <textarea
+            id="editJustificativaInput"
+            class="form-textarea"
+            rows="3"
+            [ngModel]="editFormJustificativa()"
+            (ngModelChange)="editFormJustificativa.set($event)"
+            placeholder="Descreva detalhadamente a finalidade e as correções realizadas..."
+          ></textarea>
+          @if (editFormErrors()['justificativa']) {
+            <span class="error-msg">{{ editFormErrors()['justificativa'] }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="modal-edit-footer">
+        <button type="button" class="btn-edit-cancel" (click)="closeEditModal()" [disabled]="isSavingEdit()">
+          Cancelar
+        </button>
+        <button type="button" class="btn-edit-save" (click)="saveEditRequest()" [disabled]="isSavingEdit()">
+          <span class="material-symbols-rounded">save</span>
+          <span>{{ isSavingEdit() ? 'Salvando...' : 'Salvar Alterações e Reenviar' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ========================================================================= -->
+<!-- TOAST FLUTUANTE DE FEEDBACK                                               -->
+<!-- ========================================================================= -->
+@if (toastMessage()) {
+  <aside class="floating-toast toast-{{ toastType() }}" role="status" aria-live="polite">
+    <div class="toast-content">
+      <span class="material-symbols-rounded toast-icon">
+        {{ toastType() === 'success' ? 'check_circle' : toastType() === 'warning' ? 'warning' : 'info' }}
+      </span>
+      <span class="toast-text">{{ toastMessage() }}</span>
+    </div>
+    <button type="button" class="toast-close" (click)="closeToast()" aria-label="Fechar notificação">
+      <span class="material-symbols-rounded">close</span>
+    </button>
+  </aside>
+}

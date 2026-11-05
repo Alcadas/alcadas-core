@@ -1,0 +1,258 @@
+<div class="shadcn-chart-card">
+  <!-- 1. Header do Gráfico (Padrão Shadcn UI) -->
+  <div class="chart-header">
+    <div class="header-titles">
+      <div class="title-with-pill">
+        <h3 class="chart-title">{{ title() }}</h3>
+        <span class="benchmark-pill">
+          <span class="pill-dot"></span>
+          <span>Média Aceita: {{ acceptedAverage() | currency:'BRL':'symbol':'1.0-0' }}</span>
+        </span>
+      </div>
+      <p class="chart-subtitle">{{ subtitle() }}</p>
+    </div>
+
+    <!-- Filtros de Visualização e Legenda -->
+    <div class="chart-controls">
+      <div class="filter-pills-group" role="group" aria-label="Filtrar solicitações">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="activeFilter() === 'TODOS'"
+          (click)="setFilter('TODOS')"
+        >
+          Todas ({{ data().length }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="activeFilter() === 'DENTRO'"
+          (click)="setFilter('DENTRO')"
+        >
+          No Teto ({{ stats().insideCount }})
+        </button>
+        <button
+          type="button"
+          class="pill-btn highlight-warning"
+          [class.active]="activeFilter() === 'ACIMA'"
+          (click)="setFilter('ACIMA')"
+        >
+          Acima ({{ stats().aboveCount }})
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Legenda Interativa de Cores -->
+  <div class="chart-legend">
+    <div class="legend-item">
+      <span class="legend-swatch swatch-primary"></span>
+      <span class="legend-label">Dentro da Média (Aprovação Padrão)</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-swatch swatch-warning"></span>
+      <span class="legend-label">Acima da Média (Escalação de Alçada)</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-line swatch-ref"></span>
+      <span class="legend-label">Linha Média Aceita (Benchmark)</span>
+    </div>
+  </div>
+
+  <!-- 3. Canvas SVG Reativo (Renderização Vetorial Ultra-Rápida) -->
+  <div class="chart-viewport-wrapper">
+    <svg
+      class="shadcn-bar-svg"
+      [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight"
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="Gráfico de barras de valores por solicitação"
+    >
+      <defs>
+        <!-- Gradiente para Barras Normais -->
+        <linearGradient id="primaryBarGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7c6af7" />
+          <stop offset="100%" stop-color="#553ee2" />
+        </linearGradient>
+
+        <!-- Gradiente para Barras Acima da Média -->
+        <linearGradient id="warningBarGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fbbf24" />
+          <stop offset="100%" stop-color="#d97706" />
+        </linearGradient>
+
+        <!-- Sombra sutil para barras com foco -->
+        <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18" />
+        </filter>
+      </defs>
+
+      <!-- Linhas de Grade Horizontais e Eixo Y -->
+      @for (tick of yTicks(); track tick.value) {
+        <g class="grid-tick-group">
+          <line
+            class="grid-line"
+            [attr.x1]="marginLeft"
+            [attr.y1]="tick.y"
+            [attr.x2]="svgWidth - marginRight"
+            [attr.y2]="tick.y"
+          />
+          <text
+            class="axis-tick-text"
+            [attr.x]="marginLeft - 10"
+            [attr.y]="tick.y + 4"
+            text-anchor="end"
+          >
+            {{ tick.label }}
+          </text>
+        </g>
+      }
+
+      <!-- Linha de Referência da Média Aceita (Benchmark) -->
+      <g class="reference-line-group">
+        <line
+          class="reference-dashed-line"
+          [attr.x1]="marginLeft"
+          [attr.y1]="averageY()"
+          [attr.x2]="svgWidth - marginRight"
+          [attr.y2]="averageY()"
+        />
+        <!-- Badge da Linha de Referência no Canto Direito -->
+        <rect
+          class="reference-badge-rect"
+          [attr.x]="svgWidth - marginRight - 138"
+          [attr.y]="averageY() - 18"
+          width="138"
+          height="16"
+          rx="4"
+        />
+        <text
+          class="reference-badge-text"
+          [attr.x]="svgWidth - marginRight - 69"
+          [attr.y]="averageY() - 6"
+          text-anchor="middle"
+        >
+          Média: {{ acceptedAverage() | currency:'BRL':'symbol':'1.0-0' }}
+        </text>
+      </g>
+
+      <!-- Barras de Cada Solicitação -->
+      @for (bar of svgBars(); track bar.item.id) {
+        <g
+          class="bar-group"
+          [class.is-hovered]="hoveredBar()?.item?.id === bar.item.id"
+          (mouseenter)="onBarHover(bar)"
+          (mouseleave)="onBarLeave()"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="bar.item.code + ': ' + (bar.item.value | currency:'BRL':'symbol':'1.2-2')"
+        >
+          <!-- Barra Interativa -->
+          <rect
+            class="chart-bar"
+            [attr.x]="bar.x"
+            [attr.y]="bar.y"
+            [attr.width]="bar.width"
+            [attr.height]="bar.height"
+            rx="5"
+            ry="5"
+            [attr.fill]="bar.isAboveAverage ? 'url(#warningBarGrad)' : 'url(#primaryBarGrad)'"
+          />
+
+          <!-- Rótulo do Eixo X (Código da Solicitação) -->
+          <text
+            class="axis-x-label"
+            [attr.x]="bar.x + bar.width / 2"
+            [attr.y]="svgHeight - marginBottom + 16"
+            text-anchor="middle"
+          >
+            {{ bar.item.code }}
+          </text>
+
+          <!-- Sub-rótulo de Departamento / Data -->
+          <text
+            class="axis-x-sublabel"
+            [attr.x]="bar.x + bar.width / 2"
+            [attr.y]="svgHeight - marginBottom + 30"
+            text-anchor="middle"
+          >
+            {{ bar.item.deptCode }} • {{ bar.item.date }}
+          </text>
+        </g>
+      }
+    </svg>
+
+    <!-- Tooltip Flutuante Dinâmico -->
+    @if (hoveredBar(); as hovered) {
+      <div
+        class="chart-tooltip-popover"
+        [style.left.px]="hovered.x + hovered.width / 2"
+        [style.top.px]="hovered.y - 12"
+        role="tooltip"
+      >
+        <div class="tooltip-header">
+          <span class="tooltip-code">{{ hovered.item.code }}</span>
+          <span
+            class="tooltip-tag"
+            [class.tag-warning]="hovered.isAboveAverage"
+            [class.tag-primary]="!hovered.isAboveAverage"
+          >
+            {{ hovered.isAboveAverage ? 'Acima da Média' : 'Dentro do Teto' }}
+          </span>
+        </div>
+
+        <p class="tooltip-title">{{ hovered.item.title }}</p>
+
+        <div class="tooltip-meta-row">
+          <span class="tooltip-dept">{{ hovered.item.department }}</span>
+          <span class="tooltip-sep">•</span>
+          <span class="tooltip-requester">{{ hovered.item.requester }}</span>
+        </div>
+
+        <div class="tooltip-value-row">
+          <span class="tooltip-value-label">Valor:</span>
+          <strong class="tooltip-value-number">{{ hovered.item.value | currency:'BRL':'symbol':'1.2-2' }}</strong>
+        </div>
+
+        <div class="tooltip-diff-row">
+          @if (hovered.isAboveAverage) {
+            <span class="diff-text text-warning">
+              ▲ Excede em +{{ hovered.diffFromAverage | currency:'BRL':'symbol':'1.2-2' }} (Requer Alçada Superior)
+            </span>
+          } @else {
+            <span class="diff-text text-success">
+              ✓ Margem de {{ -hovered.diffFromAverage | currency:'BRL':'symbol':'1.2-2' }} até o teto
+            </span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- 4. Resumo de Métricas Compactas (Estilo Optitask / Shadcn) -->
+  <div class="chart-kpis-footer">
+    <div class="footer-kpi-item">
+      <span class="footer-kpi-label">Média Aceita</span>
+      <strong class="footer-kpi-value text-primary">{{ acceptedAverage() | currency:'BRL':'symbol':'1.0-0' }}</strong>
+      <span class="footer-kpi-sub">Benchmark do ciclo</span>
+    </div>
+
+    <div class="footer-kpi-item">
+      <span class="footer-kpi-label">Volume Amostrado</span>
+      <strong class="footer-kpi-value">{{ stats().total | currency:'BRL':'symbol':'1.0-0' }}</strong>
+      <span class="footer-kpi-sub">{{ stats().totalCount }} requisições analisadas</span>
+    </div>
+
+    <div class="footer-kpi-item">
+      <span class="footer-kpi-label">Taxa de Conformidade</span>
+      <strong class="footer-kpi-value text-success">{{ stats().conformityPct }}%</strong>
+      <span class="footer-kpi-sub">{{ stats().insideCount }} de {{ stats().totalCount }} no teto</span>
+    </div>
+
+    <div class="footer-kpi-item">
+      <span class="footer-kpi-label">Pico Identificado</span>
+      <strong class="footer-kpi-value text-warning">{{ stats().maxValue | currency:'BRL':'symbol':'1.0-0' }}</strong>
+      <span class="footer-kpi-sub">Alçada da Diretoria</span>
+    </div>
+  </div>
+</div>

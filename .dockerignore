@@ -1,0 +1,14 @@
+node_modules
+dist
+.angular
+.nx
+.git
+.github
+.vscode
+.agents
+SKILLS.md
+*.log
+firestore-debug.log
+ui-debug.log
+.env*
+!.env.example

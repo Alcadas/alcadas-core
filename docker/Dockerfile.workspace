@@ -1,0 +1,18 @@
+FROM node:24-alpine
+
+# Utilitários de sistema para healthchecks e scripts
+RUN apk add --no-cache curl bash
+
+WORKDIR /app
+
+# Maximiza o reaproveitamento de cache copiando apenas manifestos primeiro
+COPY package.json package-lock.json ./
+
+# Instala todas as dependências do monorepo Nx
+RUN npm ci --prefer-offline --no-audit
+
+# Script de entrypoint
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

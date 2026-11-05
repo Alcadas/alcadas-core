@@ -1,58 +1,101 @@
-version: '3.8'
-
 services:
-
-  api:
-    image: node:22-alpine
-    container_name: alcadas-api
-    working_dir: /app
-    volumes:
-      - .:/app
-      - /app/node_modules
-    ports:
-      - "3000:3000"
-
-    command: sh -c "npm install && npx nx serve api --host 0.0.0.0"
-    environment:
-      - NODE_ENV=development
-      - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
-      - FIRESTORE_EMULATOR_HOST=firebase:8080
-      - NX_DAEMON=false
-    depends_on:
-      - firebase
-
-  web:
-    image: node:22-alpine
-    container_name: alcadas-web
-    working_dir: /app
-    volumes:
-      - .:/app
-      - /app/node_modules
-    ports:
-      - "4200:4200"
-
-    command: sh -c "npm install && npx nx serve web --host 0.0.0.0"
-    environment:
-      - NX_DAEMON=false
-    depends_on:
-      - api
-
-
   firebase:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.firebase
+    image: alcadas-firebase:latest
     container_name: alcadas-firebase
     working_dir: /app
     volumes:
-      - .:/app
+      - ./firebase.json:/app/firebase.json:ro
+      - ./.firebaserc:/app/.firebaserc:ro
+      - ./firestore.rules:/app/firestore.rules:ro
+      - firebase-cache:/root/.cache/firebase/emulators
     ports:
       - "4000:4000" # Firebase Emulator UI
       - "8080:8080" # Firestore
       - "9099:9099" # Authentication
+    command: firebase emulators:start --project demo-alcadas
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const net=require('net'); Promise.all([new Promise((res,rej)=>net.connect(8080,'127.0.0.1').on('connect',res).on('error',rej)), new Promise((res,rej)=>net.connect(9099,'127.0.0.1').on('connect',res).on('error',rej))]).then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
-    # Instala o Java (necessário pro Firestore), a CLI e sobe os emuladores
-    command: >
-      sh -c "apk add --no-cache openjdk21-jre bash &&
-             npm install -g firebase-tools &&
-             firebase emulators:start --project demo-alcadas"
+  seed:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.workspace
+    image: alcadas-workspace:latest
+    container_name: alcadas-seed
+    working_dir: /app
+    volumes:
+      - .:/app
+      - api-node-modules:/app/node_modules
+    command: npx ts-node -T -O '{"module":"NodeNext","moduleResolution":"NodeNext"}' scripts/seed.ts
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
+      - FIRESTORE_EMULATOR_HOST=firebase:8080
+      - FIREBASE_PROJECT_ID=demo-alcadas
+    depends_on:
+      firebase:
+        condition: service_healthy
+    restart: "no"
 
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.workspace
+    image: alcadas-workspace:latest
+    container_name: alcadas-api
+    working_dir: /app
+    volumes:
+      - .:/app
+      - api-node-modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    command: npx nx serve api --host 0.0.0.0
+    environment:
+      - NODE_ENV=development
+      - FIREBASE_AUTH_EMULATOR_HOST=firebase:9099
+      - FIRESTORE_EMULATOR_HOST=firebase:8080
+      - WEB_URL=http://localhost:4200
+      - NX_DAEMON=false
+    depends_on:
+      firebase:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.workspace
+    image: alcadas-workspace:latest
+    container_name: alcadas-web
+    working_dir: /app
+    volumes:
+      - .:/app
+      - web-node-modules:/app/node_modules
+    ports:
+      - "4200:4200"
+    # Dentro do compose a API é o serviço "api", não o localhost do container web
+    command: npx nx serve web --host 0.0.0.0 --proxy-config=apps/web/proxy.docker.json
+    environment:
+      - NX_DAEMON=false
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  firebase-cache:
+  api-node-modules:
+  web-node-modules:

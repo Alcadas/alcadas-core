@@ -1,0 +1,206 @@
+<!-- 1. Header do Centro de Operações (Componente Padronizado) -->
+<app-page-header
+  breadcrumbRoot="Visão Geral"
+  breadcrumbCurrent="Dashboard de Operações"
+  searchPlaceholder="Buscar métricas, requisições ou centros de custo..."
+  contextIcon="dashboard"
+  contextTitle="Centro de Operações de Alçadas"
+  contextSubtitle="Monitoramento de limites orçamentários, workflow de aprovações e consumo por centro de custo em tempo real"
+  [showTier2]="true"
+>
+  <div header-actions class="header-actions-group">
+    <button type="button" class="btn-header-outline" (click)="goToNewRequest()">
+      <span class="material-symbols-rounded">file_download</span>
+      <span>Exportar</span>
+    </button>
+  </div>
+</app-page-header>
+
+@if (isLoading()) {
+  <!-- Skeleton Loading State do Dashboard -->
+  <div class="dashboard-scrollable skeleton-container" aria-busy="true" aria-label="Carregando Centro de Operações">
+    <!-- Quick Cards Skeletons -->
+    <section class="quick-cards-grid">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="quick-card skeleton-card">
+          <div class="skeleton-shimmer skeleton-tag"></div>
+          <div class="skeleton-shimmer skeleton-title-bar"></div>
+          <div class="skeleton-shimmer skeleton-line"></div>
+          <div class="skeleton-shimmer skeleton-line short"></div>
+        </div>
+      }
+    </section>
+
+    <!-- Usage Card Skeleton -->
+    <section class="usage-card skeleton-card">
+      <div class="skeleton-shimmer skeleton-badge"></div>
+      <div class="skeleton-shimmer skeleton-title-bar medium"></div>
+      <div class="skeleton-shimmer skeleton-bar"></div>
+      <div class="skeleton-shimmer skeleton-metrics-row"></div>
+    </section>
+
+    <!-- Table Skeleton -->
+    <section class="approvals-card skeleton-card">
+      <div class="skeleton-shimmer skeleton-table-header"></div>
+      @for (row of [1, 2, 3]; track row) {
+        <div class="skeleton-shimmer skeleton-row"></div>
+      }
+    </section>
+  </div>
+} @else {
+  <div class="dashboard-scrollable">
+    <!-- 2. Cards de Ações Rápidas de Governança -->
+  <section class="quick-cards-grid">
+    @for (card of quickCards(); track card.id) {
+      <div class="quick-card">
+        <div class="quick-card-top">
+          <span class="quick-card-tag" [style.color]="card.tagColor" [style.background-color]="card.tagColor + '18'">
+            {{ card.tag }}
+          </span>
+          <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+        </div>
+        <h3 class="quick-card-title">{{ card.title }}</h3>
+        <p class="quick-card-desc">{{ card.description }}</p>
+      </div>
+    }
+  </section>
+
+  <!-- 3. Consumo Orçamentário Segmentado por Categoria de Serviço -->
+  <section class="usage-card">
+    <div class="usage-header">
+      <div class="usage-title-wrap">
+        <div class="plan-badge">Ciclo Orçamentário 2026 • {{ settingsService.organization().tradeName }}</div>
+        <h2 class="usage-title">Consumo de Alçadas por Departamento</h2>
+        <p class="usage-subtitle">
+          <strong>R$ {{ usedBudget() | number:'1.0-0' }}</strong> de R$ {{ totalBudget() | number:'1.0-0' }} comprometidos neste ciclo ({{ budgetPercentage() }}% da dotação autorizada)
+        </p>
+      </div>
+
+      <div class="period-toggle">
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="selectedPeriod() === 'dia'"
+          (click)="setPeriod('dia')"
+        >
+          Dia
+        </button>
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="selectedPeriod() === 'semana'"
+          (click)="setPeriod('semana')"
+        >
+          Semana
+        </button>
+        <button
+          type="button"
+          class="toggle-btn"
+          [class.active]="selectedPeriod() === 'mes'"
+          (click)="setPeriod('mes')"
+        >
+          Mês
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra Multicor Segmentada -->
+    <div class="segmented-progress-bar">
+      @for (segment of budgetSegments(); track segment.name) {
+        <div
+          class="segment-bar"
+          [style.width.%]="segment.percentage"
+          [style.background-color]="segment.color"
+          [title]="segment.name + ': ' + segment.valueFormatted + ' (' + segment.percentage + '%)'"
+        ></div>
+      }
+    </div>
+
+    <!-- Legenda dos Segmentos -->
+    <div class="segments-legend">
+      @for (segment of budgetSegments(); track segment.name) {
+        <div class="legend-item">
+          <span class="legend-dot" [style.background-color]="segment.color"></span>
+          <span class="legend-label">{{ segment.name }}</span>
+          <strong class="legend-value">{{ segment.valueFormatted }}</strong>
+          <span class="legend-pct">({{ segment.percentage }}%)</span>
+        </div>
+      }
+    </div>
+
+    <!-- Indicadores Numéricos Chave (KPIs) -->
+    <div class="usage-kpis">
+      <div class="kpi-item">
+        <span class="kpi-number">R$ {{ (usedBudget() / 1000) | number:'1.1-1' }}k</span>
+        <span class="kpi-label">Comprometido no Período</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-number">{{ requestsService.stats().total }}</span>
+        <span class="kpi-label">Solicitações Processadas</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-number highlight-alert">{{ requestsService.stats().pendentes }}</span>
+        <span class="kpi-label">Aprovações Pendentes</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-number highlight-success">100%</span>
+        <span class="kpi-label">Integridade SHA-256</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Seção Inferior: Gráfico de Valores por Solicitação com Linha na Média Aceita (Substituindo a tabela) -->
+  <section class="bottom-split-grid">
+    <!-- Coluna Esquerda: Gráfico de Barras Shadcn UI com Linha na Média Aceita -->
+    <div class="chart-main-column">
+      <app-request-bar-chart
+        [data]="chartRequests()"
+        [acceptedAverage]="45000"
+      ></app-request-bar-chart>
+    </div>
+
+    <!-- Coluna Direita: Monitor de Fraudes & Governança Compacto -->
+    <div class="card monitor-card">
+      <div class="monitor-header">
+        <div class="monitor-title-group">
+          <span class="material-symbols-rounded shield-icon">verified_user</span>
+          <h3>Governança & Risco</h3>
+        </div>
+        <span class="status-pill-green">● Operacional</span>
+      </div>
+
+      <div class="monitor-metrics-list">
+        <div class="monitor-metric-box">
+          <div class="metric-box-top">
+            <span class="box-label">Motor Anti-Fracionamento</span>
+            <span class="box-tag">30d</span>
+          </div>
+          <p class="box-value">0 Violações</p>
+          <div class="box-sub-progress">
+            <div class="mini-bar-fill" style="width: 100%"></div>
+          </div>
+          <span class="box-foot">Sem compras fracionadas</span>
+        </div>
+
+        <div class="monitor-metric-box">
+          <div class="metric-box-top">
+            <span class="box-label">Trilha Criptográfica SHA-256</span>
+            <span class="box-tag">Imutável</span>
+          </div>
+          <p class="box-value">{{ requestsService.stats().total }} Elo(s)</p>
+          <span class="box-foot">Cadeia íntegra • Verificação em 0.24s</span>
+        </div>
+
+        <div class="monitor-metric-box">
+          <div class="metric-box-top">
+            <span class="box-label">Segregação de Funções (SoD)</span>
+            <span class="box-tag">Ativo</span>
+          </div>
+          <p class="box-value">100% Protegido</p>
+          <span class="box-foot">Autoaprovação bloqueada</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+}

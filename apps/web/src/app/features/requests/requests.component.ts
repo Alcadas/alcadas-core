@@ -1,0 +1,549 @@
+import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE, justificativaSuficiente } from '@alcadas-core/models';
+import { AuthService } from '../../core/auth/auth.service';
+import { podeDecidir } from '../../core/auth/roles';
+import { SettingsService } from '../settings/services/settings.service';
+import { mensagemDeErroDaApi } from '../../core/http/api-error';
+import { ActivatedRoute, Router } from '@angular/router';
+import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
+import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
+import { fluxoDaAlcada } from './requests.mapper';
+import {
+  ApprovalStep,
+  DecisionAction,
+  LoadState,
+  RequestItem,
+  RequestStatus,
+  WorkflowDestination,
+} from './requests.models';
+import { RequestsService } from './services/requests.service';
+
+export type RequestTab = 'todas' | 'pendentes' | 'aprovadas' | 'ajustes' | 'rejeitadas';
+export type RequestSort = 'recentes' | 'maior_valor' | 'menor_valor';
+
+/** Motivo mínimo para rejeitar ou pedir ajuste (CA-03.2). */
+export const MOTIVO_MINIMO_DA_DECISAO = 10;
+
+const STATUS_POR_ABA: Record<Exclude<RequestTab, 'todas'>, RequestStatus> = {
+  pendentes: 'PENDENTE',
+  aprovadas: 'APROVADA',
+  ajustes: 'EM_AJUSTE',
+  rejeitadas: 'REJEITADA',
+};
+
+const MENSAGEM_DE_SUCESSO: Record<DecisionAction, string> = {
+  aprovar: 'aprovada',
+  rejeitar: 'rejeitada',
+  ajuste: 'devolvida para ajuste',
+};
+
+@Component({
+  selector: 'app-requests',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RightDrawerComponent, PageHeaderComponent],
+  templateUrl: './requests.component.html',
+  styleUrl: './requests.component.scss',
+})
+export class RequestsComponent implements OnInit {
+  protected readonly requestsService = inject(RequestsService);
+  private readonly authService = inject(AuthService);
+  private readonly settingsService = inject(SettingsService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  goToCreatePage(): void {
+    this.router.navigate(['/solicitacoes/nova']);
+  }
+
+  constructor() {
+    const params = this.route.snapshot.queryParams;
+    if (params && params['criada'] === 'true') {
+      setTimeout(() => {
+        this.showToast('Nova solicitação submetida com sucesso à esteira de aprovação!', 'success');
+      }, 100);
+    }
+  }
+
+  // Filtros e navegação
+  readonly currentTab = signal<RequestTab>('todas');
+  readonly searchQuery = signal<string>('');
+  readonly selectedCategory = signal<string>('TODAS');
+  readonly selectedCostCenter = signal<string>('TODOS');
+  readonly sortBy = signal<RequestSort>('recentes');
+  readonly showKpis = signal<boolean>(true);
+
+  readonly headerTabs = computed<PageHeaderTab[]>(() => {
+    const s = this.requestsService.stats();
+    return [
+      { id: 'todas', label: 'Todas', icon: 'apps', badge: s.total },
+      { id: 'pendentes', label: 'Em Análise', icon: 'hourglass_top', badge: s.pendentes, badgeVariant: 'warning' },
+      { id: 'aprovadas', label: 'Aprovadas', icon: 'verified', badge: s.aprovadas, badgeVariant: 'success' },
+      { id: 'ajustes', label: 'Ajustes', icon: 'edit_note', badge: s.ajustes, badgeVariant: 'adjust' },
+      { id: 'rejeitadas', label: 'Recusadas', icon: 'cancel', badge: s.rejeitadas, badgeVariant: 'danger' },
+    ];
+  });
+
+  // Seleção e paginação
+  readonly selectedIds = signal<Set<string>>(new Set());
+  readonly currentPage = signal<number>(1);
+  readonly pageSize = signal<number>(10);
+
+  // Drawers
+  readonly isCreateDrawerOpen = signal<boolean>(false);
+  readonly isDetailDrawerOpen = signal<boolean>(false);
+  readonly selectedRequest = signal<RequestItem | null>(null);
+
+  // Modal / Modo de Edição pelo Solicitante
+  readonly isEditModalOpen = signal<boolean>(false);
+  readonly editingRequest = signal<RequestItem | null>(null);
+  readonly editFormTitulo = signal<string>('');
+  readonly editFormValor = signal<number | null>(null);
+  readonly editFormCategoria = signal<string>('');
+  readonly editFormCentroCustoId = signal<string>('');
+  readonly editFormJustificativa = signal<string>('');
+  readonly editFormFornecedor = signal<string>('');
+  readonly editFormErrors = signal<Record<string, string>>({});
+  readonly isSavingEdit = signal<boolean>(false);
+
+  // Toast
+  readonly toastMessage = signal<string | null>(null);
+  readonly toastType = signal<'success' | 'warning' | 'info'>('success');
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Formulário de criação (US-02)
+  readonly isSubmitting = signal<boolean>(false);
+  readonly formCategoria = signal<string>(this.requestsService.categories[0]?.id ?? '');
+  readonly formCentroCustoId = signal<string>('');
+  readonly formValor = signal<number | null>(null);
+  readonly formJustificativa = signal<string>('');
+  readonly formErrors = signal<Record<string, string>>({});
+  readonly justificativaMinima = JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE;
+
+  /** A justificativa longa só é exigida acima do limite base da categoria (RN02). */
+  readonly exigeJustificativaLonga = computed(() => {
+    const categoria = this.requestsService.categories.find((c) => c.id === this.formCategoria());
+    return categoria !== undefined && (this.formValor() ?? 0) > categoria.limiteBase;
+  });
+
+  // Detalhe: trilha (US-07) e decisão do aprovador (US-03)
+  readonly trailSteps = signal<ApprovalStep[]>([]);
+  readonly trailState = signal<LoadState>('carregando');
+  readonly decisionMotivo = signal<string>('');
+  readonly decisionError = signal<string | null>(null);
+  readonly isDeciding = signal<boolean>(false);
+  readonly motivoMinimo = MOTIVO_MINIMO_DA_DECISAO;
+
+  readonly stats = this.requestsService.stats;
+
+  readonly suggestedWorkflow = computed<WorkflowDestination>(() =>
+    fluxoDaAlcada(this.formValor() ?? 0, 'PENDENTE', this.requestsService.tiers()),
+  );
+
+  /** Pode decidir: aprovador, solicitação pendente e não ser o autor (SoD — CA-04.1). */
+  readonly canDecideSelected = computed(() => {
+    const solicitacao = this.selectedRequest();
+    const usuario = this.authService.currentUser();
+    return (
+      solicitacao !== null &&
+      solicitacao.status === 'PENDENTE' &&
+      podeDecidir(usuario?.role) &&
+      solicitacao.solicitante.id !== usuario?.id
+    );
+  });
+
+  /**
+   * Verifica se uma solicitação pertence ao usuário logado ou se o usuário tem privilégio de super admin / admin da empresa.
+   */
+  isRequestOwnedByCurrentUser(r: RequestItem): boolean {
+    if (this.settingsService.isPlatformSuperAdmin()) return true;
+    const user = this.authService.currentUser();
+    if (!user) return true;
+    // Administradores, Diretores e Gerentes Aprovadores da empresa podem ver as solicitações da organização
+    if (
+      user.role === 'ADMIN' ||
+      user.role === 'DIRETOR_CFO' ||
+      user.role === 'SUPER_USER' ||
+      user.role === 'APROVADOR_N2' ||
+      user.role === 'APROVADOR_N1'
+    ) {
+      return true;
+    }
+    const myId = user.id;
+    const myEmail = (user.email || '').trim().toLowerCase();
+    const myName = (user.name || '').trim().toLowerCase();
+
+    return (
+      (myId && r.solicitante.id === myId) ||
+      (myEmail && r.solicitante.id?.toLowerCase() === myEmail) ||
+      (myName && r.solicitante.nome?.trim().toLowerCase() === myName) ||
+      r.solicitante.nome === 'Você'
+    );
+  }
+
+  /**
+   * Permite editar se a solicitação for do usuário logado e estiver em status PENDENTE ou EM_AJUSTE.
+   */
+  canEditRequest(r: RequestItem | null): boolean {
+    if (!r) return false;
+    if (r.status !== 'PENDENTE' && r.status !== 'EM_AJUSTE') return false;
+    return this.isRequestOwnedByCurrentUser(r);
+  }
+
+  readonly filteredRequests = computed<RequestItem[]>(() => {
+    const aba = this.currentTab();
+    const busca = this.searchQuery().trim().toLowerCase();
+    const categoria = this.selectedCategory();
+    const centro = this.selectedCostCenter();
+
+    const lista = this.requestsService.requests().filter(
+      (r) =>
+        this.isRequestOwnedByCurrentUser(r) &&
+        (aba === 'todas' || r.status === STATUS_POR_ABA[aba]) &&
+        (categoria === 'TODAS' || r.categoria === categoria) &&
+        (centro === 'TODOS' || r.centroCustoId === centro) &&
+        (!busca ||
+          [r.codigo, r.titulo, r.centroCustoNome, r.solicitante.nome].some((campo) =>
+            campo.toLowerCase().includes(busca),
+          )),
+    );
+    return ordenar(lista, this.sortBy());
+  });
+
+  readonly paginatedRequests = computed<RequestItem[]>(() => {
+    const inicio = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredRequests().slice(inicio, inicio + this.pageSize());
+  });
+
+  readonly totalPages = computed<number>(() =>
+    Math.max(1, Math.ceil(this.filteredRequests().length / this.pageSize())),
+  );
+
+  readonly isAllSelected = computed<boolean>(() => {
+    const itens = this.paginatedRequests();
+    const selecionados = this.selectedIds();
+    return itens.length > 0 && itens.every((item) => selecionados.has(item.id));
+  });
+
+  ngOnInit(): void {
+    this.requestsService.load();
+  }
+
+  reload(): void {
+    this.requestsService.load();
+  }
+
+  // Filtros
+  setTab(tab: RequestTab): void {
+    this.currentTab.set(tab);
+    this.currentPage.set(1);
+  }
+
+  setSearchQuery(query: string): void {
+    this.searchQuery.set(query);
+    this.currentPage.set(1);
+  }
+
+  setCategoryFilter(categoria: string): void {
+    this.selectedCategory.set(categoria);
+    this.currentPage.set(1);
+  }
+
+  setCostCenterFilter(centro: string): void {
+    this.selectedCostCenter.set(centro);
+    this.currentPage.set(1);
+  }
+
+  clearFilters(): void {
+    this.setTab('todas');
+    this.setSearchQuery('');
+    this.setCategoryFilter('TODAS');
+    this.setCostCenterFilter('TODOS');
+  }
+
+  setSortBy(sort: RequestSort): void {
+    this.sortBy.set(sort);
+  }
+
+  setPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) {
+      this.currentPage.set(page);
+    }
+  }
+
+  setPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.currentPage.set(1);
+  }
+
+  // Seleção
+  toggleSelectAll(): void {
+    const selecionados = new Set(this.selectedIds());
+    const itens = this.paginatedRequests();
+    const marcar = !this.isAllSelected();
+    for (const item of itens) {
+      if (marcar) {
+        selecionados.add(item.id);
+      } else {
+        selecionados.delete(item.id);
+      }
+    }
+    this.selectedIds.set(selecionados);
+  }
+
+  toggleSelect(id: string): void {
+    const selecionados = new Set(this.selectedIds());
+    if (!selecionados.delete(id)) {
+      selecionados.add(id);
+    }
+    this.selectedIds.set(selecionados);
+  }
+
+  // Criação
+  openCreateDrawer(): void {
+    this.resetCreateForm();
+    this.isCreateDrawerOpen.set(true);
+  }
+
+  closeCreateDrawer(): void {
+    this.isCreateDrawerOpen.set(false);
+  }
+
+  submitNewRequest(): void {
+    const erros = this.validarFormulario();
+    this.formErrors.set(erros);
+    if (Object.keys(erros).length > 0) {
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.requestsService
+      .create({
+        centroCustoId: this.formCentroCustoId(),
+        categoria: this.formCategoria(),
+        valor: this.formValor() ?? 0,
+        justificativa: this.formJustificativa().trim(),
+      })
+      .subscribe({
+        next: (criada) => {
+          this.isSubmitting.set(false);
+          this.closeCreateDrawer();
+          this.showToast(`Solicitação ${criada.codigo} criada e enviada para aprovação.`, 'success');
+          this.openDetailDrawer(criada);
+        },
+        error: (erro: unknown) => {
+          this.isSubmitting.set(false);
+          this.formErrors.set({ geral: mensagemDeErroDaApi(erro) });
+        },
+      });
+  }
+
+  // Detalhe e trilha
+  openDetailDrawer(request: RequestItem): void {
+    this.selectedRequest.set(request);
+    this.decisionMotivo.set('');
+    this.decisionError.set(null);
+    this.isDetailDrawerOpen.set(true);
+    this.loadTrail(request.id);
+  }
+
+  closeDetailDrawer(): void {
+    this.isDetailDrawerOpen.set(false);
+    this.selectedRequest.set(null);
+  }
+
+  loadTrail(id: string): void {
+    this.trailState.set('carregando');
+    this.requestsService.loadTrail(id).subscribe({
+      next: (etapas) => {
+        this.trailSteps.set(etapas);
+        this.trailState.set('pronto');
+      },
+      error: () => this.trailState.set('erro'),
+    });
+  }
+
+  // Decisão (T02 a T04)
+  decide(acao: DecisionAction): void {
+    const solicitacao = this.selectedRequest();
+    if (!solicitacao) {
+      return;
+    }
+    const motivo = this.decisionMotivo().trim();
+    if (acao !== 'aprovar' && motivo.length < MOTIVO_MINIMO_DA_DECISAO) {
+      this.decisionError.set(`Informe um motivo com pelo menos ${MOTIVO_MINIMO_DA_DECISAO} caracteres.`);
+      return;
+    }
+
+    this.decisionError.set(null);
+    this.isDeciding.set(true);
+    this.requestsService.decide(solicitacao, acao, acao === 'aprovar' ? undefined : motivo).subscribe({
+      next: (atualizada) => {
+        this.isDeciding.set(false);
+        this.selectedRequest.set(atualizada);
+        this.decisionMotivo.set('');
+        this.loadTrail(atualizada.id);
+        this.showToast(`Solicitação ${atualizada.codigo} ${MENSAGEM_DE_SUCESSO[acao]}.`, 'success');
+      },
+      error: (erro: unknown) => {
+        this.isDeciding.set(false);
+        this.decisionError.set(mensagemDeErroDaApi(erro));
+      },
+    });
+  }
+
+  openEditModal(req: RequestItem, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.editingRequest.set(req);
+    this.editFormTitulo.set(req.titulo);
+    this.editFormValor.set(req.valor);
+    this.editFormCategoria.set(req.categoria);
+    this.editFormCentroCustoId.set(req.centroCustoId);
+    this.editFormJustificativa.set(req.descricao);
+    this.editFormFornecedor.set(req.fornecedor || '');
+    this.editFormErrors.set({});
+    this.isEditModalOpen.set(true);
+  }
+
+  closeEditModal(): void {
+    this.isEditModalOpen.set(false);
+    this.editingRequest.set(null);
+    this.editFormErrors.set({});
+  }
+
+  saveEditRequest(): void {
+    const req = this.editingRequest();
+    if (!req) return;
+
+    const errors: Record<string, string> = {};
+    const valor = this.editFormValor();
+    const titulo = this.editFormTitulo().trim();
+    const justificativa = this.editFormJustificativa().trim();
+
+    if (!titulo) errors['titulo'] = 'Informe o título da solicitação.';
+    if (!this.editFormCentroCustoId()) errors['centroCusto'] = 'Selecione o centro de custo.';
+    if (!this.editFormCategoria()) errors['categoria'] = 'Selecione a categoria.';
+    if (valor === null || !(valor > 0)) errors['valor'] = 'Informe um valor válido maior que zero.';
+    if (!justificativa) errors['justificativa'] = 'Informe a justificativa.';
+
+    this.editFormErrors.set(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    this.isSavingEdit.set(true);
+    const atualizado = this.requestsService.updateRequest(req.id, {
+      titulo,
+      descricao: justificativa,
+      categoria: this.editFormCategoria(),
+      centroCustoId: this.editFormCentroCustoId(),
+      valor: valor ?? req.valor,
+      fornecedor: this.editFormFornecedor().trim() || undefined,
+    });
+
+    this.isSavingEdit.set(false);
+    this.closeEditModal();
+    if (atualizado) {
+      if (this.selectedRequest()?.id === req.id) {
+        this.selectedRequest.set(atualizado);
+        this.loadTrail(atualizado.id);
+      }
+      this.showToast(
+        `Solicitação ${atualizado.codigo} atualizada e reenviada com sucesso para a esteira!`,
+        'success',
+      );
+    }
+  }
+
+  // Apresentação
+  getStatusBadgeClass(status: RequestStatus): string {
+    const classes: Record<RequestStatus, string> = {
+      APROVADA: 'badge-success',
+      PENDENTE: 'badge-warning',
+      EM_AJUSTE: 'badge-adjust',
+      REJEITADA: 'badge-danger',
+    };
+    return classes[status];
+  }
+
+  getStatusBadgeVariant(status: RequestStatus): 'success' | 'warning' | 'neutral' {
+    if (status === 'APROVADA') return 'success';
+    return status === 'PENDENTE' ? 'warning' : 'neutral';
+  }
+
+  getStepStatusIcon(step: ApprovalStep): string {
+    const icones: Record<ApprovalStep['status'], string> = {
+      CONCLUIDA: 'check_circle',
+      EM_ANALISE: 'hourglass_top',
+      AJUSTE: 'edit_note',
+      REJEITADA: 'cancel',
+      PENDENTE: 'radio_button_unchecked',
+    };
+    return icones[step.status];
+  }
+
+  toggleKpis(): void {
+    this.showKpis.update((visivel) => !visivel);
+  }
+
+  showToast(message: string, type: 'success' | 'warning' | 'info' = 'success'): void {
+    this.clearToastTimer();
+    this.toastMessage.set(message);
+    this.toastType.set(type);
+    this.toastTimer = setTimeout(() => this.toastMessage.set(null), 4000);
+  }
+
+  closeToast(): void {
+    this.clearToastTimer();
+    this.toastMessage.set(null);
+  }
+
+  private clearToastTimer(): void {
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+  }
+
+  private resetCreateForm(): void {
+    this.formCategoria.set(this.requestsService.categories[0]?.id ?? '');
+    this.formCentroCustoId.set(this.requestsService.costCenters()[0]?.id ?? '');
+    this.formValor.set(null);
+    this.formJustificativa.set('');
+    this.formErrors.set({});
+  }
+
+  private validarFormulario(): Record<string, string> {
+    const erros: Record<string, string> = {};
+    const valor = this.formValor();
+    const justificativa = this.formJustificativa().trim();
+
+    if (!this.formCentroCustoId()) {
+      erros['centroCusto'] = 'Selecione o centro de custo.';
+    }
+    if (!this.formCategoria()) {
+      erros['categoria'] = 'Selecione a categoria da despesa.';
+    }
+    if (valor === null || !(valor > 0) || !temAteDuasCasasDecimais(valor)) {
+      erros['valor'] = 'Informe um valor maior que R$ 0,00, com até 2 casas decimais.';
+    }
+    if (!justificativa) {
+      erros['justificativa'] = 'Informe a justificativa da solicitação.';
+    } else if (!justificativaSuficiente(this.formCategoria(), valor ?? 0, justificativa)) {
+      erros['justificativa'] =
+        `Acima do limite da categoria, a justificativa exige ao menos ${JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE} caracteres (atual: ${justificativa.length}).`;
+    }
+    return erros;
+  }
+}
+
+function temAteDuasCasasDecimais(valor: number): boolean {
+  return Math.abs(Math.round(valor * 100) - valor * 100) < 1e-6;
+}
+
+function ordenar(lista: RequestItem[], criterio: RequestSort): RequestItem[] {
+  const comparadores: Record<RequestSort, (a: RequestItem, b: RequestItem) => number> = {
+    maior_valor: (a, b) => b.valor - a.valor,
+    menor_valor: (a, b) => a.valor - b.valor,
+    recentes: (a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime(),
+  };
+  return [...lista].sort(comparadores[criterio]);
+}
