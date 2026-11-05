@@ -119,8 +119,10 @@ async function bootstrap() {
   const origensPermitidas = (process.env['WEB_URL'] ?? 'http://localhost:4200').split(',').map((o) => o.trim());
   app.enableCors({ origin: origensPermitidas });
   const port = process.env.PORT || 3000;
+  const commitSha = process.env['RENDER_GIT_COMMIT'] ?? process.env['COMMIT_SHA'] ?? 'dev';
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}/${globalPrefix}`);
+  Logger.log(`🔖 Versão / Commit SHA ativo: ${commitSha}`);
   void seedDeveloperAccess(app);
 }
 
