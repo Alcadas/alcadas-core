@@ -175,6 +175,18 @@ O arquivo [`render.yaml`](render.yaml) na raiz do repositório configura o Web S
 - **Variáveis de Ambiente:** `NODE_ENV=production`, `PORT=3000`, `WEB_URL`
 - **Rastreabilidade:** O Render injeta automaticamente a variável `RENDER_GIT_COMMIT`, cujo SHA é exibido nos logs de inicialização da API e no painel de deploy do Render.
 
+### Publicação no Firebase Hosting & Security Rules (Plano Spark — Custo Zero)
+
+O arquivo [`firebase.json`](firebase.json) configura o deploy do frontend Angular e as regras estritas do Firestore:
+- **Hosting SPA:** Aponta para `dist/apps/web/browser` com `rewrites` redirecionando todas as rotas (`**`) para `/index.html`, evitando erro 404 em rotas como `/solicitacoes`.
+- **Security Rules Deny-All:** [`firestore.rules`](firestore.rules) bloqueia qualquer leitura ou gravação direta pelo navegador (`allow read, write: if false;`), garantindo que o acesso ocorra exclusivamente através da API autenticada.
+- **Deploy:**
+  ```bash
+  # Deploy de regras e frontend
+  npx firebase-tools deploy --only firestore:rules,hosting
+  ```
+Para detalhes completos de arquitetura e limites do plano Spark, consulte o [Guia do Firebase Hosting (docs/cloud/firebase-spark-hosting.md)](docs/cloud/firebase-spark-hosting.md).
+
 ---
 
 ## 🤝 Como Contribuir
