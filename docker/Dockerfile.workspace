@@ -13,8 +13,8 @@ RUN npm ci --prefer-offline --no-audit && \
     npm cache clean --force && \
     rm -rf /root/.npm
 
-# Script de entrypoint
+# Script de entrypoint com conversao de quebras de linha para compatibilidade Windows (CRLF -> LF)
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN dos2unix /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
