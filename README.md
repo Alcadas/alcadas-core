@@ -156,7 +156,7 @@ Antes de submeter código ou criar uma branch, leia atentamente nosso [**Guia de
 Para aprofundamento na especificação do produto, consulte os seguintes artefatos:
 
 - [**Arquitetura do Sistema**](docs/ARCHITECTURE.md): Diagramas de sequência, máquina de estados e trilha criptográfica.
-- [**Repositório de Documentação (`alcadas-docs`)**](../alcadas-docs): Requisitos funcionais, regras de negócio e histórias de usuário mantidos no MkDocs.
+- [**Repositório de Documentação (`alcadas-docs`)**](https://github.com/Alcadas/alcadas-docs): Requisitos funcionais, regras de negócio e histórias de usuário mantidos no MkDocs.
 
 ---
 
