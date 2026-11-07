@@ -154,6 +154,17 @@ export class ApprovalsComponent {
         return false;
       }
 
+      // 3. Regra de Etapa Corrente (Issue #66):
+      // Apenas o aprovador da etapa corrente visualiza a solicitação em /aprovacoes
+      if (
+        user?.role !== 'ADMIN' &&
+        user?.role !== 'SUPER_USER' &&
+        r.aprovadorEsperadoPapel &&
+        user?.role !== r.aprovadorEsperadoPapel
+      ) {
+        return false;
+      }
+
       return true;
     });
   });

@@ -430,6 +430,8 @@ export class RequestsService {
           valor: payload.valor,
           justificativa: justificativaCompleta,
           fornecedor: payload.fornecedor,
+          fluxoId: payload.fluxoId,
+          fluxoNome: payload.fluxoNome,
           solicitanteNome: user?.name,
           solicitanteCargo: user?.profissaoNome || user?.role || 'Solicitante',
         })
@@ -588,6 +590,10 @@ export class RequestsService {
         if (req.id !== id) return req;
         updated = true;
 
+        const etapaAtual = req.etapaAtual ?? 1;
+        const totalEtapas = req.totalEtapas ?? 1;
+        const isAvanco = etapaAtual < totalEtapas;
+
         const currentStepIndex = req.fluxoDestinado.etapas.findIndex(
           (e) => e.status === 'PENDENTE' || e.status === 'EM_ANALISE' || e.status === 'AJUSTE',
         );
@@ -612,8 +618,35 @@ export class RequestsService {
               },
             };
           }
+          if (isAvanco && idx === currentStepIndex + 1) {
+            return {
+              ...step,
+              status: 'EM_ANALISE' as const,
+            };
+          }
           return step;
         });
+
+        if (isAvanco) {
+          const proximaEtapa = etapaAtual + 1;
+          const proximoPapel = proximaEtapa === 2 ? 'APROVADOR_N2' : 'DIRETOR_CFO';
+          return {
+            ...req,
+            etapaAtual: proximaEtapa,
+            aprovadorEsperadoPapel: proximoPapel,
+            status: 'PENDENTE' as const,
+            statusLabel: 'Em análise',
+            statusIcon: 'hourglass_top',
+            versao: req.versao + 1,
+            dataAtualizacao: nowIso,
+            fluxoDestinado: {
+              ...req.fluxoDestinado,
+              etapaAtualNumero: proximaEtapa + 1,
+              etapaAtualNome: 'Aguardando próximo nível',
+              etapas: updatedEtapas,
+            },
+          };
+        }
 
         return {
           ...req,

@@ -110,6 +110,7 @@ export class CreateRequestComponent {
     this.isSubmitting.set(true);
 
     setTimeout(() => {
+      const suggested = this.suggestedWorkflow();
       this.requestsService.createRequest({
         titulo: this.formTitulo().trim(),
         categoria: this.formCategoria(),
@@ -117,6 +118,7 @@ export class CreateRequestComponent {
         valor: this.formValor() || 0,
         prioridade: this.formPrioridade(),
         justificativa: this.formJustificativa().trim(),
+        fluxoNome: suggested?.nome,
         anexos: this.formAnexos(),
       });
 
