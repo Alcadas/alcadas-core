@@ -100,6 +100,7 @@ function mapRoleToClaim(role: string): string {
 }
 
 @Controller()
+@UseGuards(JwtAuthGuard)
 export class SaasController {
   constructor(
     private readonly firestore: FirestoreService,
