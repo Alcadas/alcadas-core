@@ -90,6 +90,21 @@ export class JwtAuthGuard implements CanActivate {
               ? payload['maxApprovalLimit']
               : headerLimit;
 
+        const costCenterId =
+          (payload['costCenterId'] as string) ||
+          (payload['centroCustoId'] as string) ||
+          (payload['departmentCostCenter'] as string) ||
+          (process.env['NODE_ENV'] !== 'production'
+            ? this.getHeaderString(headers, 'x-cost-center-id')
+            : undefined);
+
+        const departmentId =
+          (payload['departmentId'] as string) ||
+          (payload['departamentoId'] as string) ||
+          (process.env['NODE_ENV'] !== 'production'
+            ? this.getHeaderString(headers, 'x-department-id')
+            : undefined);
+
         return {
           userId,
           tenantId,
@@ -98,6 +113,8 @@ export class JwtAuthGuard implements CanActivate {
           role,
           level,
           maxApprovalLimit,
+          costCenterId: costCenterId || null,
+          departmentId: departmentId || null,
         };
       } catch (err) {
         if (err instanceof UnauthorizedException) {
@@ -117,6 +134,9 @@ export class JwtAuthGuard implements CanActivate {
       const parsedLimit =
         rawLimit !== undefined && rawLimit !== '' ? Number(rawLimit) : headerLimit;
 
+      const costCenterId = this.getHeaderString(headers, 'x-cost-center-id');
+      const departmentId = this.getHeaderString(headers, 'x-department-id');
+
       return {
         userId,
         tenantId,
@@ -124,6 +144,8 @@ export class JwtAuthGuard implements CanActivate {
         level: this.inferLevel(role),
         maxApprovalLimit:
           parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+        costCenterId: costCenterId || null,
+        departmentId: departmentId || null,
       };
     }
 
@@ -150,12 +172,16 @@ export class JwtAuthGuard implements CanActivate {
       const tenantId = this.getHeaderString(headers, 'x-tenant-id') || 'startop';
       const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'APROVADOR_N2';
       const role = this.normalizeRole(roleHeader);
+      const costCenterId = this.getHeaderString(headers, 'x-cost-center-id');
+      const departmentId = this.getHeaderString(headers, 'x-department-id');
       return {
         userId: this.getHeaderString(headers, 'x-user-id') || 'usr-aprov-01',
         tenantId,
         role,
         level: this.inferLevel(role),
         maxApprovalLimit: headerLimit,
+        costCenterId: costCenterId || null,
+        departmentId: departmentId || null,
       };
     }
 

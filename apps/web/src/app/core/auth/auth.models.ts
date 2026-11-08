@@ -17,6 +17,11 @@ export interface AuthUser {
   profissaoNome?: string;
   /** Lista de chaves de funcionalidades liberadas para este usuário na empresa. */
   allowedFeatures?: string[];
+  /** Departamento e Centro de Custo de lotação do colaborador (Cenário 2). */
+  departmentId?: string;
+  departmentName?: string;
+  costCenterId?: string;
+  approvalLimit?: number;
 }
 
 /** Sessão guardada no sessionStorage enquanto a aba estiver aberta. */
