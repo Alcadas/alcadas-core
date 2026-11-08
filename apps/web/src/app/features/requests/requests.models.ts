@@ -73,6 +73,12 @@ export interface RequestItem {
     cargo: string;
   };
   anexos: RequestAttachment[];
+  fluxoId?: string | null;
+  fluxoNome?: string | null;
+  etapaAtual?: number;
+  totalEtapas?: number;
+  aprovadorEsperadoPapel?: string | null;
+  aprovadorEsperadoNivel?: string | null;
   fluxoDestinado: WorkflowDestination;
 }
 
@@ -109,6 +115,10 @@ export interface CreateRequestDto {
   valor: number;
   justificativa: string;
   fornecedor?: string;
+  fluxoId?: string;
+  fluxoNome?: string;
+  solicitanteNome?: string;
+  solicitanteCargo?: string;
 }
 
 /** Dados estendidos da página de criação local/API. */
@@ -120,6 +130,8 @@ export interface CreateRequestFormPayload {
   prioridade?: RequestPriority;
   justificativa: string;
   fornecedor?: string;
+  fluxoId?: string;
+  fluxoNome?: string;
   anexos?: Array<{ nome: string; tamanho: string; tipo: string }>;
 }
 

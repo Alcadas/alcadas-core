@@ -68,10 +68,12 @@ export class MaquinaEstadosService {
     }
 
     const agora = new Date().toISOString();
+    const alteracoesExtras = params.alteracoes ? params.alteracoes(solicitacao) : {};
+    const statusDestino = alteracoesExtras.status ?? transicao.destino;
     const atualizada: SolicitacaoResponseDto = {
       ...solicitacao,
-      ...(params.alteracoes ? params.alteracoes(solicitacao) : {}),
-      status: transicao.destino,
+      ...alteracoesExtras,
+      status: statusDestino,
       versao: solicitacao.versao + 1,
       updatedAt: agora,
     };

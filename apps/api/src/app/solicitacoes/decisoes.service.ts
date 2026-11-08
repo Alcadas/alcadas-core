@@ -67,21 +67,70 @@ export class DecisoesService {
       validar: async (solicitacao) => {
         await this.assertSegregationOfDuties(user, solicitacao);
         alcada = await this.assertApproverWithinCeiling(user, solicitacao);
+        this.assertCurrentStageApprover(user, solicitacao);
       },
-      alteracoes: () => ({
-        aprovadorId: user.userId,
-        decididoPorId: user.userId,
-        ...(observacao ? { observacaoDecisao: observacao } : {}),
-      }),
-      payload: (solicitacao) => ({
-        solicitacaoId: solicitacao.id,
-        aprovadorId: user.userId,
-        cargo: user.role,
-        nivelAlcada: alcada?.level ?? null,
-        limiteAlcada: alcada?.maxAmount ?? null,
-        valor: solicitacao.valor,
-        observacao: observacao ?? null,
-      }),
+      alteracoes: (solicitacao) => {
+        const etapaAtual = solicitacao.etapaAtual ?? 1;
+        const totalEtapas = solicitacao.totalEtapas ?? 1;
+        const isAvanco = etapaAtual < totalEtapas;
+
+        if (isAvanco) {
+          const proximaEtapa = etapaAtual + 1;
+          const proximoNivel: ApprovalLevel = proximaEtapa === 2 ? 'N2' : 'N3';
+          const proximoPapel = proximaEtapa === 2 ? 'APROVADOR_N2' : 'DIRETOR_CFO';
+
+          return {
+            aprovadorId: user.userId,
+            decididoPorId: user.userId,
+            etapaAtual: proximaEtapa,
+            aprovadorEsperadoPapel: proximoPapel,
+            aprovadorEsperadoNivel: proximoNivel,
+            status: 'PENDENTE',
+            ...(observacao ? { observacaoDecisao: observacao } : {}),
+          };
+        }
+
+        return {
+          aprovadorId: user.userId,
+          decididoPorId: user.userId,
+          status: 'APROVADA',
+          ...(observacao ? { observacaoDecisao: observacao } : {}),
+        };
+      },
+      payload: (solicitacao) => {
+        const etapaAtual = solicitacao.etapaAtual ?? 1;
+        const totalEtapas = solicitacao.totalEtapas ?? 1;
+        const isAvanco = etapaAtual < totalEtapas;
+
+        if (isAvanco) {
+          const proximaEtapa = etapaAtual + 1;
+          const proximoPapel = proximaEtapa === 2 ? 'APROVADOR_N2' : 'DIRETOR_CFO';
+          return {
+            solicitacaoId: solicitacao.id,
+            aprovadorId: user.userId,
+            cargo: user.role,
+            nivelAlcada: alcada?.level ?? null,
+            etapaAprovada: etapaAtual,
+            proximaEtapa,
+            aprovadorEsperadoPapel: proximoPapel,
+            avancoFluxo: true,
+            valor: solicitacao.valor,
+            observacao: observacao ?? null,
+          };
+        }
+
+        return {
+          solicitacaoId: solicitacao.id,
+          aprovadorId: user.userId,
+          cargo: user.role,
+          nivelAlcada: alcada?.level ?? null,
+          limiteAlcada: alcada?.maxAmount ?? null,
+          etapaAprovada: etapaAtual,
+          aprovacaoFinal: true,
+          valor: solicitacao.valor,
+          observacao: observacao ?? null,
+        };
+      },
     });
   }
 
@@ -141,6 +190,9 @@ export class DecisoesService {
       fornecedor:
         dto.fornecedor !== undefined ? (dto.fornecedor ?? undefined) : solicitacao.fornecedor,
       status: 'PENDENTE',
+      etapaAtual: 1,
+      aprovadorEsperadoPapel: 'APROVADOR_N1',
+      aprovadorEsperadoNivel: 'N1',
       versao: solicitacao.versao + 1,
       updatedAt: agora,
     };
@@ -171,6 +223,8 @@ export class DecisoesService {
         categoria: atualizada.categoria,
         centroCustoId: atualizada.centroCustoId,
         justificativa: atualizada.justificativa,
+        etapaAtual: 1,
+        fluxoReiniciado: true,
       },
     });
 
@@ -328,12 +382,33 @@ export class DecisoesService {
       }
     }
 
-    if (!unlimited && maxAmount !== null && solicitacao.valor > maxAmount) {
+    const isEtapaIntermediaria =
+      (solicitacao.etapaAtual ?? 1) < (solicitacao.totalEtapas ?? 1) &&
+      solicitacao.aprovadorEsperadoPapel === user.role;
+
+    if (!isEtapaIntermediaria && !unlimited && maxAmount !== null && solicitacao.valor > maxAmount) {
       throw new ForbiddenException(
         `CA-03.1: O valor da solicitação (R$ ${solicitacao.valor.toFixed(2)}) ultrapassa o teto de alçada do aprovador (${level}: R$ ${maxAmount.toFixed(2)}). O pedido permanece PENDENTE para o nível superior.`,
       );
     }
 
     return { level, maxAmount: maxAmount ?? null };
+  }
+
+  /**
+   * Confere se o usuário autenticado corresponde ao aprovador esperado para a etapa corrente da esteira.
+   */
+  private assertCurrentStageApprover(
+    user: AuthenticatedUser,
+    solicitacao: SolicitacaoResponseDto,
+  ): void {
+    if (user.role === 'ADMIN' || user.role === 'SUPER_USER') {
+      return;
+    }
+    if (solicitacao.aprovadorEsperadoPapel && user.role !== solicitacao.aprovadorEsperadoPapel) {
+      throw new ForbiddenException(
+        `Apenas o aprovador da etapa corrente (${solicitacao.aprovadorEsperadoPapel}) possui competência para deliberar nesta fase da esteira.`,
+      );
+    }
   }
 }

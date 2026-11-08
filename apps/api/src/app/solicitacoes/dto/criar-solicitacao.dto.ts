@@ -29,4 +29,12 @@ export class CriarSolicitacaoDto {
   @IsString()
   @IsOptional()
   solicitanteCargo?: string;
+
+  @IsString()
+  @IsOptional()
+  fluxoId?: string;
+
+  @IsString()
+  @IsOptional()
+  fluxoNome?: string;
 }

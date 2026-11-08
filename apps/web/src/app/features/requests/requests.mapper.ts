@@ -120,7 +120,19 @@ export function paraRequestItem(dto: SolicitacaoResponseDto, contexto: ContextoD
         icone: 'picture_as_pdf',
       },
     ],
-    fluxoDestinado: fluxoDaAlcada(dto.valor, dto.status, contexto.tetos),
+    fluxoId: dto.fluxoId,
+    fluxoNome: dto.fluxoNome,
+    etapaAtual: dto.etapaAtual,
+    totalEtapas: dto.totalEtapas,
+    aprovadorEsperadoPapel: dto.aprovadorEsperadoPapel,
+    aprovadorEsperadoNivel: dto.aprovadorEsperadoNivel,
+    fluxoDestinado: fluxoDaAlcada(dto.valor, dto.status, contexto.tetos, {
+      fluxoNome: dto.fluxoNome,
+      etapaAtual: dto.etapaAtual,
+      totalEtapas: dto.totalEtapas,
+      aprovadorEsperadoPapel: dto.aprovadorEsperadoPapel,
+      aprovadorEsperadoNivel: dto.aprovadorEsperadoNivel,
+    }),
   };
 }
 
@@ -138,13 +150,57 @@ export function fluxoDaAlcada(
   valor: number,
   status: RequestStatus,
   tetos: readonly ApprovalTier[],
+  metadata?: {
+    fluxoNome?: string | null;
+    etapaAtual?: number;
+    totalEtapas?: number;
+    aprovadorEsperadoPapel?: string | null;
+    aprovadorEsperadoNivel?: string | null;
+  },
 ): WorkflowDestination {
   const nivel = nivelQueDecide(valor, tetos);
   const decisao = ETAPA_DA_DECISAO[status] ?? ETAPA_DA_DECISAO.PENDENTE;
-  const nomeDoNivel = nivel
-    ? `Alçada ${nivel.level} — ${nivel.unlimited || nivel.maxAmount === null ? 'sem limite' : `até ${moeda.format(nivel.maxAmount)}`}`
-    : 'Alçada a definir (tetos não configurados)';
+  const nomeDoNivel = metadata?.fluxoNome
+    ? metadata.fluxoNome
+    : nivel
+      ? `Alçada ${nivel.level} — ${nivel.unlimited || nivel.maxAmount === null ? 'sem limite' : `até ${moeda.format(nivel.maxAmount)}`}`
+      : 'Alçada a definir (tetos não configurados)';
 
+  const etapaAtual = metadata?.etapaAtual ?? 1;
+
+  // Se metadata trouxe totalEtapas explícito > 2
+  if (metadata?.totalEtapas && metadata.totalEtapas > 2) {
+    const etapas: ApprovalStep[] = [
+      { numero: 1, nome: 'Submissão', papel: 'Solicitante', status: 'CONCLUIDA' },
+      {
+        numero: 2,
+        nome: 'Triagem N1',
+        papel: 'Coordenador',
+        status: status === 'APROVADA' || etapaAtual > 1 ? 'CONCLUIDA' : decisao.status,
+      },
+      {
+        numero: 3,
+        nome: 'Alçada N2',
+        papel: 'Gerente',
+        status: status === 'APROVADA' || etapaAtual > 2 ? 'CONCLUIDA' : etapaAtual === 2 ? decisao.status : 'PENDENTE',
+      },
+      {
+        numero: 4,
+        nome: 'Homologação N3',
+        papel: 'Diretoria / CFO',
+        status: status === 'APROVADA' ? 'CONCLUIDA' : etapaAtual === 3 ? decisao.status : 'PENDENTE',
+      },
+    ];
+    return {
+      nome: nomeDoNivel,
+      totalEtapas: etapas.length,
+      etapaAtualNumero: status === 'APROVADA' ? etapas.length : etapaAtual + 1,
+      etapaAtualNome: status === 'APROVADA' ? 'Aprovada' : decisao.atual,
+      etapas,
+    };
+  }
+
+  // Padrão de 2 etapas (Submissão + Decisão do Nível)
   return {
     nome: nomeDoNivel,
     totalEtapas: 2,
