@@ -1,6 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import {
   PageHeaderComponent,
   PageHeaderTab,
@@ -30,10 +31,13 @@ export type ApprovalsTab = 'pendentes' | 'ajustes' | 'aprovadas' | 'todas';
   templateUrl: './approvals.component.html',
   styleUrl: './approvals.component.scss',
 })
-export class ApprovalsComponent {
+export class ApprovalsComponent implements OnInit, OnDestroy {
   readonly requestsService = inject(RequestsService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
+
+  private pollingSub: Subscription | null = null;
+  private visibilityListener: (() => void) | null = null;
 
   // Filtros e Navegação
   readonly currentTab = signal<ApprovalsTab>('pendentes');
@@ -85,6 +89,39 @@ export class ApprovalsComponent {
 
   constructor() {
     this.requestsService.ensureLoaded();
+  }
+
+  ngOnInit(): void {
+    this.requestsService.startPolling(8000);
+
+    this.pollingSub = this.requestsService.statusEvents$.subscribe((event) => {
+      if (event.type === 'NOVA' && event.request.status === 'PENDENTE') {
+        this.triggerToast(
+          'Nova Demanda',
+          `Solicitação ${event.request.codigo} aguardando sua revisão.`,
+          'info'
+        );
+      }
+    });
+
+    if (typeof document !== 'undefined') {
+      this.visibilityListener = () => {
+        if (document.visibilityState === 'visible') {
+          this.requestsService.loadSilent().subscribe();
+        }
+      };
+      document.addEventListener('visibilitychange', this.visibilityListener);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.requestsService.stopPolling();
+    this.pollingSub?.unsubscribe();
+    this.pollingSub = null;
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener);
+      this.visibilityListener = null;
+    }
   }
 
   // Abas do PageHeader

@@ -284,4 +284,40 @@ describe('ApprovalsComponent', () => {
       expect(elegiveis.some((r) => r.departamento === 'TI & Engenharia')).toBe(true);
     });
   });
+
+  describe('Polling Inteligente & Notificações na Esteira de Aprovação', () => {
+    it('inicia o polling ao carregar a tela e encerra no ngOnDestroy', () => {
+      const startSpy = jest.spyOn(requestsService, 'startPolling');
+      const stopSpy = jest.spyOn(requestsService, 'stopPolling');
+
+      component.ngOnInit();
+      expect(startSpy).toHaveBeenCalledWith(8000);
+
+      fixture.destroy();
+      expect(stopSpy).toHaveBeenCalled();
+    });
+
+    it('exibe notificação toast quando uma nova demanda pendente ingressa na esteira', () => {
+      component.ngOnInit();
+
+      // Emite evento simulando chegada de nova demanda via polling
+      (requestsService as unknown as { _statusEvents: { next: (val: unknown) => void } })[
+        '_statusEvents'
+      ].next({
+        type: 'NOVA',
+        request: {
+          id: 'sol-nova-099',
+          codigo: '#SOL-099',
+          status: 'PENDENTE',
+          titulo: 'Servidor Dedicado',
+        },
+      });
+
+      expect(component.toast()).toMatchObject({
+        title: 'Nova Demanda',
+        type: 'info',
+      });
+      expect(component.toast()?.message).toContain('#SOL-099');
+    });
+  });
 });

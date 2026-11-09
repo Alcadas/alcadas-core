@@ -5,7 +5,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import { eloDaApi, solicitacaoDaApi, tetoDaApi } from '../../../core/testing/api-fixtures';
 import { CONFIG_DE_TESTE } from '../../../core/testing/test-config';
-import { RequestItem } from '../requests.models';
+import { RequestItem, RequestStatusChangeEvent } from '../requests.models';
 import { RequestsService } from './requests.service';
 
 describe('RequestsService', () => {
@@ -121,5 +121,114 @@ describe('RequestsService', () => {
     http.expectOne('/api/solicitacoes/sol-001/trilha').flush([eloDaApi({ sequencia: 1 })]);
 
     expect(nomes).toEqual(['Solicitação criada']);
+  });
+
+  describe('Polling Inteligente (Abordagem 1)', () => {
+    it('loadSilent(): carrega silenciosamente sem alterar loadState para carregando', () => {
+      service.load();
+      responderCarga();
+      expect(service.loadState()).toBe('pronto');
+
+      let resultado: RequestItem[] = [];
+      service.loadSilent().subscribe((itens) => (resultado = itens));
+
+      // loadState deve permanecer 'pronto' durante a requisição silenciosa
+      expect(service.loadState()).toBe('pronto');
+
+      http
+        .expectOne('/api/solicitacoes?page=1&limit=50')
+        .flush([solicitacaoDaApi({ id: 'sol-001', status: 'PENDENTE' })]);
+
+      expect(service.loadState()).toBe('pronto');
+      expect(resultado).toHaveLength(1);
+    });
+
+    it('loadSilent(): detecta transição de PENDENTE para APROVADA e emite em statusEvents$', () => {
+      service.load();
+      responderCarga([solicitacaoDaApi({ id: 'sol-001', codigo: '#SOL-001', status: 'PENDENTE' })]);
+
+      const eventos: RequestStatusChangeEvent[] = [];
+      const sub = service.statusEvents$.subscribe((ev) => eventos.push(ev));
+
+      service.loadSilent().subscribe();
+      http
+        .expectOne('/api/solicitacoes?page=1&limit=50')
+        .flush([solicitacaoDaApi({ id: 'sol-001', codigo: '#SOL-001', status: 'APROVADA', versao: 2 })]);
+
+      expect(eventos).toHaveLength(1);
+      expect(eventos[0]).toMatchObject({
+        type: 'APROVADA',
+        statusAnterior: 'PENDENTE',
+      });
+      expect(eventos[0].request.id).toBe('sol-001');
+      expect(eventos[0].request.status).toBe('APROVADA');
+      sub.unsubscribe();
+    });
+
+    it('loadSilent(): detecta transição para REJEITADA e EM_AJUSTE', () => {
+      service.load();
+      responderCarga([
+        solicitacaoDaApi({ id: 'sol-001', codigo: '#SOL-001', status: 'PENDENTE' }),
+        solicitacaoDaApi({ id: 'sol-002', codigo: '#SOL-002', status: 'PENDENTE' }),
+      ]);
+
+      const eventos: RequestStatusChangeEvent[] = [];
+      const sub = service.statusEvents$.subscribe((ev) => eventos.push(ev));
+
+      service.loadSilent().subscribe();
+      http
+        .expectOne('/api/solicitacoes?page=1&limit=50')
+        .flush([
+          solicitacaoDaApi({ id: 'sol-001', codigo: '#SOL-001', status: 'REJEITADA', versao: 2 }),
+          solicitacaoDaApi({ id: 'sol-002', codigo: '#SOL-002', status: 'EM_AJUSTE', versao: 2 }),
+        ]);
+
+      expect(eventos).toHaveLength(2);
+      expect(eventos[0].type).toBe('REJEITADA');
+      expect(eventos[1].type).toBe('EM_AJUSTE');
+      sub.unsubscribe();
+    });
+
+    it('loadSilent(): detecta nova solicitação pendente que ingressa na esteira', () => {
+      service.load();
+      responderCarga([solicitacaoDaApi({ id: 'sol-001', codigo: '#SOL-001', status: 'PENDENTE' })]);
+
+      const eventos: RequestStatusChangeEvent[] = [];
+      const sub = service.statusEvents$.subscribe((ev) => eventos.push(ev));
+
+      service.loadSilent().subscribe();
+      http
+        .expectOne('/api/solicitacoes?page=1&limit=50')
+        .flush([
+          solicitacaoDaApi({ id: 'sol-001', codigo: '#SOL-001', status: 'PENDENTE' }),
+          solicitacaoDaApi({ id: 'sol-999', codigo: '#SOL-999', status: 'PENDENTE' }),
+        ]);
+
+      expect(eventos).toHaveLength(1);
+      expect(eventos[0]).toMatchObject({
+        type: 'NOVA',
+      });
+      expect(eventos[0].request.id).toBe('sol-999');
+      sub.unsubscribe();
+    });
+
+    it('startPolling() e stopPolling(): controlam o ciclo de vida da subscrição de polling', () => {
+      expect(service.isPolling).toBe(false);
+
+      service.startPolling(5000);
+      expect(service.isPolling).toBe(true);
+
+      // Chamar startPolling novamente reutiliza a mesma subscription (incrementa contador)
+      service.startPolling(5000);
+      expect(service.isPolling).toBe(true);
+
+      // Primeiro stopPolling apenas decrementa
+      service.stopPolling();
+      expect(service.isPolling).toBe(true);
+
+      // Segundo stopPolling encerra a subscription
+      service.stopPolling();
+      expect(service.isPolling).toBe(false);
+    });
   });
 });
