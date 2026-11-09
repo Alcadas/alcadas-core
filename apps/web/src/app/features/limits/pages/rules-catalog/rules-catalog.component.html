@@ -62,59 +62,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Tag Pills de Filtragem Rápida (Idêntico à Imagem 2) -->
-      <div class="quick-filter-pills">
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="selectedScopeFilter() === 'TODOS'"
-          (click)="selectedScopeFilter.set('TODOS')"
-        >
-          <span class="material-symbols-rounded pill-icon">home</span>
-          <span>Todas as Regras</span>
-        </button>
-
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="selectedScopeFilter() === 'TI & Engenharia'"
-          (click)="selectedScopeFilter.set('TI & Engenharia')"
-        >
-          <span class="material-symbols-rounded pill-icon">devices</span>
-          <span>TI & Capex</span>
-        </button>
-
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="selectedScopeFilter() === 'Operações Médicas'"
-          (click)="selectedScopeFilter.set('Operações Médicas')"
-        >
-          <span class="material-symbols-rounded pill-icon">calendar_today</span>
-          <span>Operacionais</span>
-        </button>
-
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="selectedScopeFilter() === 'Financeiro & Jurídico'"
-          (click)="selectedScopeFilter.set('Financeiro & Jurídico')"
-        >
-          <span class="material-symbols-rounded pill-icon">workspace_premium</span>
-          <span>Governança & Risco</span>
-        </button>
-
-        <button
-          type="button"
-          class="filter-pill"
-          [class.active]="selectedScopeFilter() === 'Todos os Departamentos'"
-          (click)="selectedScopeFilter.set('Todos os Departamentos')"
-        >
-          <span class="material-symbols-rounded pill-icon">link</span>
-          <span>Contratos Gerais</span>
-        </button>
-      </div>
     </div>
 
     <!-- Sub-Abas de Navegação (Idêntico a "Featured Tabs / Featured Pages" da Imagem 2) -->
@@ -136,7 +83,7 @@
         (click)="activeCatalogTab.set('templates')"
       >
         <span>Modelos Predefinidos</span>
-        <span class="subtab-counter">{{ modelos.length }}</span>
+        <span class="subtab-counter">{{ limitsService.ruleTemplatesState().length }}</span>
       </button>
 
       @if (activeCatalogTab() === 'editor' && editingRule(); as editRule) {
@@ -340,25 +287,24 @@
       </div>
 
       <div class="templates-grid">
-        @for (tpl of modelos; track tpl.id) {
+        @for (tpl of limitsService.ruleTemplatesState(); track tpl.title) {
           <article class="template-card">
             <div class="template-top">
-              <span class="type-pill" [ngClass]="'variant-' + categoryMeta[tpl.categoria].variant">
-                <span class="material-symbols-rounded pill-symbol">{{ categoryMeta[tpl.categoria].icon }}</span>
-                <span>{{ categoryMeta[tpl.categoria].label }}</span>
+              <span class="template-badge" [style.backgroundColor]="tpl.badgeColor + '18'" [style.color]="tpl.badgeColor">
+                {{ tpl.badge }}
               </span>
-              <span class="material-symbols-rounded template-icon">{{ tpl.icone }}</span>
+              <span class="material-symbols-rounded template-icon" [style.color]="tpl.badgeColor">{{ tpl.icon }}</span>
             </div>
 
-            <h4 class="template-title">{{ tpl.nome }}</h4>
-            <p class="template-desc">{{ tpl.descricao }}</p>
+            <h4 class="template-title">{{ tpl.title }}</h4>
+            <p class="template-desc">{{ tpl.description }}</p>
 
             <div class="template-footer">
-              <span class="template-usage">{{ tpl.faixas.length }} faixas · SLA {{ tpl.slaHoras }}h</span>
+              <span class="template-usage">Usado em {{ tpl.usageCount || 10 }} fluxos</span>
               <button
                 type="button"
                 class="btn-use-template"
-                (click)="useTemplateFromCatalog(tpl)"
+                (click)="useRuleTemplate(tpl)"
               >
                 <span>Usar Modelo</span>
                 <span class="material-symbols-rounded">arrow_forward</span>
@@ -734,7 +680,7 @@
             <span class="choice-icon bg-template"><span class="material-symbols-rounded">widgets</span></span>
             <strong>Usar Modelo Pronto</strong>
             <span>Escolha um modelo de mercado já com faixas de valor, centro de custo e aprovadores sugeridos. Basta ajustar.</span>
-            <span class="choice-tag">Recomendado · {{ modelos.length }} modelos</span>
+            <span class="choice-tag">Recomendado · {{ limitsService.ruleTemplatesState().length }} modelos</span>
           </button>
 
           <button type="button" class="wizard-choice-card" (click)="startFromScratch()">
@@ -749,23 +695,16 @@
       @if (wizardStep() === 'template') {
         <p class="wizard-intro">Selecione um modelo para pré-preencher a regra:</p>
         <div class="wizard-template-list">
-          @for (tpl of modelos; track tpl.id) {
-            <button type="button" class="wizard-template-item" (click)="selectTemplate(tpl)">
-              <span class="material-symbols-rounded tpl-icon">{{ tpl.icone }}</span>
+          @for (tpl of limitsService.ruleTemplatesState(); track tpl.title) {
+            <button type="button" class="wizard-template-item" (click)="useRuleTemplate(tpl)">
+              <span class="material-symbols-rounded tpl-icon" [style.color]="tpl.badgeColor">{{ tpl.icon }}</span>
               <span class="tpl-body">
-                <strong>{{ tpl.nome }}</strong>
-                <span class="tpl-desc">{{ tpl.descricao }}</span>
+                <strong>{{ tpl.title }}</strong>
+                <span class="tpl-desc">{{ tpl.description }}</span>
                 <span class="tpl-tiers">
-                  @for (f of tpl.faixas; track f.id) {
-                    <span class="tier-chip">
-                      @if (f.valorMaximo === null) {
-                        acima de {{ f.valorMinimo | currency:'BRL':'symbol':'1.0-0' }}
-                      } @else {
-                        até {{ f.valorMaximo | currency:'BRL':'symbol':'1.0-0' }}
-                      }
-                      → {{ rotuloPapel(f.papelAprovador) }}
-                    </span>
-                  }
+                  <span class="tier-chip" [style.backgroundColor]="tpl.badgeColor + '18'" [style.color]="tpl.badgeColor">
+                    {{ tpl.badge }}
+                  </span>
                 </span>
               </span>
               <span class="material-symbols-rounded tpl-arrow">chevron_right</span>

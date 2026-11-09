@@ -9,6 +9,7 @@ import {
   MODELOS_REGRAS_ALCADA,
   ModeloRegraAlcada,
   PAPEIS_APROVADOR_REGRA,
+  PapelAprovadorRegra,
   QUORUNS_REGRA,
   QuorumRegra,
   proximaFaixaRegra,
@@ -17,7 +18,9 @@ import {
 } from '@alcadas-core/models';
 import { mensagemDeErroDaApi } from '../../../../core/http/api-error';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { RuleTemplateItem } from '../../limits.models';
 import { LimitsService } from '../../services/limits.service';
+import { modeloExemploDaRegra } from './rule-template-examples';
 
 export type RuleCategoryType = CategoriaRegraAlcada;
 export type CreationMethodType = 'prompt' | 'manual' | 'document';
@@ -374,10 +377,46 @@ export class RulesCatalogComponent {
     this.wizardStep.set('configure');
   }
 
-  /** Atalho da aba "Modelos Predefinidos": abre o wizard já no passo de configuração. */
-  useTemplateFromCatalog(modelo: ModeloRegraAlcada): void {
-    this.openCreateModal();
-    this.selectTemplate(modelo);
+  /** Usa um dos modelos predefinidos (catálogo do LimitsService) e abre o passo de configuração. */
+  useRuleTemplate(template: RuleTemplateItem): void {
+    if (!this.isCreateModalOpen()) {
+      this.openCreateModal();
+    }
+    this.selectTemplate(modeloExemploDaRegra(template.title) ?? this.toModeloRegra(template));
+  }
+
+  /** Converte um modelo do catálogo de regras no formato do wizard (faixas, quórum, SLA). */
+  private toModeloRegra(template: RuleTemplateItem): ModeloRegraAlcada {
+    const cfg: RuleTemplateItem['defaultConfig'] = template.defaultConfig ?? {};
+    const papeisValidos = PAPEIS_APROVADOR_REGRA.map((p) => p.id) as string[];
+    const papel = (
+      cfg.approverRole && papeisValidos.includes(cfg.approverRole) ? cfg.approverRole : 'GERENTE'
+    ) as PapelAprovadorRegra;
+    const categoriaPorTipo: Record<string, CategoriaRegraAlcada> = {
+      CONDITION_VALUE: 'OPERATIONAL',
+      APPROVER: 'GOVERNANCE',
+      SLA_TIMER: 'OPERATIONAL',
+      RISK_CHECK: 'AUDIT',
+      TRIGGER: 'CONTRACTS',
+    };
+    const teto = typeof cfg.valueMax === 'number' && cfg.valueMax > 0 ? cfg.valueMax : null;
+
+    return {
+      id: template.id ?? template.title,
+      nome: template.title,
+      descricao: template.description,
+      icone: template.icon,
+      categoria: categoriaPorTipo[template.type] ?? 'OPERATIONAL',
+      centroCustoSugerido: cfg.costCenter ?? '',
+      quorum: cfg.quorum === 'DUPLO' ? 'Quórum Duplo' : 'Aprovador Único',
+      slaHoras: cfg.slaHours ?? 24,
+      faixas: teto
+        ? [
+            { id: 'f1', valorMinimo: cfg.valueMin ?? 0, valorMaximo: teto, papelAprovador: papel },
+            { id: 'f2', valorMinimo: teto + 0.01, valorMaximo: null, papelAprovador: 'DIRETOR' },
+          ]
+        : [{ id: 'f1', valorMinimo: 0, valorMaximo: null, papelAprovador: papel }],
+    };
   }
 
   wizardBack(): void {
