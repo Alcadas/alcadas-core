@@ -5,6 +5,8 @@ export interface UsuarioAutenticado {
   email?: string;
   tenantId: string;
   papeis: string[];
+  costCenterId?: string;
+  departmentId?: string;
   ip?: string;
 }
 

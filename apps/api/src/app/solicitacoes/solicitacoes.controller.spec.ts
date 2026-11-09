@@ -25,7 +25,7 @@ describe('SolicitacoesController', () => {
 
     await controller.criar(dto, usuario);
 
-    expect(service.criarSolicitacao).toHaveBeenCalledWith(dto, 'startop', 'ana');
+    expect(service.criarSolicitacao).toHaveBeenCalledWith(dto, 'startop', 'ana', usuario);
   });
 
   it('lista só o tenant do token, com a paginação validada', async () => {

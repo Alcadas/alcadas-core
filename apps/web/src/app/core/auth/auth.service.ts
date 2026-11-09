@@ -124,12 +124,20 @@ export class AuthService {
 
     const { tenant, employee, profissao } = conta;
     const roleBackend = mapearRoleParaClaimBackend(employee.role);
+    const dept = tenant.organization.departments.find(
+      (d) => d.id === employee.departmentId || d.name === employee.departmentName,
+    );
+    const costCenterId = dept?.costCenter || dept?.id;
     const idToken = criarTokenColaboradorTenant({
       id: employee.id,
       email: employee.email,
       name: employee.fullName,
       role: roleBackend,
       tenantId: tenant.tenantId,
+      departmentId: employee.departmentId,
+      departmentName: employee.departmentName,
+      costCenterId,
+      approvalLimit: employee.approvalLimit,
       profissaoId: profissao.id,
       profissaoNome: profissao.nome,
       allowedFeatures: profissao.funcionalidades,
@@ -233,7 +241,9 @@ function usuarioDoToken(idToken: string): AuthUser {
     typeof valor === 'string' && valor ? valor : undefined;
   const numero = (valor: unknown): number | undefined =>
     typeof valor === 'number' ? valor : undefined;
-  const papeis = Array.isArray(claims['roles']) ? claims['roles'] : [];
+  const papeis = Array.isArray(claims['roles'])
+    ? claims['roles'].filter((p): p is string => typeof p === 'string')
+    : [];
   const features = Array.isArray(claims['allowedFeatures'])
     ? claims['allowedFeatures'].filter((f): f is string => typeof f === 'string')
     : undefined;
@@ -245,6 +255,7 @@ function usuarioDoToken(idToken: string): AuthUser {
       texto(claims['name']) ??
       (texto(claims['email']) === 'dev@alcadas.com' ? 'Desenvolvedor' : undefined),
     role: texto(claims['role']) ?? texto(papeis[0]),
+    roles: papeis.length > 0 ? papeis : undefined,
     tenantId: texto(claims['tenantId']),
   };
 
@@ -253,6 +264,15 @@ function usuarioDoToken(idToken: string): AuthUser {
   const profNome = texto(claims['profissaoNome']);
   if (profNome !== undefined) user.profissaoNome = profNome;
   if (features !== undefined) user.allowedFeatures = features;
+
+  const depId = texto(claims['departmentId']);
+  if (depId !== undefined) user.departmentId = depId;
+  const depNome = texto(claims['departmentName']);
+  if (depNome !== undefined) user.departmentName = depNome;
+  const ccId = texto(claims['costCenterId']) ?? texto(claims['centroCustoId']);
+  if (ccId !== undefined) user.costCenterId = ccId;
+  const limit = numero(claims['approvalLimit']) ?? numero(claims['limiteAlcada']);
+  if (limit !== undefined) user.approvalLimit = limit;
 
   return user;
 }
@@ -338,6 +358,10 @@ function criarTokenColaboradorTenant(dados: {
   name: string;
   role: string;
   tenantId: string;
+  departmentId?: string;
+  departmentName?: string;
+  costCenterId?: string;
+  approvalLimit?: number;
   profissaoId?: number;
   profissaoNome?: string;
   allowedFeatures?: string[];
@@ -356,6 +380,11 @@ function criarTokenColaboradorTenant(dados: {
     role: dados.role,
     roles,
     tenantId: dados.tenantId,
+    departmentId: dados.departmentId,
+    departmentName: dados.departmentName,
+    costCenterId: dados.costCenterId,
+    limiteAlcada: dados.approvalLimit,
+    approvalLimit: dados.approvalLimit,
     profissaoId: dados.profissaoId,
     profissaoNome: dados.profissaoNome,
     allowedFeatures: dados.allowedFeatures,

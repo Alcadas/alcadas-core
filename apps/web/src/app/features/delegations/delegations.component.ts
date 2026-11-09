@@ -7,6 +7,7 @@ import {
   mapearProfissaoParaRole,
   mapearRoleParaProfissaoId,
 } from '../settings/services/settings.service';
+import { OrganizationDepartment } from '../settings/models/organization.model';
 
 // ---------- Tipos ----------
 
@@ -28,6 +29,7 @@ export interface Perfil {
   email: string;
   profissaoId: number;
   departamento?: string;
+  departamentoId?: string;
   cargo?: string;
   senha?: string;
   alcada?: number;
@@ -311,6 +313,16 @@ const ITENS_POR_PAGINA = 6;
           <label class="campo">
             Cargo na Empresa
             <input type="text" [(ngModel)]="cargoPerfil" placeholder="Ex: Analista Financeiro" />
+          </label>
+
+          <label class="campo">
+            Departamento da Empresa
+            <select [(ngModel)]="departamentoId">
+              <option [ngValue]="null">Selecione um departamento</option>
+              @for (dept of departamentos; track dept.id) {
+                <option [ngValue]="dept.id">{{ dept.name }} ({{ dept.costCenter || dept.code }})</option>
+              }
+            </select>
           </label>
 
           <label class="campo">
@@ -688,6 +700,7 @@ export class DelegationsComponent {
   senhaPerfil = '123456';
   cargoPerfil = '';
   profissaoId: number | null = null;
+  departamentoId: string | null = null;
 
   erro = '';
 
@@ -700,6 +713,10 @@ export class DelegationsComponent {
       this.settingsService.activeProfissoes();
       this.carregarDadosDoTenantAtivo();
     });
+  }
+
+  get departamentos(): OrganizationDepartment[] {
+    return this.settingsService.organization().departments;
   }
 
   get nomeEmpresaAtiva(): string {
@@ -726,6 +743,7 @@ export class DelegationsComponent {
       email: emp.email,
       profissaoId: emp.profissaoId ?? mapearRoleParaProfissaoId(emp.role, profs),
       departamento: emp.departmentName,
+      departamentoId: emp.departmentId,
       cargo: emp.jobTitle,
       senha: emp.password || '123456',
       alcada: emp.approvalLimit,
@@ -929,6 +947,7 @@ export class DelegationsComponent {
     this.senhaPerfil = '123456';
     this.cargoPerfil = '';
     this.profissaoId = null;
+    this.departamentoId = this.departamentos[0]?.id ?? null;
     this.erro = '';
     this.modalPerfilAberto = true;
   }
@@ -940,6 +959,7 @@ export class DelegationsComponent {
     this.senhaPerfil = perfil.senha || '123456';
     this.cargoPerfil = perfil.cargo || '';
     this.profissaoId = perfil.profissaoId;
+    this.departamentoId = perfil.departamentoId ?? null;
     this.erro = '';
     this.modalPerfilAberto = true;
   }
@@ -964,6 +984,10 @@ export class DelegationsComponent {
       this.erro = 'Informe um email válido.';
       return;
     }
+    if (!this.departamentoId) {
+      this.erro = 'Selecione um departamento.';
+      return;
+    }
     if (this.profissaoId === null) {
       this.erro = 'Selecione uma profissão.';
       return;
@@ -980,7 +1004,7 @@ export class DelegationsComponent {
     const nomeProf = this.nomeDaProfissao(idDaProfissao);
     const roleMapeado = mapearProfissaoParaRole(nomeProf);
     const depts = this.settingsService.organization().departments;
-    const deptPadrao = depts[0];
+    const deptEscolhido = depts.find((d) => d.id === this.departamentoId) || depts[0];
 
     if (this.editandoPerfilId === null) {
       const nextNum = 210 + this.perfis.length;
@@ -991,8 +1015,8 @@ export class DelegationsComponent {
         phone: '',
         jobTitle: this.cargoPerfil.trim() || nomeProf,
         role: roleMapeado,
-        departmentId: deptPadrao?.id ?? 'dep-geral',
-        departmentName: deptPadrao?.name ?? 'Geral',
+        departmentId: deptEscolhido?.id ?? 'dep-geral',
+        departmentName: deptEscolhido?.name ?? 'Geral',
         approvalLimit: roleMapeado === 'DIRETOR' ? 200000 : roleMapeado === 'GERENTE' ? 50000 : 0,
         status: 'ATIVO',
         password: this.senhaPerfil.trim() || '123456',
@@ -1011,7 +1035,12 @@ export class DelegationsComponent {
           role: roleMapeado,
           profissaoId: idDaProfissao,
           password: this.senhaPerfil.trim() || '123456',
+          departmentId: deptEscolhido?.id ?? alvo.departamentoId ?? 'dep-geral',
+          departmentName: deptEscolhido?.name ?? alvo.departamento ?? 'Geral',
         });
+        if (this.authService?.currentUser()?.email?.toLowerCase() === emailLimpo) {
+          this.authService.loginWithTenantAccount(emailLimpo);
+        }
       }
       this.exibirFeedback(`Dados e permissões de ${nomeLimpo} atualizados.`);
     }

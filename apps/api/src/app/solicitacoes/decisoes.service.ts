@@ -68,6 +68,7 @@ export class DecisoesService {
         await this.assertSegregationOfDuties(user, solicitacao);
         alcada = await this.assertApproverWithinCeiling(user, solicitacao);
         this.assertCurrentStageApprover(user, solicitacao);
+        await this.assertApproverDepartment(user, solicitacao);
       },
       alteracoes: (solicitacao) => {
         const etapaAtual = solicitacao.etapaAtual ?? 1;
@@ -261,6 +262,7 @@ export class DecisoesService {
       validar: async (solicitacao) => {
         await this.assertSegregationOfDuties(user, solicitacao);
         await this.assertApproverWithinCeiling(user, solicitacao);
+        await this.assertApproverDepartment(user, solicitacao);
       },
       alteracoes: () => ({
         aprovadorId: user.userId,
@@ -409,6 +411,38 @@ export class DecisoesService {
       throw new ForbiddenException(
         `Apenas o aprovador da etapa corrente (${solicitacao.aprovadorEsperadoPapel}) possui competência para deliberar nesta fase da esteira.`,
       );
+    }
+  }
+
+  /**
+   * Valida o Isolamento de Departamento / Centro de Custo (Cenário 2):
+   * Aprovadores setoriais (N1 e N2) só podem deliberar sobre solicitações do seu próprio departamento/centro de custo.
+   * Papéis corporativos com alçada global (DIRETOR_CFO, ADMIN, SUPER_USER) têm competência transversal.
+   */
+  private async assertApproverDepartment(
+    user: AuthenticatedUser,
+    solicitacao: SolicitacaoResponseDto,
+  ): Promise<void> {
+    // 1. Papéis com escopo global deliberam sobre todos os departamentos
+    if (user.role === 'DIRETOR_CFO' || user.role === 'ADMIN' || user.role === 'SUPER_USER') {
+      return;
+    }
+
+    // 2. Se o aprovador setorial possui centro de custo ou departamento associado
+    if (user.costCenterId || user.departmentId) {
+      const ccAprovador = (user.costCenterId || '').trim().toLowerCase();
+      const depAprovador = (user.departmentId || '').trim().toLowerCase();
+      const ccSolicitacao = (solicitacao.centroCustoId || '').trim().toLowerCase();
+
+      const coincide =
+        (ccAprovador && ccAprovador === ccSolicitacao) ||
+        (depAprovador && depAprovador === ccSolicitacao);
+
+      if (!coincide) {
+        throw new ForbiddenException(
+          `Isolamento de Departamento (Cenário 2): O aprovador pertence ao centro de custo "${user.costCenterId || user.departmentId}" e está estritamente impedido de deliberar sobre solicitações do centro de custo "${solicitacao.centroCustoId}".`,
+        );
+      }
     }
   }
 }

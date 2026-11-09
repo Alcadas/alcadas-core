@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE, justificativaSuficiente } from '@alcadas-core/models';
 import { AuthService } from '../../core/auth/auth.service';
 import { podeDecidir } from '../../core/auth/roles';
@@ -12,6 +13,7 @@ import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page
 import { fluxoDaAlcada } from './requests.mapper';
 import {
   ApprovalStep,
+  CostCenterOption,
   DecisionAction,
   LoadState,
   RequestItem,
@@ -46,12 +48,15 @@ const MENSAGEM_DE_SUCESSO: Record<DecisionAction, string> = {
   templateUrl: './requests.component.html',
   styleUrl: './requests.component.scss',
 })
-export class RequestsComponent implements OnInit {
+export class RequestsComponent implements OnInit, OnDestroy {
   protected readonly requestsService = inject(RequestsService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  private pollingSub: Subscription | null = null;
+  private visibilityListener: (() => void) | null = null;
 
   goToCreatePage(): void {
     this.router.navigate(['/solicitacoes/nova']);
@@ -106,6 +111,78 @@ export class RequestsComponent implements OnInit {
   readonly editFormFornecedor = signal<string>('');
   readonly editFormErrors = signal<Record<string, string>>({});
   readonly isSavingEdit = signal<boolean>(false);
+
+  readonly isGlobalRequester = computed<boolean>(() => {
+    const user = this.authService?.currentUser();
+    if (!user) return true;
+    if (user.email && user.email.toLowerCase() === 'dev@alcadas.com') return true;
+    const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
+    if (user.role && globalRoles.includes(user.role)) return true;
+    if (user.roles?.some((r: string) => globalRoles.includes(r))) return true;
+    return false;
+  });
+
+  readonly availableCostCenters = computed<CostCenterOption[]>(() => {
+    const all = this.requestsService.costCenters();
+    if (this.isGlobalRequester()) {
+      return all;
+    }
+
+    const user = this.authService?.currentUser();
+    if (!user) return all;
+
+    const userCc = (user.costCenterId || '').toLowerCase().trim();
+    const userDepId = (user.departmentId || '').toLowerCase().trim();
+    const userDepName = (user.departmentName || '').toLowerCase().trim();
+
+    if (!userCc && !userDepId && !userDepName) {
+      return all;
+    }
+
+    const filtrados = all.filter((cc) => {
+      const ccId = (cc.id || '').toLowerCase().trim();
+      const ccCode = (cc.code || '').toLowerCase().trim();
+      const ccNome = (cc.nome || '').toLowerCase().trim();
+      const ccDept = (cc.departamento || '').toLowerCase().trim();
+
+      const matchCc = Boolean(userCc && (ccId === userCc || ccCode === userCc));
+      const matchDepId = Boolean(userDepId && ccId === userDepId);
+      const matchDeptName = Boolean(
+        userDepName &&
+          ((ccDept &&
+            (ccDept === userDepName ||
+              ccDept.includes(userDepName) ||
+              userDepName.includes(ccDept))) ||
+            (ccNome &&
+              (ccNome === userDepName ||
+                ccNome.includes(userDepName) ||
+                userDepName.includes(ccNome)))),
+      );
+
+      return matchCc || matchDepId || matchDeptName;
+    });
+
+    if (filtrados.length > 0) {
+      return filtrados;
+    }
+
+    if (userCc || userDepName) {
+      return [
+        {
+          id: user.costCenterId || user.departmentId || 'cc-user',
+          code: user.costCenterId || 'CC-DEP',
+          nome: user.departmentName || 'Meu Departamento',
+          departamento: user.departmentName,
+        },
+      ];
+    }
+
+    return all;
+  });
+
+  readonly isCostCenterLocked = computed<boolean>(() => {
+    return !this.isGlobalRequester() && this.availableCostCenters().length <= 1;
+  });
 
   // Toast
   readonly toastMessage = signal<string | null>(null);
@@ -228,6 +305,51 @@ export class RequestsComponent implements OnInit {
 
   ngOnInit(): void {
     this.requestsService.load();
+    this.requestsService.startPolling(8000);
+
+    this.pollingSub = this.requestsService.statusEvents$.subscribe((event) => {
+      if (!this.isRequestOwnedByCurrentUser(event.request)) {
+        return;
+      }
+
+      switch (event.type) {
+        case 'APROVADA':
+          this.showToast(`Sua solicitação ${event.request.codigo} foi aprovada! 🎉`, 'success');
+          break;
+        case 'REJEITADA':
+          this.showToast(`Sua solicitação ${event.request.codigo} foi recusada pelo aprovador.`, 'warning');
+          break;
+        case 'EM_AJUSTE':
+          this.showToast(`A solicitação ${event.request.codigo} foi devolvida para ajustes.`, 'info');
+          break;
+        case 'AVANCO_ETAPA':
+          this.showToast(
+            `Solicitação ${event.request.codigo} avançou para a etapa ${event.request.fluxoDestinado?.etapaAtualNumero ?? ''} de aprovação.`,
+            'info',
+          );
+          break;
+      }
+    });
+
+    if (typeof document !== 'undefined') {
+      this.visibilityListener = () => {
+        if (document.visibilityState === 'visible') {
+          this.requestsService.loadSilent().subscribe();
+        }
+      };
+      document.addEventListener('visibilitychange', this.visibilityListener);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.requestsService.stopPolling();
+    this.pollingSub?.unsubscribe();
+    this.pollingSub = null;
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener);
+      this.visibilityListener = null;
+    }
+    this.clearToastTimer();
   }
 
   reload(): void {

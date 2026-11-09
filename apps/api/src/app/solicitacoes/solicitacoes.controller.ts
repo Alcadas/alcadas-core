@@ -19,7 +19,7 @@ export class SolicitacoesController {
 
   @Post()
   async criar(@Body() dto: CriarSolicitacaoDto, @UsuarioAtual() usuario: UsuarioAutenticado) {
-    return this.solicitacoesService.criarSolicitacao(dto, usuario.tenantId, usuario.uid);
+    return this.solicitacoesService.criarSolicitacao(dto, usuario.tenantId, usuario.uid, usuario);
   }
 
   @Get()

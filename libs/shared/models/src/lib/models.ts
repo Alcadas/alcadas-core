@@ -51,6 +51,8 @@ export interface AuthenticatedUser {
   role: UserRole;
   level?: ApprovalLevel;
   maxApprovalLimit?: number | null;
+  costCenterId?: string | null;
+  departmentId?: string | null;
 }
 
 /**
