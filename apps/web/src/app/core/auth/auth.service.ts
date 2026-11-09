@@ -241,7 +241,9 @@ function usuarioDoToken(idToken: string): AuthUser {
     typeof valor === 'string' && valor ? valor : undefined;
   const numero = (valor: unknown): number | undefined =>
     typeof valor === 'number' ? valor : undefined;
-  const papeis = Array.isArray(claims['roles']) ? claims['roles'] : [];
+  const papeis = Array.isArray(claims['roles'])
+    ? claims['roles'].filter((p): p is string => typeof p === 'string')
+    : [];
   const features = Array.isArray(claims['allowedFeatures'])
     ? claims['allowedFeatures'].filter((f): f is string => typeof f === 'string')
     : undefined;
@@ -253,6 +255,7 @@ function usuarioDoToken(idToken: string): AuthUser {
       texto(claims['name']) ??
       (texto(claims['email']) === 'dev@alcadas.com' ? 'Desenvolvedor' : undefined),
     role: texto(claims['role']) ?? texto(papeis[0]),
+    roles: papeis.length > 0 ? papeis : undefined,
     tenantId: texto(claims['tenantId']),
   };
 

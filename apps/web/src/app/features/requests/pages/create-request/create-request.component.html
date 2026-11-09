@@ -88,14 +88,22 @@
               <select
                 id="centroCustoSelect"
                 class="form-control custom-select"
+                [class.locked-select]="isCostCenterLocked()"
                 [ngModel]="formCentroCustoId()"
                 (ngModelChange)="formCentroCustoId.set($event)"
+                [disabled]="isCostCenterLocked()"
                 name="centroCustoId"
               >
-                @for (cc of requestsService.costCenters(); track cc.id) {
+                @for (cc of availableCostCenters(); track cc.id) {
                   <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}{{ cc.departamento ? ' (' + cc.departamento + ')' : '' }}</option>
                 }
               </select>
+              @if (isCostCenterLocked()) {
+                <span class="locked-hint">
+                  <span class="lock-icon">🔒</span>
+                  Centro de custo restrito ao seu departamento ({{ authService?.currentUser()?.departmentName || 'Sua Área' }}).
+                </span>
+              }
             </div>
 
             <div class="form-group">

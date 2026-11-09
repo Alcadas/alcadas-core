@@ -654,10 +654,11 @@
             <select
               id="editCcSelect"
               class="form-select"
+              [disabled]="isCostCenterLocked()"
               [ngModel]="editFormCentroCustoId()"
               (ngModelChange)="editFormCentroCustoId.set($event)"
             >
-              @for (cc of requestsService.costCenters(); track cc.id) {
+              @for (cc of availableCostCenters(); track cc.id) {
                 <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
               }
             </select>

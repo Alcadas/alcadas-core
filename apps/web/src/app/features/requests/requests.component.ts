@@ -12,6 +12,7 @@ import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page
 import { fluxoDaAlcada } from './requests.mapper';
 import {
   ApprovalStep,
+  CostCenterOption,
   DecisionAction,
   LoadState,
   RequestItem,
@@ -106,6 +107,78 @@ export class RequestsComponent implements OnInit {
   readonly editFormFornecedor = signal<string>('');
   readonly editFormErrors = signal<Record<string, string>>({});
   readonly isSavingEdit = signal<boolean>(false);
+
+  readonly isGlobalRequester = computed<boolean>(() => {
+    const user = this.authService?.currentUser();
+    if (!user) return true;
+    if (user.email && user.email.toLowerCase() === 'dev@alcadas.com') return true;
+    const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
+    if (user.role && globalRoles.includes(user.role)) return true;
+    if (user.roles?.some((r: string) => globalRoles.includes(r))) return true;
+    return false;
+  });
+
+  readonly availableCostCenters = computed<CostCenterOption[]>(() => {
+    const all = this.requestsService.costCenters();
+    if (this.isGlobalRequester()) {
+      return all;
+    }
+
+    const user = this.authService?.currentUser();
+    if (!user) return all;
+
+    const userCc = (user.costCenterId || '').toLowerCase().trim();
+    const userDepId = (user.departmentId || '').toLowerCase().trim();
+    const userDepName = (user.departmentName || '').toLowerCase().trim();
+
+    if (!userCc && !userDepId && !userDepName) {
+      return all;
+    }
+
+    const filtrados = all.filter((cc) => {
+      const ccId = (cc.id || '').toLowerCase().trim();
+      const ccCode = (cc.code || '').toLowerCase().trim();
+      const ccNome = (cc.nome || '').toLowerCase().trim();
+      const ccDept = (cc.departamento || '').toLowerCase().trim();
+
+      const matchCc = Boolean(userCc && (ccId === userCc || ccCode === userCc));
+      const matchDepId = Boolean(userDepId && ccId === userDepId);
+      const matchDeptName = Boolean(
+        userDepName &&
+          ((ccDept &&
+            (ccDept === userDepName ||
+              ccDept.includes(userDepName) ||
+              userDepName.includes(ccDept))) ||
+            (ccNome &&
+              (ccNome === userDepName ||
+                ccNome.includes(userDepName) ||
+                userDepName.includes(ccNome)))),
+      );
+
+      return matchCc || matchDepId || matchDeptName;
+    });
+
+    if (filtrados.length > 0) {
+      return filtrados;
+    }
+
+    if (userCc || userDepName) {
+      return [
+        {
+          id: user.costCenterId || user.departmentId || 'cc-user',
+          code: user.costCenterId || 'CC-DEP',
+          nome: user.departmentName || 'Meu Departamento',
+          departamento: user.departmentName,
+        },
+      ];
+    }
+
+    return all;
+  });
+
+  readonly isCostCenterLocked = computed<boolean>(() => {
+    return !this.isGlobalRequester() && this.availableCostCenters().length <= 1;
+  });
 
   // Toast
   readonly toastMessage = signal<string | null>(null);

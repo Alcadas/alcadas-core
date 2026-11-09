@@ -175,6 +175,29 @@
     border-color: #ef4444;
     background: #fef2f2;
   }
+
+  &:disabled,
+  &.locked-select {
+    background-color: #f8fafc;
+    color: #475569;
+    cursor: not-allowed;
+    border-color: #e2e8f0;
+  }
+}
+
+.locked-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  font-size: 0.76rem;
+  color: #6366f1;
+  font-weight: 500;
+
+  .lock-icon {
+    font-size: 0.8rem;
+    line-height: 1;
+  }
 }
 
 .form-textarea {

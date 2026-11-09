@@ -202,6 +202,15 @@ function criarTenantsIniciais(): SaasClientTenant[] {
         managerName: 'Dr. Henrique Vasconcelos',
         color: '#0284c7',
       },
+      {
+        id: 'dep-rh',
+        code: 'RH',
+        name: 'Recursos Humanos',
+        costCenter: 'CC-103',
+        monthlyBudget: 220000,
+        managerName: 'Ana Paula Nogueira',
+        color: '#8b5cf6',
+      },
     ],
     employees: [
       {

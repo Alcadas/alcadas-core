@@ -79,4 +79,49 @@ describe('DelegationsComponent', () => {
     expect(component.iniciais('Carlos Lima')).toBe('CL');
     expect(component.iniciais('Carlos')).toBe('C');
   });
+
+  it('deve permitir cadastrar novo perfil escolhendo o departamento de RH', () => {
+    component.abrirNovoPerfil();
+    component.nome = 'Juliana RH';
+    component.email = 'juliana.rh@startop.com.br';
+    component.cargoPerfil = 'Analista de RH';
+    component.profissaoId = component.profissoes[0].id;
+
+    const deptRh = component.departamentos.find((d) => d.id === 'dep-rh') || component.departamentos[0];
+    component.departamentoId = deptRh.id;
+
+    component.salvarPerfil();
+
+    expect(component.erro).toBe('');
+    const criado = component.perfis.find((p) => p.email === 'juliana.rh@startop.com.br');
+    expect(criado).toBeDefined();
+    expect(criado?.departamento).toBe(deptRh.name);
+    expect(criado?.departamentoId).toBe(deptRh.id);
+  });
+
+  it('deve recusar salvar perfil sem departamento selecionado', () => {
+    component.abrirNovoPerfil();
+    component.nome = 'Sem Depto';
+    component.email = 'sem.depto@startop.com.br';
+    component.profissaoId = component.profissoes[0].id;
+    component.departamentoId = null;
+
+    component.salvarPerfil();
+
+    expect(component.erro).toBe('Selecione um departamento.');
+  });
+
+  it('deve permitir editar perfil e alterar seu departamento', () => {
+    const perfil = component.perfis[0];
+    component.abrirEdicaoPerfil(perfil);
+
+    const novoDept = component.departamentos.find((d) => d.id !== perfil.departamentoId) ?? component.departamentos[0];
+    component.departamentoId = novoDept.id;
+
+    component.salvarPerfil();
+
+    const atualizado = component.perfis.find((p) => p.id === perfil.id);
+    expect(atualizado?.departamentoId).toBe(novoDept.id);
+    expect(atualizado?.departamento).toBe(novoDept.name);
+  });
 });

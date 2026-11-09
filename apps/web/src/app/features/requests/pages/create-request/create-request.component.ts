@@ -1,10 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { SettingsService } from '../../../settings/services/settings.service';
 import { RequestsService } from '../../services/requests.service';
-import { RequestCategory, RequestPriority } from '../../requests.models';
+import { CostCenterOption, RequestCategory, RequestPriority } from '../../requests.models';
 
 @Component({
   selector: 'app-create-request',
@@ -15,6 +17,8 @@ import { RequestCategory, RequestPriority } from '../../requests.models';
 })
 export class CreateRequestComponent {
   protected readonly requestsService = inject(RequestsService);
+  protected readonly authService = inject(AuthService, { optional: true });
+  protected readonly settingsService = inject(SettingsService, { optional: true });
   private readonly router = inject(Router);
 
   // Estado do Formulário
@@ -32,12 +36,98 @@ export class CreateRequestComponent {
   readonly formErrors = signal<Record<string, string>>({});
   readonly toastMessage = signal<string | null>(null);
 
+  /**
+   * Administradores, Diretores / CFO e Super Usuários possuem permissão global
+   * e podem selecionar qualquer centro de custo da organização.
+   */
+  readonly isGlobalRequester = computed<boolean>(() => {
+    const user = this.authService?.currentUser();
+    if (!user) return true;
+    if (user.email && user.email.toLowerCase() === 'dev@alcadas.com') return true;
+    const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
+    if (user.role && globalRoles.includes(user.role)) return true;
+    if (user.roles?.some((r: string) => globalRoles.includes(r))) return true;
+    return false;
+  });
+
+  /**
+   * Centros de custo disponíveis para o usuário solicitante.
+   * Se for usuário departamental (ex: Recursos Humanos ou Controladoria), isola e restringe para a sua área.
+   */
+  readonly availableCostCenters = computed<CostCenterOption[]>(() => {
+    const all = this.requestsService.costCenters();
+    if (this.isGlobalRequester()) {
+      return all;
+    }
+
+    const user = this.authService?.currentUser();
+    if (!user) return all;
+
+    const userCc = (user.costCenterId || '').toLowerCase().trim();
+    const userDepId = (user.departmentId || '').toLowerCase().trim();
+    const userDepName = (user.departmentName || '').toLowerCase().trim();
+
+    if (!userCc && !userDepId && !userDepName) {
+      return all;
+    }
+
+    const filtrados = all.filter((cc) => {
+      const ccId = (cc.id || '').toLowerCase().trim();
+      const ccCode = (cc.code || '').toLowerCase().trim();
+      const ccNome = (cc.nome || '').toLowerCase().trim();
+      const ccDept = (cc.departamento || '').toLowerCase().trim();
+
+      const matchCc = Boolean(userCc && (ccId === userCc || ccCode === userCc));
+      const matchDepId = Boolean(userDepId && ccId === userDepId);
+      const matchDeptName = Boolean(
+        userDepName &&
+          ((ccDept &&
+            (ccDept === userDepName ||
+              ccDept.includes(userDepName) ||
+              userDepName.includes(ccDept))) ||
+            (ccNome &&
+              (ccNome === userDepName ||
+                ccNome.includes(userDepName) ||
+                userDepName.includes(ccNome)))),
+      );
+
+      return matchCc || matchDepId || matchDeptName;
+    });
+
+    if (filtrados.length > 0) {
+      return filtrados;
+    }
+
+    // Se o solicitante tem departamento/centro de custo definido mas ele não foi carregado na lista remota,
+    // sintetiza a opção correspondente para nunca vazar centros de custo de outras áreas.
+    if (userCc || userDepName) {
+      return [
+        {
+          id: user.costCenterId || user.departmentId || 'cc-user',
+          code: user.costCenterId || 'CC-DEP',
+          nome: user.departmentName || 'Meu Departamento',
+          departamento: user.departmentName,
+        },
+      ];
+    }
+
+    return all;
+  });
+
+  /** Quando o solicitante tem acesso restrito a até 1 centro de custo, trava a seleção */
+  readonly isCostCenterLocked = computed<boolean>(() => {
+    return !this.isGlobalRequester() && this.availableCostCenters().length <= 1;
+  });
+
   constructor() {
     this.requestsService.ensureLoaded();
-    const firstCc = this.requestsService.costCenters()[0]?.id;
-    if (firstCc) {
-      this.formCentroCustoId.set(firstCc);
-    }
+    effect(() => {
+      const list = this.availableCostCenters();
+      const current = this.formCentroCustoId();
+      if (list.length > 0 && !list.some((cc) => cc.id === current)) {
+        this.formCentroCustoId.set(list[0].id);
+      }
+    });
   }
 
   // Esteira Dinâmica Sugerida conforme Valor e Centro de Custo

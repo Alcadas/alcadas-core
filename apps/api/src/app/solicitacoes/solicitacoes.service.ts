@@ -1,10 +1,11 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
+import { Injectable, Inject, Optional, ForbiddenException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { SolicitacaoValidator } from './solicitacao.validator';
 import { TrilhaAuditoria } from './trilha';
 import { FiltroListagem, ISolicitacoesRepository, SOLICITACOES_REPOSITORY } from './solicitacoes.repository';
 import { FirestoreService } from '../database/firestore.service';
+import { UsuarioAutenticado } from '../auth/usuario-autenticado';
 
 @Injectable()
 export class SolicitacoesService {
@@ -103,8 +104,33 @@ export class SolicitacoesService {
     };
   }
 
-  async criarSolicitacao(dto: CriarSolicitacaoDto, tenantId: string, solicitanteId: string) {
+  async criarSolicitacao(
+    dto: CriarSolicitacaoDto,
+    tenantId: string,
+    solicitanteId: string,
+    usuario?: UsuarioAutenticado,
+  ) {
     this.validador.validarCriacao(dto);
+
+    if (usuario && (usuario.costCenterId || usuario.departmentId)) {
+      const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
+      const ehGlobal = (usuario.papeis || []).some((p) => globalRoles.includes(p));
+      if (!ehGlobal) {
+        const centroEsperado = (usuario.costCenterId || '').toLowerCase().trim();
+        const deptoEsperado = (usuario.departmentId || '').toLowerCase().trim();
+        const centroInformado = (dto.centroCustoId || '').toLowerCase().trim();
+
+        const ccValido =
+          (centroEsperado && centroInformado === centroEsperado) ||
+          (deptoEsperado && centroInformado === deptoEsperado);
+
+        if (!ccValido) {
+          throw new ForbiddenException(
+            'O solicitante só pode submeter solicitações para o centro de custo do seu próprio departamento.',
+          );
+        }
+      }
+    }
 
     const fluxo = await this.avaliarFluxoCompativel(tenantId, dto);
     const solicitacaoId = `sol-${uuidv4().substring(0, 8)}`;

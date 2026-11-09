@@ -10,6 +10,7 @@ export interface AuthUser {
   name?: string;
   /** Papel da custom claim `role` (ex.: SOLICITANTE, APROVADOR_N2) — ADR-007. */
   role?: string;
+  roles?: string[];
   /** Empresa do usuário (custom claim `tenantId`) — RNF07. */
   tenantId?: string;
   /** Profissão vinculada na matriz de Delegações (/delegacoes) da empresa. */
