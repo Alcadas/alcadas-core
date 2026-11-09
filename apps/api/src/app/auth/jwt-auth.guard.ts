@@ -4,7 +4,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { getAuth } from 'firebase-admin/auth';
 import { ApprovalLevel, AuthenticatedUser, UserRole } from '@alcadas-core/models';
+import { getFirebaseApp } from '../firebase/firebase-app';
 
 const VALID_ROLES: Set<string> = new Set([
   'SOLICITANTE',
@@ -19,7 +21,7 @@ const VALID_ROLES: Set<string> = new Set([
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{
       headers: Record<string, string | string[] | undefined>;
       user?: AuthenticatedUser;
@@ -35,19 +37,117 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de autenticação vazio.');
     }
 
-    const user = this.parseToken(token, request.headers);
+    const user = await this.parseToken(token, request.headers);
     request.user = user;
     return true;
   }
 
-  private parseToken(
+  private async parseToken(
+    token: string,
+    headers: Record<string, string | string[] | undefined>,
+  ): Promise<AuthenticatedUser> {
+    const isProduction = process.env['NODE_ENV'] === 'production';
+    const isTest = process.env['NODE_ENV'] === 'test';
+
+    // Em produção (RNF09, ADR-011):
+    // 1. OBRIGATÓRIA a validação de assinatura criptográfica real via Firebase Admin SDK (verifyIdToken).
+    // 2. Tokens mock, "test:" e sem assinatura são sumariamente recusados com 401.
+    // 3. Cabeçalhos como x-user-role e x-approval-limit são rigorosamente IGNORADOS para privilégios.
+    if (isProduction) {
+      return this.verifyWithFirebaseAdmin(token);
+    }
+
+    // Se NODE_ENV === 'test' e o token usa o prefixo estruturado "test:":
+    if (isTest && token.startsWith('test:')) {
+      return this.parseTokenDeTeste(token, headers);
+    }
+
+    // Tenta verificação criptográfica real primeiro (funciona no Emulador ou com credenciais):
+    try {
+      return await this.verifyWithFirebaseAdmin(token);
+    } catch {
+      // Em ambientes de teste e desenvolvimento offline, permite fallback local controlado:
+      return this.parseFallbackNaoProducao(token, headers);
+    }
+  }
+
+  private async verifyWithFirebaseAdmin(token: string): Promise<AuthenticatedUser> {
+    try {
+      const decoded = await getAuth(getFirebaseApp()).verifyIdToken(token);
+
+      const tenantId =
+        (decoded['tenantId'] as string) ||
+        (decoded['tenant_id'] as string);
+
+      const userId = decoded.uid || (decoded['user_id'] as string) || (decoded['sub'] as string);
+
+      if (!userId || !tenantId) {
+        throw new UnauthorizedException(
+          'Token JWT inválido: userId e tenantId são obrigatórios nas claims do token.',
+        );
+      }
+
+      const rawRole =
+        (decoded['role'] as string) ||
+        (Array.isArray(decoded['roles']) ? (decoded['roles'][0] as string) : undefined) ||
+        'SOLICITANTE';
+
+      const role = this.normalizeRole(rawRole);
+      const level = this.inferLevel(role, decoded['level'] as string | undefined);
+      const maxApprovalLimit =
+        typeof decoded['limiteAlcada'] === 'number'
+          ? decoded['limiteAlcada']
+          : typeof decoded['maxApprovalLimit'] === 'number'
+            ? decoded['maxApprovalLimit']
+            : undefined;
+
+      return {
+        userId,
+        tenantId,
+        email: decoded.email,
+        fullName: (decoded['name'] as string) || (decoded['fullName'] as string),
+        role,
+        level,
+        maxApprovalLimit,
+      };
+    } catch (err) {
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
+      throw new UnauthorizedException('Token de autenticação inválido ou assinatura não verificada.');
+    }
+  }
+
+  private parseTokenDeTeste(
     token: string,
     headers: Record<string, string | string[] | undefined>,
   ): AuthenticatedUser {
-    // 0. Captura o limite vindo dos cabeçalhos caso exista (usado nos mocks abaixo)
+    const [, tenantId, rawRole, userId = 'usr-aprov-01', rawLimit] = token.split(':');
+    if (!tenantId || !rawRole) {
+      throw new UnauthorizedException('Token de teste malformado.');
+    }
+    const role = this.normalizeRole(rawRole);
+    const headerLimit = this.parseHeaderLimit(headers);
+    const parsedLimit =
+      rawLimit !== undefined && rawLimit !== '' ? Number(rawLimit) : headerLimit;
+
+    return {
+      userId,
+      tenantId,
+      role,
+      level: this.inferLevel(role),
+      maxApprovalLimit:
+        parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    };
+  }
+
+  private parseFallbackNaoProducao(
+    token: string,
+    headers: Record<string, string | string[] | undefined>,
+  ): AuthenticatedUser {
     const headerLimit = this.parseHeaderLimit(headers);
 
-    // 1. Suporte a tokens JWT padrão (3 partes base64url) emitidos pelo Firebase Auth Emulator
+    // 1. Suporte a tokens JWT padrão (3 partes base64url) emitidos pelo Firebase Auth Emulator ou testes
     const parts = token.split('.');
     if (parts.length === 3) {
       try {
@@ -109,22 +209,7 @@ export class JwtAuthGuard implements CanActivate {
 
     // 2. Formato estruturado para testes/emulador: "test:<tenantId>:<role>:<userId>:<limiteOpcional>"
     if (token.startsWith('test:')) {
-      const [, tenantId, rawRole, userId = 'usr-aprov-01', rawLimit] = token.split(':');
-      if (!tenantId || !rawRole) {
-        throw new UnauthorizedException('Token de teste malformado.');
-      }
-      const role = this.normalizeRole(rawRole);
-      const parsedLimit =
-        rawLimit !== undefined && rawLimit !== '' ? Number(rawLimit) : headerLimit;
-
-      return {
-        userId,
-        tenantId,
-        role,
-        level: this.inferLevel(role),
-        maxApprovalLimit:
-          parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-      };
+      return this.parseTokenDeTeste(token, headers);
     }
 
     // 3. Suporte aos tokens de teste existentes na suíte E2E ("token-do-usuario-da-empresa-A")
@@ -133,7 +218,6 @@ export class JwtAuthGuard implements CanActivate {
       if (!suffix) {
         throw new UnauthorizedException('Token inválido.');
       }
-      // Corrigido: Removida a declaração duplicada da linha abaixo
       const roleHeader = this.getHeaderString(headers, 'x-user-role') || 'SOLICITANTE';
       const role = this.normalizeRole(roleHeader);
       return {
