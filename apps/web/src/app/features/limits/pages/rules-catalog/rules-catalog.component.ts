@@ -2,12 +2,39 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import {
+  CategoriaRegraAlcada,
+  ErroFaixaRegra,
+  FaixaRegraAlcada,
+  MODELOS_REGRAS_ALCADA,
+  ModeloRegraAlcada,
+  PAPEIS_APROVADOR_REGRA,
+  QUORUNS_REGRA,
+  QuorumRegra,
+  proximaFaixaRegra,
+  rotuloPapelAprovador,
+  validarFaixasRegra,
+} from '@alcadas-core/models';
+import { mensagemDeErroDaApi } from '../../../../core/http/api-error';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { LimitsService } from '../../services/limits.service';
 
-export type RuleCategoryType = 'CAPEX' | 'OPERATIONAL' | 'GOVERNANCE' | 'CONTRACTS' | 'AUDIT';
+export type RuleCategoryType = CategoriaRegraAlcada;
 export type CreationMethodType = 'prompt' | 'manual' | 'document';
 export type CatalogSubTab = 'rules' | 'templates' | 'editor';
+/** Passos do wizard de criação: escolha → (modelo → configuração) | do zero. */
+export type WizardStep = 'choose' | 'template' | 'configure' | 'scratch';
+
+const CATEGORY_META: Record<
+  RuleCategoryType,
+  { label: string; icon: string; variant: RuleListItem['typeVariant'] }
+> = {
+  CAPEX: { label: 'Capex & TI', icon: 'sensors', variant: 'live' },
+  OPERATIONAL: { label: 'Operacional', icon: 'calendar_today', variant: 'event' },
+  GOVERNANCE: { label: 'Governança & Jurídico', icon: 'workspace_premium', variant: 'tournament' },
+  CONTRACTS: { label: 'Contratos & Viagens', icon: 'link', variant: 'link' },
+  AUDIT: { label: 'Auditoria & Risco', icon: 'article', variant: 'neutral' },
+};
 
 export interface RuleListItem {
   id: string;
@@ -24,6 +51,10 @@ export interface RuleListItem {
   quorum?: string;
   slaHours?: number;
   description?: string;
+  /** Preenchidos quando a regra é criada pelo construtor a partir de um modelo (#69). */
+  modeloId?: string;
+  centroCusto?: string;
+  faixas?: FaixaRegraAlcada[];
 }
 
 @Component({
@@ -206,6 +237,64 @@ export class RulesCatalogComponent {
   readonly modalErrorMessage = signal<string | null>(null);
 
   // =========================================================================
+  // WIZARD: CRIAR A PARTIR DE MODELO PRÉ-DEFINIDO (#69)
+  // =========================================================================
+  readonly modelos = MODELOS_REGRAS_ALCADA;
+  readonly papeisAprovador = PAPEIS_APROVADOR_REGRA;
+  readonly quoruns = QUORUNS_REGRA;
+  readonly categoryMeta = CATEGORY_META;
+  readonly rotuloPapel = rotuloPapelAprovador;
+
+  readonly wizardStep = signal<WizardStep>('choose');
+  readonly selectedModelo = signal<ModeloRegraAlcada | null>(null);
+  readonly wizardName = signal<string>('');
+  readonly wizardCostCenter = signal<string>('');
+  readonly wizardQuorum = signal<QuorumRegra>('Aprovador Único');
+  readonly wizardSlaHours = signal<number | null>(24);
+  readonly wizardDescription = signal<string>('');
+  readonly wizardFaixas = signal<FaixaRegraAlcada[]>([]);
+  readonly wizardSaving = signal<boolean>(false);
+  readonly wizardSaveError = signal<string | null>(null);
+  private faixaSeq = 0;
+
+  readonly costCenterSuggestions = computed(() => {
+    const fromOrg = this.limitsService
+      .departments()
+      .map((d) => (d.costCenter ? `${d.costCenter} · ${d.name}` : d.name));
+    const fromModels = this.modelos.map((m) => m.centroCustoSugerido);
+    return Array.from(new Set([...fromOrg, ...fromModels]));
+  });
+
+  readonly wizardFaixaErrors = computed<ErroFaixaRegra[]>(() =>
+    validarFaixasRegra(this.wizardFaixas()),
+  );
+
+  readonly wizardNameError = computed(() =>
+    this.wizardName().trim() ? null : 'Informe o nome da regra.',
+  );
+
+  readonly wizardSlaError = computed(() => {
+    const sla = this.wizardSlaHours();
+    return typeof sla === 'number' && sla > 0 ? null : 'O SLA deve ser maior que zero.';
+  });
+
+  readonly canSaveWizard = computed(
+    () =>
+      !this.wizardNameError() &&
+      !this.wizardSlaError() &&
+      this.wizardFaixaErrors().length === 0 &&
+      !this.wizardSaving(),
+  );
+
+  /** Maior teto finito entre as faixas (usado como teto de referência da regra). */
+  readonly wizardCeiling = computed(() => {
+    const maximos = this.wizardFaixas()
+      .map((f) => f.valorMaximo)
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+    return maximos.length ? Math.max(...maximos) : 0;
+  });
+
+  // =========================================================================
   // ESTADO DO EDITOR DA REGRA (ABA DEPOIS QUE CRIA OU EDITA)
   // =========================================================================
   readonly editingRule = signal<RuleListItem | null>(null);
@@ -253,11 +342,155 @@ export class RulesCatalogComponent {
   // =========================================================================
   openCreateModal(): void {
     this.modalRuleName.set('');
-    this.modalCreationMethod.set('prompt');
+    this.modalCreationMethod.set('manual');
     this.modalScope.set('global');
     this.modalActivateImmediately.set(true);
     this.modalErrorMessage.set(null);
+    this.wizardStep.set('choose');
+    this.selectedModelo.set(null);
+    this.wizardSaveError.set(null);
     this.isCreateModalOpen.set(true);
+  }
+
+  // --- Wizard (#69) ---------------------------------------------------------
+  startFromTemplate(): void {
+    this.wizardStep.set('template');
+  }
+
+  startFromScratch(): void {
+    this.wizardStep.set('scratch');
+  }
+
+  /** Pré-preenche valores, centro de custo e alçadas a partir do modelo escolhido. */
+  selectTemplate(modelo: ModeloRegraAlcada): void {
+    this.selectedModelo.set(modelo);
+    this.wizardName.set(modelo.nome);
+    this.wizardCostCenter.set(modelo.centroCustoSugerido);
+    this.wizardQuorum.set(modelo.quorum);
+    this.wizardSlaHours.set(modelo.slaHoras);
+    this.wizardDescription.set(modelo.descricao);
+    this.wizardFaixas.set(modelo.faixas.map((f) => ({ ...f, id: this.nextFaixaId() })));
+    this.wizardSaveError.set(null);
+    this.wizardStep.set('configure');
+  }
+
+  /** Atalho da aba "Modelos Predefinidos": abre o wizard já no passo de configuração. */
+  useTemplateFromCatalog(modelo: ModeloRegraAlcada): void {
+    this.openCreateModal();
+    this.selectTemplate(modelo);
+  }
+
+  wizardBack(): void {
+    const step = this.wizardStep();
+    this.wizardStep.set(step === 'configure' ? 'template' : 'choose');
+  }
+
+  updateFaixa(index: number, patch: Partial<FaixaRegraAlcada>): void {
+    this.wizardFaixas.update((list) =>
+      list.map((f, i) => (i === index ? { ...f, ...patch } : f)),
+    );
+  }
+
+  /** Converte o valor do input numérico (vazio vira null). */
+  updateFaixaValor(index: number, campo: 'valorMinimo' | 'valorMaximo', raw: unknown): void {
+    const valor = raw === '' || raw === null || raw === undefined ? null : Number(raw);
+    this.updateFaixa(index, { [campo]: valor } as Partial<FaixaRegraAlcada>);
+  }
+
+  toggleSemLimite(index: number): void {
+    const faixa = this.wizardFaixas()[index];
+    if (!faixa) return;
+    if (faixa.valorMaximo === null) {
+      const base = typeof faixa.valorMinimo === 'number' ? faixa.valorMinimo : 0;
+      this.updateFaixa(index, { valorMaximo: base + 1000 });
+    } else {
+      this.updateFaixa(index, { valorMaximo: null });
+    }
+  }
+
+  addFaixa(): void {
+    this.wizardFaixas.update((list) => {
+      // A faixa que era "sem limite" deixa de ser a última: recebe um teto para não invalidar
+      const ajustada = list.map((f, i) =>
+        i === list.length - 1 && f.valorMaximo === null
+          ? { ...f, valorMaximo: (typeof f.valorMinimo === 'number' ? f.valorMinimo : 0) + 1000 }
+          : f,
+      );
+      return [...ajustada, proximaFaixaRegra(ajustada, this.nextFaixaId())];
+    });
+  }
+
+  removeFaixa(index: number): void {
+    this.wizardFaixas.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  faixaError(index: number, campo: ErroFaixaRegra['campo']): string | null {
+    return (
+      this.wizardFaixaErrors().find((e) => e.indice === index && e.campo === campo)?.mensagem ??
+      null
+    );
+  }
+
+  faixaErrors(index: number): string[] {
+    return this.wizardFaixaErrors()
+      .filter((e) => e.indice === index)
+      .map((e) => e.mensagem);
+  }
+
+  saveRuleFromTemplate(): void {
+    if (!this.canSaveWizard()) return;
+
+    const modelo = this.selectedModelo();
+    const categoria: RuleCategoryType = modelo?.categoria ?? 'OPERATIONAL';
+    const meta = CATEGORY_META[categoria];
+    const faixas = this.wizardFaixas().map((f) => ({ ...f }));
+    const topo = faixas[faixas.length - 1];
+    const centroCusto = this.wizardCostCenter().trim();
+
+    const newRule: RuleListItem = {
+      id: `rule-${Date.now()}`,
+      name: this.wizardName().trim(),
+      type: categoria,
+      typeLabel: meta.label,
+      typeIcon: meta.icon,
+      typeVariant: meta.variant,
+      propertyScope: centroCusto || 'Todos os Departamentos',
+      isActive: this.modalActivateImmediately(),
+      creationMethod: 'manual',
+      ceilingAmount: this.wizardCeiling(),
+      approverRole: rotuloPapelAprovador(topo?.papelAprovador ?? ''),
+      quorum: this.wizardQuorum(),
+      slaHours: this.wizardSlaHours() ?? 24,
+      description: this.wizardDescription().trim(),
+      ...(modelo ? { modeloId: modelo.id } : {}),
+      centroCusto,
+      faixas,
+    };
+
+    this.wizardSaving.set(true);
+    this.wizardSaveError.set(null);
+    this.limitsService.saveRuleCatalogEntry(newRule).subscribe({
+      next: () => {
+        this.wizardSaving.set(false);
+        this.rulesList.update((list) => [newRule, ...list]);
+        this.closeCreateModal();
+        this.activeCatalogTab.set('rules');
+        this.triggerToast(
+          'Regra Criada a partir do Modelo',
+          `A regra "${newRule.name}" foi salva com ${faixas.length} faixa(s) de alçada.`,
+          'success',
+        );
+      },
+      error: (erro: unknown) => {
+        this.wizardSaving.set(false);
+        this.wizardSaveError.set(mensagemDeErroDaApi(erro));
+      },
+    });
+  }
+
+  private nextFaixaId(): string {
+    this.faixaSeq += 1;
+    return `faixa-${this.faixaSeq}`;
   }
 
   closeCreateModal(): void {
@@ -375,6 +608,7 @@ export class RulesCatalogComponent {
           : r
       )
     );
+    this.limitsService.persistWorkflowsToBackend(this.rulesList());
 
     this.triggerToast(
       'Alterações Salvas',

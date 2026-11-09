@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of, throwError } from 'rxjs';
 import { RulesCatalogComponent } from './rules-catalog.component';
 import { LimitsService } from '../../services/limits.service';
 
@@ -104,6 +105,101 @@ describe('RulesCatalogComponent', () => {
       expect(component.chatMessages().length).toBeGreaterThanOrEqual(2);
       done();
     }, 1000);
+  });
+
+  describe('wizard de modelos pré-definidos (#69)', () => {
+    let limitsService: LimitsService;
+
+    beforeEach(() => {
+      limitsService = TestBed.inject(LimitsService);
+      component.openCreateModal();
+    });
+
+    it('abre no passo de escolha entre modelo pronto e criar do zero', () => {
+      expect(component.wizardStep()).toBe('choose');
+      component.startFromScratch();
+      expect(component.wizardStep()).toBe('scratch');
+      component.wizardBack();
+      component.startFromTemplate();
+      expect(component.wizardStep()).toBe('template');
+    });
+
+    it('oferece pelo menos 4 modelos', () => {
+      expect(component.modelos.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('ao selecionar um modelo pré-preenche nome, centro de custo, SLA e faixas', () => {
+      const modelo = component.modelos[0];
+      component.selectTemplate(modelo);
+
+      expect(component.wizardStep()).toBe('configure');
+      expect(component.wizardName()).toBe(modelo.nome);
+      expect(component.wizardCostCenter()).toBe(modelo.centroCustoSugerido);
+      expect(component.wizardSlaHours()).toBe(modelo.slaHoras);
+      expect(component.wizardFaixas().map((f) => f.valorMaximo)).toEqual(
+        modelo.faixas.map((f) => f.valorMaximo),
+      );
+      expect(component.canSaveWizard()).toBe(true);
+    });
+
+    it('permite personalizar valores e papéis sem alterar o modelo original', () => {
+      const modelo = component.modelos[0];
+      component.selectTemplate(modelo);
+      component.updateFaixaValor(0, 'valorMaximo', 800);
+      component.updateFaixa(0, { papelAprovador: 'GERENTE' });
+
+      expect(component.wizardFaixas()[0]).toMatchObject({ valorMaximo: 800, papelAprovador: 'GERENTE' });
+      expect(modelo.faixas[0].valorMaximo).toBe(500);
+    });
+
+    it('valida em tempo real mínimo < máximo e bloqueia o salvamento', () => {
+      component.selectTemplate(component.modelos[0]);
+      component.updateFaixaValor(0, 'valorMaximo', 0);
+
+      expect(component.faixaErrors(0).length).toBeGreaterThan(0);
+      expect(component.canSaveWizard()).toBe(false);
+    });
+
+    it('adiciona faixa contígua e permite remover', () => {
+      component.selectTemplate(component.modelos[0]);
+      const total = component.wizardFaixas().length;
+      component.addFaixa();
+      component.updateFaixa(total, { papelAprovador: 'CFO' });
+
+      expect(component.wizardFaixas().length).toBe(total + 1);
+      expect(component.wizardFaixaErrors()).toEqual([]);
+
+      component.removeFaixa(total);
+      expect(component.wizardFaixas().length).toBe(total);
+    });
+
+    it('salva a regra na API com as faixas e adiciona à lista', () => {
+      const spy = jest
+        .spyOn(limitsService, 'saveRuleCatalogEntry')
+        .mockReturnValue(of({ savedWorkflows: 0, savedRules: 1 }));
+      const modelo = component.modelos[1];
+      component.selectTemplate(modelo);
+      component.saveRuleFromTemplate();
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ name: modelo.nome, modeloId: modelo.id, type: modelo.categoria }),
+      );
+      expect(component.rulesList()[0].faixas?.length).toBe(modelo.faixas.length);
+      expect(component.isCreateModalOpen()).toBe(false);
+    });
+
+    it('mantém o modal aberto e mostra o erro quando a API recusa', () => {
+      jest
+        .spyOn(limitsService, 'saveRuleCatalogEntry')
+        .mockReturnValue(throwError(() => new Error('falhou')));
+      const antes = component.rulesList().length;
+      component.selectTemplate(component.modelos[0]);
+      component.saveRuleFromTemplate();
+
+      expect(component.wizardSaveError()).toBeTruthy();
+      expect(component.isCreateModalOpen()).toBe(true);
+      expect(component.rulesList().length).toBe(antes);
+    });
   });
 
   it('should save editor changes and return to rules tab', () => {

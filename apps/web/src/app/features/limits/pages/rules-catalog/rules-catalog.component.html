@@ -136,7 +136,7 @@
         (click)="activeCatalogTab.set('templates')"
       >
         <span>Modelos Predefinidos</span>
-        <span class="subtab-counter">{{ limitsService.ruleTemplatesState().length }}</span>
+        <span class="subtab-counter">{{ modelos.length }}</span>
       </button>
 
       @if (activeCatalogTab() === 'editor' && editingRule(); as editRule) {
@@ -340,24 +340,25 @@
       </div>
 
       <div class="templates-grid">
-        @for (tpl of limitsService.ruleTemplatesState(); track tpl.title) {
+        @for (tpl of modelos; track tpl.id) {
           <article class="template-card">
             <div class="template-top">
-              <span class="template-badge" [style.backgroundColor]="tpl.badgeColor + '18'" [style.color]="tpl.badgeColor">
-                {{ tpl.badge }}
+              <span class="type-pill" [ngClass]="'variant-' + categoryMeta[tpl.categoria].variant">
+                <span class="material-symbols-rounded pill-symbol">{{ categoryMeta[tpl.categoria].icon }}</span>
+                <span>{{ categoryMeta[tpl.categoria].label }}</span>
               </span>
-              <span class="material-symbols-rounded template-icon" [style.color]="tpl.badgeColor">{{ tpl.icon }}</span>
+              <span class="material-symbols-rounded template-icon">{{ tpl.icone }}</span>
             </div>
 
-            <h4 class="template-title">{{ tpl.title }}</h4>
-            <p class="template-desc">{{ tpl.description }}</p>
+            <h4 class="template-title">{{ tpl.nome }}</h4>
+            <p class="template-desc">{{ tpl.descricao }}</p>
 
             <div class="template-footer">
-              <span class="template-usage">Usado em {{ tpl.usageCount || 10 }} fluxos</span>
+              <span class="template-usage">{{ tpl.faixas.length }} faixas · SLA {{ tpl.slaHoras }}h</span>
               <button
                 type="button"
                 class="btn-use-template"
-                (click)="modalRuleName.set(tpl.title); openCreateModal()"
+                (click)="useTemplateFromCatalog(tpl)"
               >
                 <span>Usar Modelo</span>
                 <span class="material-symbols-rounded">arrow_forward</span>
@@ -694,13 +695,30 @@
       aria-label="Fechar modal"
     ></button>
 
-    <div class="modal-card-creation">
-      <!-- Top Header do Modal (Idêntico à Imagem 1) -->
+    <div class="modal-card-creation" [class.is-wide]="wizardStep() === 'configure'">
+      <!-- Top Header do Modal -->
       <div class="modal-creation-header">
         <div class="header-breadcrumb">
-          <span class="material-symbols-rounded search-icon">search</span>
-          <span class="breadcrumb-slash">/</span>
+          @if (wizardStep() !== 'choose') {
+            <button type="button" class="btn-wizard-back" (click)="wizardBack()" aria-label="Voltar ao passo anterior">
+              <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+          } @else {
+            <span class="material-symbols-rounded search-icon">add_circle</span>
+          }
           <h3 id="modal-view-title" class="breadcrumb-active">Criar Nova Regra</h3>
+          @if (wizardStep() === 'template' || wizardStep() === 'configure') {
+            <span class="breadcrumb-slash">/</span>
+            <span>Modelo Pronto</span>
+          }
+          @if (wizardStep() === 'configure' && selectedModelo(); as m) {
+            <span class="breadcrumb-slash">/</span>
+            <span>{{ m.nome }}</span>
+          }
+          @if (wizardStep() === 'scratch') {
+            <span class="breadcrumb-slash">/</span>
+            <span>Do Zero</span>
+          }
         </div>
 
         <button type="button" class="btn-modal-close" (click)="closeCreateModal()" aria-label="Fechar">
@@ -708,6 +726,287 @@
         </button>
       </div>
 
+      <!-- PASSO 1: ESCOLHA ENTRE MODELO PRONTO OU CRIAR DO ZERO (#69) -->
+      @if (wizardStep() === 'choose') {
+        <p class="wizard-intro">Como você quer começar?</p>
+        <div class="wizard-choice-row">
+          <button type="button" class="wizard-choice-card" (click)="startFromTemplate()">
+            <span class="choice-icon bg-template"><span class="material-symbols-rounded">widgets</span></span>
+            <strong>Usar Modelo Pronto</strong>
+            <span>Escolha um modelo de mercado já com faixas de valor, centro de custo e aprovadores sugeridos. Basta ajustar.</span>
+            <span class="choice-tag">Recomendado · {{ modelos.length }} modelos</span>
+          </button>
+
+          <button type="button" class="wizard-choice-card" (click)="startFromScratch()">
+            <span class="choice-icon bg-scratch"><span class="material-symbols-rounded">edit_note</span></span>
+            <strong>Criar do Zero</strong>
+            <span>Monte a regra via Chat IA, configuração manual ou importação de documento.</span>
+          </button>
+        </div>
+      }
+
+      <!-- PASSO 2: CATÁLOGO DE MODELOS -->
+      @if (wizardStep() === 'template') {
+        <p class="wizard-intro">Selecione um modelo para pré-preencher a regra:</p>
+        <div class="wizard-template-list">
+          @for (tpl of modelos; track tpl.id) {
+            <button type="button" class="wizard-template-item" (click)="selectTemplate(tpl)">
+              <span class="material-symbols-rounded tpl-icon">{{ tpl.icone }}</span>
+              <span class="tpl-body">
+                <strong>{{ tpl.nome }}</strong>
+                <span class="tpl-desc">{{ tpl.descricao }}</span>
+                <span class="tpl-tiers">
+                  @for (f of tpl.faixas; track f.id) {
+                    <span class="tier-chip">
+                      @if (f.valorMaximo === null) {
+                        acima de {{ f.valorMinimo | currency:'BRL':'symbol':'1.0-0' }}
+                      } @else {
+                        até {{ f.valorMaximo | currency:'BRL':'symbol':'1.0-0' }}
+                      }
+                      → {{ rotuloPapel(f.papelAprovador) }}
+                    </span>
+                  }
+                </span>
+              </span>
+              <span class="material-symbols-rounded tpl-arrow">chevron_right</span>
+            </button>
+          }
+        </div>
+      }
+
+      <!-- PASSO 3: CONFIGURAÇÃO DO MODELO + RESUMO DINÂMICO -->
+      @if (wizardStep() === 'configure') {
+        <div class="wizard-configure-grid">
+          <div class="wizard-form">
+            <div class="wizard-field">
+              <label for="wizardNameInput">Nome da Regra</label>
+              <input
+                id="wizardNameInput"
+                type="text"
+                class="wizard-input"
+                [class.has-error]="wizardNameError()"
+                [ngModel]="wizardName()"
+                (ngModelChange)="wizardName.set($event)"
+              />
+              @if (wizardNameError(); as err) { <span class="field-error">{{ err }}</span> }
+            </div>
+
+            <div class="wizard-row-3">
+              <div class="wizard-field">
+                <label for="wizardCcInput">Centro de Custo</label>
+                <input
+                  id="wizardCcInput"
+                  type="text"
+                  class="wizard-input"
+                  list="wizardCcOptions"
+                  [ngModel]="wizardCostCenter()"
+                  (ngModelChange)="wizardCostCenter.set($event)"
+                />
+                <datalist id="wizardCcOptions">
+                  @for (cc of costCenterSuggestions(); track cc) { <option [value]="cc"></option> }
+                </datalist>
+              </div>
+
+              <div class="wizard-field">
+                <label for="wizardQuorumSelect">Quórum</label>
+                <select
+                  id="wizardQuorumSelect"
+                  class="wizard-input"
+                  [ngModel]="wizardQuorum()"
+                  (ngModelChange)="wizardQuorum.set($event)"
+                >
+                  @for (q of quoruns; track q) { <option [value]="q">{{ q }}</option> }
+                </select>
+              </div>
+
+              <div class="wizard-field">
+                <label for="wizardSlaInput">SLA (horas)</label>
+                <input
+                  id="wizardSlaInput"
+                  type="number"
+                  min="1"
+                  class="wizard-input"
+                  [class.has-error]="wizardSlaError()"
+                  [ngModel]="wizardSlaHours()"
+                  (ngModelChange)="wizardSlaHours.set($event)"
+                />
+                @if (wizardSlaError(); as err) { <span class="field-error">{{ err }}</span> }
+              </div>
+            </div>
+
+            <div class="wizard-tiers">
+              <div class="tiers-header">
+                <span class="tiers-title">Faixas de valor e alçadas</span>
+                <button type="button" class="btn-add-tier" (click)="addFaixa()">
+                  <span class="material-symbols-rounded">add</span>
+                  <span>Adicionar faixa</span>
+                </button>
+              </div>
+
+              @for (f of wizardFaixas(); track f.id; let i = $index, last = $last) {
+                <div class="tier-row">
+                  <span class="tier-index">{{ i + 1 }}</span>
+
+                  <div class="wizard-field">
+                    <label [for]="'tierMin' + i">Mínimo (R$)</label>
+                    <input
+                      [id]="'tierMin' + i"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      class="wizard-input"
+                      [class.has-error]="faixaError(i, 'valorMinimo')"
+                      [ngModel]="f.valorMinimo"
+                      (ngModelChange)="updateFaixaValor(i, 'valorMinimo', $event)"
+                    />
+                  </div>
+
+                  <div class="wizard-field">
+                    <label [for]="'tierMax' + i">Máximo (R$)</label>
+                    @if (f.valorMaximo === null) {
+                      <span class="tier-unlimited">Sem limite</span>
+                    } @else {
+                      <input
+                        [id]="'tierMax' + i"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="wizard-input"
+                        [class.has-error]="faixaError(i, 'valorMaximo')"
+                        [ngModel]="f.valorMaximo"
+                        (ngModelChange)="updateFaixaValor(i, 'valorMaximo', $event)"
+                      />
+                    }
+                    @if (last) {
+                      <label class="tier-check">
+                        <input type="checkbox" [checked]="f.valorMaximo === null" (change)="toggleSemLimite(i)" />
+                        <span>sem limite</span>
+                      </label>
+                    }
+                  </div>
+
+                  <div class="wizard-field">
+                    <label [for]="'tierRole' + i">Aprovador</label>
+                    <select
+                      [id]="'tierRole' + i"
+                      class="wizard-input"
+                      [class.has-error]="faixaError(i, 'papelAprovador')"
+                      [ngModel]="f.papelAprovador"
+                      (ngModelChange)="updateFaixa(i, { papelAprovador: $event })"
+                    >
+                      <option value="" disabled>Selecione...</option>
+                      @for (p of papeisAprovador; track p.id) { <option [value]="p.id">{{ p.label }}</option> }
+                    </select>
+                    <label class="tier-check">
+                      <input
+                        type="checkbox"
+                        [checked]="!!f.aprovacaoTecnica"
+                        (change)="updateFaixa(i, { aprovacaoTecnica: !f.aprovacaoTecnica })"
+                      />
+                      <span>+ aprovação técnica</span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="btn-remove-tier"
+                    [disabled]="wizardFaixas().length === 1"
+                    (click)="removeFaixa(i)"
+                    aria-label="Remover faixa {{ i + 1 }}"
+                  >
+                    <span class="material-symbols-rounded">delete</span>
+                  </button>
+
+                  @for (err of faixaErrors(i); track err) {
+                    <span class="field-error tier-error">{{ err }}</span>
+                  }
+                </div>
+              }
+
+              @for (e of wizardFaixaErrors(); track e.mensagem) {
+                @if (e.indice === null) { <span class="field-error">{{ e.mensagem }}</span> }
+              }
+            </div>
+          </div>
+
+          <!-- Resumo dinâmico da regra -->
+          <aside class="wizard-summary" aria-live="polite">
+            <h4>
+              <span class="material-symbols-rounded">visibility</span>
+              <span>Resumo da regra</span>
+            </h4>
+            <p class="summary-name">{{ wizardName() || 'Regra sem nome' }}</p>
+            <p class="summary-meta">
+              {{ wizardCostCenter() || 'Todos os Departamentos' }} · {{ wizardQuorum() }} · SLA {{ wizardSlaHours() ?? '—' }}h
+            </p>
+
+            <ol class="summary-tiers">
+              @for (f of wizardFaixas(); track f.id; let i = $index) {
+                <li [class.invalid]="faixaErrors(i).length > 0">
+                  <span class="summary-range">
+                    @if (f.valorMaximo === null) {
+                      Acima de {{ (f.valorMinimo ?? 0) | currency:'BRL':'symbol':'1.2-2' }}
+                    } @else {
+                      {{ (f.valorMinimo ?? 0) | currency:'BRL':'symbol':'1.2-2' }} a {{ f.valorMaximo | currency:'BRL':'symbol':'1.2-2' }}
+                    }
+                  </span>
+                  <span class="summary-role">
+                    {{ f.papelAprovador ? rotuloPapel(f.papelAprovador) : 'Aprovador não definido' }}
+                    @if (f.aprovacaoTecnica) { + aprovação técnica }
+                  </span>
+                </li>
+              }
+            </ol>
+
+            @if (canSaveWizard()) {
+              <div class="summary-status ok">
+                <span class="material-symbols-rounded">check_circle</span>
+                <span>Regra pronta para salvar</span>
+              </div>
+            } @else if (!wizardSaving()) {
+              <div class="summary-status warn">
+                <span class="material-symbols-rounded">error</span>
+                <span>Corrija os campos destacados para salvar</span>
+              </div>
+            }
+          </aside>
+        </div>
+
+        @if (wizardSaveError(); as err) {
+          <div class="wizard-save-error" role="alert">
+            <span class="material-symbols-rounded">error</span>
+            <span>{{ err }}</span>
+          </div>
+        }
+
+        <div class="modal-creation-footer">
+          <div class="footer-toggle-wrap">
+            <button
+              type="button"
+              class="switch-control"
+              [class.active]="modalActivateImmediately()"
+              (click)="modalActivateImmediately.update(v => !v)"
+              role="switch"
+              [attr.aria-checked]="modalActivateImmediately()"
+              aria-label="Ativar regra imediatamente"
+            >
+              <span class="switch-handle"></span>
+            </button>
+            <span class="footer-toggle-text">Ativar imediatamente</span>
+          </div>
+
+          <button
+            type="button"
+            class="btn-create-view-primary"
+            [disabled]="!canSaveWizard()"
+            (click)="saveRuleFromTemplate()"
+          >
+            <span>{{ wizardSaving() ? 'Salvando...' : 'Salvar Regra' }}</span>
+          </button>
+        </div>
+      }
+
+      @if (wizardStep() === 'scratch') {
       <!-- Seletor de Escopo no Topo (Idêntico a People / Companies da Imagem 1) -->
       <div class="modal-scope-switch">
         <button
@@ -731,29 +1030,12 @@
         </button>
       </div>
 
-      <!-- Título de Seleção de Método com Ícone Informativo -->
+      <!-- Método de criação: apenas Manual -->
       <div class="method-section-title-row">
-        <span class="method-section-label">Selecione o método de criação</span>
-        <span class="material-symbols-rounded info-icon" title="Escolha como deseja estruturar a regra">info</span>
+        <span class="method-section-label">Método de criação</span>
       </div>
 
-      <!-- Os 3 Cards de Métodos (Idênticos a Table / Kanban / Dashboard da Imagem 1) -->
-      <div class="creation-methods-cards-row">
-        <!-- Card 1: Por Chat / IA (Prompt) -->
-        <button
-          type="button"
-          class="creation-type-card"
-          [class.is-selected]="modalCreationMethod() === 'prompt'"
-          (click)="selectModalMethod('prompt')"
-        >
-          <div class="card-icon-box bg-table">
-            <span class="material-symbols-rounded">auto_awesome</span>
-          </div>
-          <strong class="card-title-text">Via Chat / IA (Prompt)</strong>
-          <span class="card-subtitle-text">Crie regras automaticamente descrevendo em linguagem natural</span>
-        </button>
-
-        <!-- Card 2: Manual -->
+      <div class="creation-methods-cards-row single-method">
         <button
           type="button"
           class="creation-type-card"
@@ -764,21 +1046,7 @@
             <span class="material-symbols-rounded">tune</span>
           </div>
           <strong class="card-title-text">Manual</strong>
-          <span class="card-subtitle-text">Configure parâmetros e limites com base em modelos predefinidos</span>
-        </button>
-
-        <!-- Card 3: Por Documento -->
-        <button
-          type="button"
-          class="creation-type-card"
-          [class.is-selected]="modalCreationMethod() === 'document'"
-          (click)="selectModalMethod('document')"
-        >
-          <div class="card-icon-box bg-dashboard">
-            <span class="material-symbols-rounded">description</span>
-          </div>
-          <strong class="card-title-text">Por Documento</strong>
-          <span class="card-subtitle-text">Importe uma política em PDF ou Word para extrair as regras</span>
+          <span class="card-subtitle-text">Configure valores, limites, aprovadores e SLA manualmente</span>
         </button>
       </div>
 
@@ -822,6 +1090,7 @@
           <span>Criar Regra e Editar</span>
         </button>
       </div>
+      }
     </div>
   </div>
 }
