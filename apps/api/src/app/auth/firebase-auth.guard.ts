@@ -21,6 +21,16 @@ function decodificarJwtLocal(token: string): Record<string, unknown> | null {
   if (process.env['NODE_ENV'] === 'production') {
     return null;
   }
+  if (token.startsWith('test:')) {
+    const [, tenantId, role = 'SOLICITANTE', userId = 'usr-test-01'] = token.split(':');
+    if (!tenantId) return null;
+    return {
+      uid: userId,
+      tenantId,
+      role,
+      roles: [role],
+    };
+  }
   const partes = token.split('.');
   if (partes.length !== 3) {
     return null;
