@@ -51,9 +51,9 @@
 
     <p class="reenviar">
       Não recebeu?
-      <button type="button" class="link" [disabled]="segundos > 0" (click)="reenviar()">
-        @if (segundos > 0) {
-          Reenviar em {{ segundos }}s
+      <button type="button" class="link" [disabled]="segundos() > 0" (click)="reenviar()">
+        @if (segundos() > 0) {
+          Reenviar em {{ segundos() }}s
         } @else {
           Reenviar código
         }

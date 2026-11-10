@@ -5,9 +5,13 @@ import {
   QueryList,
   ViewChildren,
   inject,
+  signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { RecuperacaoSenhaService } from '../../services/recuperacao-senha.service';
+
+/** Tempo de espera para pedir um novo código. */
+export const SEGUNDOS_PARA_REENVIAR = 30;
 
 @Component({
   selector: 'app-verificar-codigo',
@@ -29,7 +33,8 @@ export class VerificarCodigo implements OnDestroy {
   digitos: string[] = ['', '', '', '', '', ''];
   erro = '';
   carregando = false;
-  segundos = 30;
+  /** Signal: o app é zoneless, então o timer só atualiza a tela por um signal. */
+  readonly segundos = signal(SEGUNDOS_PARA_REENVIAR);
 
   private timer?: ReturnType<typeof setInterval>;
 
@@ -95,7 +100,7 @@ export class VerificarCodigo implements OnDestroy {
   }
 
   reenviar(): void {
-    if (this.segundos > 0) return;
+    if (this.segundos() > 0) return;
     try {
       this.recuperacao.reenviarCodigo();
       this.digitos = ['', '', '', '', '', ''];
@@ -126,10 +131,10 @@ export class VerificarCodigo implements OnDestroy {
 
   private iniciarContagem(): void {
     clearInterval(this.timer);
-    this.segundos = 30;
+    this.segundos.set(SEGUNDOS_PARA_REENVIAR);
     this.timer = setInterval(() => {
-      this.segundos--;
-      if (this.segundos <= 0) clearInterval(this.timer);
+      this.segundos.update((s) => s - 1);
+      if (this.segundos() <= 0) clearInterval(this.timer);
     }, 1000);
   }
 }

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RecuperacaoSenhaService } from '../../services/recuperacao-senha.service';
-import { VerificarCodigo } from './verificar-codigo';
+import { SEGUNDOS_PARA_REENVIAR, VerificarCodigo } from './verificar-codigo';
 
 describe('VerificarCodigo', () => {
   let recuperacao: {
@@ -70,7 +70,11 @@ describe('VerificarCodigo', () => {
     fixture.componentInstance.reenviar();
     expect(recuperacao.reenviarCodigo).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(30_000);
+    jest.advanceTimersByTime(1_000);
+    expect(fixture.componentInstance.segundos()).toBe(SEGUNDOS_PARA_REENVIAR - 1);
+
+    jest.advanceTimersByTime((SEGUNDOS_PARA_REENVIAR - 1) * 1_000);
+    expect(fixture.componentInstance.segundos()).toBe(0);
     fixture.componentInstance.reenviar();
     expect(recuperacao.reenviarCodigo).toHaveBeenCalledTimes(1);
     fixture.destroy();
