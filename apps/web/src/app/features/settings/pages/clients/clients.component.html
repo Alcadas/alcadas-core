@@ -287,7 +287,14 @@
           </thead>
           <tbody>
             @for (tenant of filteredTenants(); track tenant.tenantId) {
-              <tr class="saas-row" (click)="inspectTenantOrganization(tenant)">
+              <tr
+                class="saas-row"
+                tabindex="0"
+                role="button"
+                (click)="inspectTenantOrganization(tenant)"
+                (keydown.enter)="inspectTenantOrganization(tenant)"
+                (keydown.space)="inspectTenantOrganization(tenant); $event.preventDefault()"
+              >
                 <td>
                   <div class="company-cell">
                     <span class="company-avatar">{{ initials(tenant.organization.tradeName) }}</span>
@@ -335,11 +342,11 @@
                   </div>
                 </td>
                 <td style="text-align: right">
-                  <div class="row-actions-group" (click)="$event.stopPropagation()">
+                  <div class="row-actions-group">
                     <button
                       type="button"
                       class="btn-saas-action primary"
-                      (click)="inspectTenantOrganization(tenant)"
+                      (click)="inspectTenantOrganization(tenant); $event.stopPropagation()"
                       title="Acessar informações completas da empresa"
                     >
                       <span class="material-symbols-rounded">domain</span>
@@ -348,7 +355,7 @@
                     <button
                       type="button"
                       class="btn-saas-action"
-                      (click)="inspectTenantDelegations(tenant)"
+                      (click)="inspectTenantDelegations(tenant); $event.stopPropagation()"
                       title="Configurar Delegações desta empresa"
                     >
                       <span class="material-symbols-rounded">admin_panel_settings</span>
@@ -357,7 +364,7 @@
                     <button
                       type="button"
                       class="btn-saas-action"
-                      (click)="impersonateAccount(tenant.ownerEmail)"
+                      (click)="impersonateAccount(tenant.ownerEmail); $event.stopPropagation()"
                       title="Entrar como o titular desta empresa"
                     >
                       <span class="material-symbols-rounded">login</span>
@@ -367,7 +374,7 @@
                       <button
                         type="button"
                         class="btn-saas-action danger"
-                        (click)="toggleTenantStatus(tenant)"
+                        (click)="toggleTenantStatus(tenant); $event.stopPropagation()"
                         [title]="tenant.status === 'ATIVO' ? 'Suspender empresa' : 'Reativar empresa'"
                       >
                         <span class="material-symbols-rounded">
