@@ -280,6 +280,13 @@ $bg-page: #f8fafc;
   color: $muted;
 }
 
+.table-actions-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 /* ========================================================================= */
 /* 6. CARDS DE SOLICITAÇÃO (Padrão idêntico a Minhas Alçadas e Dashboard)    */
 /* ========================================================================= */

@@ -8,33 +8,6 @@
   contextSubtitle="Preencha os dados e anexe documentos para envio ao fluxo de alçadas"
   [showTier2]="false"
 >
-  <div header-actions class="header-actions-group">
-    <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para Solicitações">
-      <span class="material-symbols-rounded">arrow_back</span>
-      <span>Voltar</span>
-    </button>
-
-    <button type="button" class="btn-header-outline" (click)="saveDraft()" title="Salvar Rascunho">
-      <span class="material-symbols-rounded">save_as</span>
-      <span>Salvar Rascunho</span>
-    </button>
-
-    <button
-      type="button"
-      class="btn-header-primary"
-      (click)="submitNewRequest()"
-      [disabled]="isSubmitting()"
-      title="Submeter para aprovação"
-    >
-      @if (isSubmitting()) {
-        <span class="material-symbols-rounded spin-icon">progress_activity</span>
-        <span>Enviando...</span>
-      } @else {
-        <span class="material-symbols-rounded">send</span>
-        <span>Submeter Solicitação</span>
-      }
-    </button>
-  </div>
 </app-page-header>
 
 <!-- 2. Conteúdo Rolável da Página do Formulário -->

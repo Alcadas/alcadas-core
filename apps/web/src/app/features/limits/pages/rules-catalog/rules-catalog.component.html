@@ -12,17 +12,6 @@
   [contextSubtitle]="totalRulesCount() + ' regras corporativas cadastradas · ' + activeRulesCount() + ' em produção'"
   [showTier2]="true"
 >
-  <div header-actions class="header-actions-group">
-    <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para a página de fluxos">
-      <span class="material-symbols-rounded">account_tree</span>
-      <span>Meus Fluxos</span>
-    </button>
-
-    <button type="button" class="btn-header-primary" (click)="openCreateModal()" title="Criar nova regra de alçada">
-      <span class="material-symbols-rounded">add</span>
-      <span>Nova Regra</span>
-    </button>
-  </div>
 </app-page-header>
 
 <!-- ========================================================================= -->
@@ -33,9 +22,17 @@
   <section class="governance-overview-banner">
     <div class="overview-header-row">
       <h2 class="overview-title">Gestão de Regras de Alçadas & Tetos</h2>
-      <button type="button" class="btn-collapse-overview" aria-label="Recolher visão geral">
-        <span class="material-symbols-rounded">keyboard_arrow_up</span>
-      </button>
+      <div style="display: flex; gap: 0.65rem; align-items: center">
+        <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para a página de fluxos">
+          <span class="material-symbols-rounded">account_tree</span>
+          <span>Meus Fluxos</span>
+        </button>
+
+        <button type="button" class="btn-header-primary" (click)="openCreateModal()" title="Criar nova regra de alçada">
+          <span class="material-symbols-rounded">add</span>
+          <span>Nova Regra</span>
+        </button>
+      </div>
     </div>
 
     <!-- Card de Metadados da Política (Idêntico ao topo da Imagem 2) -->
