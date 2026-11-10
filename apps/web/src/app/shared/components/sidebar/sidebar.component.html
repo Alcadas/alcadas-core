@@ -4,9 +4,9 @@
     <button
       type="button"
       class="workspace-info"
-      [class.cursor-pointer]="settingsService.isPlatformSuperAdmin()"
+      [class.cursor-pointer]="isDev() || isCollapsed()"
       (click)="toggleTenantDropdown($event)"
-      [title]="settingsService.isPlatformSuperAdmin() ? 'Trocar empresa gerenciada' : settingsService.organization().tradeName"
+      [title]="isCollapsed() ? 'Clique para expandir menu' : (isDev() ? 'Trocar empresa gerenciada' : settingsService.organization().tradeName)"
     >
       <div class="workspace-logo-wrap">
         <img src="/alcadas.png" alt="Startop Alçadas" class="workspace-logo" />
@@ -15,29 +15,34 @@
         <div class="workspace-details">
           <div class="workspace-name-wrap">
             <span class="workspace-name">{{ settingsService.organization().tradeName }}</span>
-            <span
-              class="material-symbols-rounded chevron-down"
-              [class.rotated]="isTenantDropdownOpen()"
-            >
-              expand_more
-            </span>
+            
+            @if (isDev()) {
+              <span
+                class="material-symbols-rounded chevron-down"
+                [class.rotated]="isTenantDropdownOpen()"
+              >
+                expand_more
+              </span>
+            }
           </div>
           <span class="workspace-sub">Tenant: {{ settingsService.activeTenantId() }}</span>
         </div>
       }
     </button>
 
-    <button
-      type="button"
-      class="btn-toggle-collapse"
-      [attr.aria-label]="isCollapsed() ? 'Expandir menu lateral' : 'Recolher menu lateral'"
-      [title]="isCollapsed() ? 'Expandir menu lateral' : 'Recolher menu lateral'"
-      (click)="toggleCollapse()"
-    >
-      <span class="material-symbols-rounded collapse-icon">
-        {{ isCollapsed() ? 'dock_to_right' : 'dock_to_left' }}
-      </span>
-    </button>
+    @if (!isCollapsed()) {
+      <button
+        type="button"
+        class="btn-toggle-collapse"
+        aria-label="Recolher menu lateral"
+        title="Recolher menu lateral"
+        (click)="toggleCollapse()"
+      >
+        <span class="material-symbols-rounded collapse-icon">
+          dock_to_left
+        </span>
+      </button>
+    }
 
     <!-- Dropdown de Troca de Empresa para Desenvolvedor / Super Admin -->
     @if (!isCollapsed() && isTenantDropdownOpen()) {
