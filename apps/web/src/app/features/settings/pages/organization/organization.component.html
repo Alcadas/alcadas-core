@@ -429,48 +429,117 @@
       <!-- Lista de Departamentos -->
       <div class="org-items-list">
         @for (dept of org().departments; track dept.id) {
-          <div class="org-item-row">
-            <div class="item-left">
-              <span
-                class="dept-badge-avatar"
-                [style.background-color]="dept.color + '1a'"
-                [style.color]="dept.color"
-              >
-                {{ dept.code }}
-              </span>
-              <div class="item-info">
-                <div class="item-title-line">
-                  <strong>{{ dept.name }}</strong>
-                  <span class="cc-tag">{{ dept.costCenter }}</span>
-                </div>
-                <span class="item-sub-line">
-                  Gestor: {{ dept.managerName }} · {{ employeesCountByDept(dept.id) }} colaborador(es) vinculado(s)
+          <div class="dept-card-wrapper" [class.expanded]="expandedDepartmentId() === dept.id">
+            <div
+              class="org-item-row clickable-dept-row"
+              (click)="toggleDepartmentExpansion(dept.id)"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="toggleDepartmentExpansion(dept.id)"
+              (keydown.space)="toggleDepartmentExpansion(dept.id); $event.preventDefault()"
+            >
+              <div class="item-left">
+                <span
+                  class="dept-badge-avatar"
+                  [style.background-color]="dept.color + '1a'"
+                  [style.color]="dept.color"
+                >
+                  {{ dept.code }}
                 </span>
+                <div class="item-info">
+                  <div class="item-title-line">
+                    <strong>{{ dept.name }}</strong>
+                    <span class="cc-tag">{{ dept.costCenter }}</span>
+                    <span class="dept-expand-indicator" [class.open]="expandedDepartmentId() === dept.id">
+                      <span class="material-symbols-rounded">
+                        {{ expandedDepartmentId() === dept.id ? 'expand_less' : 'expand_more' }}
+                      </span>
+                      <span>{{ expandedDepartmentId() === dept.id ? 'Ocultar equipe' : 'Ver quem faz parte' }}</span>
+                    </span>
+                  </div>
+                  <span class="item-sub-line">
+                    Gestor: {{ dept.managerName }} · {{ employeesCountByDept(dept.id) }} colaborador(es) vinculado(s)
+                  </span>
+                </div>
+              </div>
+
+              <div class="item-right">
+                <div class="budget-col">
+                  <span class="budget-caption">Teto Orçamentário Mensal</span>
+                  <strong class="budget-val">{{ formatCurrency(dept.monthlyBudget) }}</strong>
+                </div>
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="btn-settings"
+                    (click)="editDepartment(dept); $event.stopPropagation()"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-settings danger"
+                    (click)="deleteDepartment(dept.id); $event.stopPropagation()"
+                  >
+                    Remover
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="item-right">
-              <div class="budget-col">
-                <span class="budget-caption">Teto Orçamentário Mensal</span>
-                <strong class="budget-val">{{ formatCurrency(dept.monthlyBudget) }}</strong>
+            <!-- Colaboradores que fazem parte deste departamento -->
+            @if (expandedDepartmentId() === dept.id) {
+              <div class="dept-expanded-panel">
+                <div class="panel-header">
+                  <div class="panel-header-title">
+                    <span class="material-symbols-rounded">group</span>
+                    <span>Colaboradores em {{ dept.name }} ({{ getDepartmentEmployees(dept.id).length }})</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-settings-link"
+                    (click)="openNewEmployeeForm(); employeeForm.controls.departmentId.setValue(dept.id); selectTab('employees')"
+                  >
+                    <span class="material-symbols-rounded">person_add</span>
+                    <span>Adicionar colaborador neste departamento</span>
+                  </button>
+                </div>
+
+                @if (getDepartmentEmployees(dept.id).length > 0) {
+                  <div class="dept-members-grid">
+                    @for (emp of getDepartmentEmployees(dept.id); track emp.id) {
+                      <div class="dept-member-card">
+                        <span class="member-avatar">{{ employeeInitials(emp.fullName) }}</span>
+                        <div class="member-info">
+                          <strong class="member-name">{{ emp.fullName }}</strong>
+                          <span class="member-job">{{ emp.jobTitle }}</span>
+                          <span class="member-email">{{ emp.email }}</span>
+                        </div>
+                        <div class="member-badge-col">
+                          <span class="role-pill">{{ emp.role }}</span>
+                          <span class="limit-info">
+                            {{ emp.approvalLimit > 0 ? formatCurrency(emp.approvalLimit) : 'Sem alçada' }}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          class="btn-settings ghost"
+                          title="Editar este colaborador"
+                          (click)="editEmployee(emp); selectTab('employees')"
+                        >
+                          <span class="material-symbols-rounded" style="font-size: 18px">edit</span>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="dept-empty-members">
+                    <span class="material-symbols-rounded">group_off</span>
+                    <span>Nenhum colaborador alocado neste departamento ainda.</span>
+                  </div>
+                }
               </div>
-              <div class="row-actions">
-                <button
-                  type="button"
-                  class="btn-settings"
-                  (click)="editDepartment(dept)"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  class="btn-settings danger"
-                  (click)="deleteDepartment(dept.id)"
-                >
-                  Remover
-                </button>
-              </div>
-            </div>
+            }
           </div>
         } @empty {
           <div class="empty-org-box">

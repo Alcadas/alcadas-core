@@ -83,200 +83,263 @@
   }
 }
 
-.tenants-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  margin-top: 1rem;
-}
-
-.tenant-card {
+.saas-table-card {
+  margin-top: 1.25rem;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  padding: 1.35rem 1.5rem;
-  background: #ffffff;
+  overflow: hidden;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
-}
 
-.tenant-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.tenant-main-info {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.95rem;
-
-  .tenant-avatar {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #644ef3 0%, #4338ca 100%);
-    color: #ffffff;
-    font-weight: 700;
-    font-size: 0.95rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .tenant-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    flex-wrap: wrap;
-
-    h2 {
-      margin: 0;
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #0f172a;
-    }
-  }
-
-  .tenant-sub {
-    margin: 0.3rem 0 0;
-    font-size: 0.82rem;
-    color: #64748b;
-  }
-}
-
-.tenant-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.tenant-accounts-box {
-  margin-top: 1.15rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f1f5f9;
-
-  .accounts-caption {
+  .saas-table-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.78rem;
-    color: #64748b;
-    margin-bottom: 0.65rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-}
-
-.accounts-table-wrap {
-  overflow-x: auto;
-}
-
-.accounts-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-
-  th {
-    text-align: left;
-    padding: 0.55rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #64748b;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  td {
-    padding: 0.65rem 0.75rem;
+    padding: 1.25rem 1.5rem;
     border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    .header-info {
+      h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      p {
+        margin: 0.2rem 0 0;
+        font-size: 0.8125rem;
+        color: #64748b;
+      }
+    }
+
+    .companies-counter {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #644ef3;
+      background: #f1eeff;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+    }
   }
 
-  code {
-    background: #f1f5f9;
-    padding: 0.15rem 0.45rem;
-    border-radius: 6px;
-    font-size: 0.78rem;
-    color: #334155;
+  .saas-table-wrapper {
+    overflow-x: auto;
   }
-}
 
-.acc-user-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
+  .saas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
 
-  .acc-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: #ede9fe;
-    color: #644ef3;
-    font-size: 0.72rem;
-    font-weight: 700;
-    display: inline-flex;
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.95rem 1rem;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+
+    .saas-row {
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: #fafbfc;
+      }
+    }
+  }
+
+  .company-cell {
+    display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 0.75rem;
+
+    .company-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #644ef3 0%, #4338ca 100%);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .company-names {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+
+      strong {
+        font-size: 0.9rem;
+        color: #0f172a;
+      }
+
+      .legal-name {
+        font-size: 0.75rem;
+        color: #64748b;
+      }
+    }
   }
 
-  .admin-chip {
-    display: inline-block;
-    margin-left: 0.4rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    background: #dcfce7;
-    color: #15803d;
+  .tenant-id-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+
+    code {
+      background: #f1f5f9;
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      color: #334155;
+      font-weight: 600;
+      width: fit-content;
+    }
+
+    .cnpj-text {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
   }
 
-  .acc-job {
-    font-size: 0.74rem;
+  .owner-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    .owner-name {
+      font-size: 0.85rem;
+      color: #0f172a;
+    }
+
+    .owner-job {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    .owner-email {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.72rem;
+      color: #475569;
+    }
+  }
+
+  .cadre-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+
+    .cadre-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #334155;
+
+      .material-symbols-rounded {
+        font-size: 16px;
+        color: #644ef3;
+      }
+
+      &.secondary {
+        color: #64748b;
+
+        .material-symbols-rounded {
+          color: #10b981;
+        }
+      }
+    }
+  }
+
+  .status-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .row-actions-group {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+
+    .btn-saas-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      .material-symbols-rounded {
+        font-size: 16px;
+      }
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #0f172a;
+      }
+
+      &.primary {
+        background: #f5f3ff;
+        border-color: rgba(100, 78, 243, 0.3);
+        color: #644ef3;
+
+        &:hover {
+          background: #644ef3;
+          border-color: #644ef3;
+          color: #ffffff;
+        }
+      }
+
+      &.danger {
+        color: #ef4444;
+
+        &:hover {
+          background: #fef2f2;
+          border-color: #fecaca;
+        }
+      }
+    }
+  }
+
+  .empty-saas-box {
+    padding: 3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
     color: #64748b;
-  }
-}
+    font-size: 0.875rem;
 
-.role-badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  background: #f1eeff;
-  color: #644ef3;
-  margin-right: 0.4rem;
-}
-
-.limit-hint {
-  font-size: 0.76rem;
-  color: #475569;
-  font-weight: 600;
-}
-
-.btn-impersonate {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.38rem 0.75rem;
-  border: 1px solid rgba(100, 78, 243, 0.35);
-  border-radius: 8px;
-  background: #f5f3ff;
-  color: #4f46e5;
-  font-size: 0.76rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  .material-symbols-rounded {
-    font-size: 16px;
-  }
-
-  &:hover {
-    background: #644ef3;
-    color: #ffffff;
-    border-color: #644ef3;
+    .material-symbols-rounded {
+      font-size: 32px;
+      color: #94a3b8;
+    }
   }
 }

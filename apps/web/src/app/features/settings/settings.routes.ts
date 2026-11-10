@@ -60,14 +60,6 @@ export const SETTINGS_ROUTES: Routes = [
             (m) => m.NotificationsComponent,
           ),
       },
-      {
-        path: 'integracoes',
-        title: 'Integrações & API · Alçadas',
-        loadComponent: () =>
-          import('./pages/integrations/integrations.component').then(
-            (m) => m.IntegrationsComponent,
-          ),
-      },
     ],
   },
 ];

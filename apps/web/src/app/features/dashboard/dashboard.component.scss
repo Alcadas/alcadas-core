@@ -23,8 +23,123 @@ $border: #eef2f6;
 }
 
 /* ========================================================================= */
-/* 1. Quick Cards Grid (Compact SaaS Scale - Estilo Optitask)                */
+/* 1. Dashboard KPIs Grid (Suave, Moderno e Funcional)                        */
 /* ========================================================================= */
+.dashboard-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dash-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.85rem 1.05rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+    border-color: #cbd5e1;
+  }
+
+  &.highlight-alert {
+    border-color: #fed7aa;
+    background: #fffdfa;
+  }
+
+  .kpi-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .kpi-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      letter-spacing: 0.03em;
+
+      &.tag-primary { background: #ede9fe; color: $primary; }
+      &.tag-warning { background: #fef3c7; color: #b45309; }
+      &.tag-success { background: #dcfce7; color: #15803d; }
+      &.tag-purple  { background: #f3e8ff; color: #7e22ce; }
+      &.tag-neutral { background: #f1f5f9; color: #475569; }
+    }
+
+    .kpi-icon {
+      font-size: 19px;
+      color: #94a3b8;
+
+      &.text-primary { color: $primary; }
+      &.text-warning { color: #d97706; }
+      &.text-success { color: #16a34a; }
+      &.text-purple  { color: #7e22ce; }
+    }
+  }
+
+  .kpi-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: $text;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+
+      &.text-warning { color: #b45309; }
+    }
+
+    .kpi-sub {
+      font-size: 0.725rem;
+      color: $muted;
+    }
+  }
+
+  .kpi-progress {
+    margin-top: 0.2rem;
+    .progress-bar {
+      height: 4px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      overflow: hidden;
+
+      .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        &.fill-primary { background: $primary; }
+      }
+    }
+  }
+
+  .kpi-meta-badge {
+    margin-top: auto;
+    padding-top: 0.35rem;
+    font-size: 0.675rem;
+    font-weight: 600;
+    color: #64748b;
+    border-top: 1px dashed #f1f5f9;
+
+    .text-success { color: #15803d; }
+  }
+}
+
 .quick-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -79,6 +194,62 @@ $border: #eef2f6;
     font-size: 0.7rem;
     color: $muted;
     line-height: 1.35;
+  }
+}
+
+.dept-budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+
+  .dept-budget-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    background: #f8fafc;
+    font-size: 0.75rem;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #f1f5f9;
+    }
+
+    .dept-row-left {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+
+      .legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .dept-row-name {
+        font-weight: 600;
+        color: #334155;
+      }
+    }
+
+    .dept-row-right {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+
+      .dept-row-val {
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .dept-row-pct {
+        font-size: 0.675rem;
+        color: #94a3b8;
+      }
+    }
   }
 }
 

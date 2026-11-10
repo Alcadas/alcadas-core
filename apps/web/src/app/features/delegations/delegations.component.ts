@@ -72,14 +72,10 @@ const ITENS_POR_PAGINA = 6;
         </div>
 
         <div class="header-actions-group">
-          <a routerLink="/configuracoes/organizacao" class="btn-secundario" style="text-decoration: none">
+          <a routerLink="/configuracoes/organizacao" class="btn-primario" style="text-decoration: none">
             <span class="material-symbols-rounded" style="font-size: 18px">domain</span>
-            <span>Quadro da Organização</span>
+            <span>Gerenciar Funcionários no Quadro</span>
           </a>
-          <button type="button" class="btn-primario" (click)="abrirNovoPerfil()">
-            <span class="material-symbols-rounded" style="font-size: 18px">person_add</span>
-            <span>Novo Funcionário / Perfil</span>
-          </button>
         </div>
       </header>
 
@@ -130,7 +126,8 @@ const ITENS_POR_PAGINA = 6;
                         <input
                           type="checkbox"
                           [checked]="temFuncionalidade(prof, f.chave)"
-                          (change)="alternarFuncionalidade(prof, f.chave)"
+                          disabled
+                          title="Para alterar permissões, clique no botão de editar da profissão"
                         />
                       </td>
                     }
@@ -220,9 +217,14 @@ const ITENS_POR_PAGINA = 6;
                       <button type="button" class="btn-icone" title="Ver permissões" (click)="abrirVisualizacao(perfil)">
                         <span class="material-symbols-rounded">visibility</span>
                       </button>
-                      <button type="button" class="btn-icone" title="Editar dados e senha" (click)="abrirEdicaoPerfil(perfil)">
+                      <a
+                        routerLink="/configuracoes/organizacao"
+                        class="btn-icone"
+                        title="Gerenciar funcionário na Organização"
+                        style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;"
+                      >
                         <span class="material-symbols-rounded">edit</span>
-                      </button>
+                      </a>
                       <button type="button" class="btn-icone perigo" title="Excluir" (click)="pedirExclusaoPerfil(perfil)">
                         <span class="material-symbols-rounded">delete</span>
                       </button>
@@ -289,65 +291,7 @@ const ITENS_POR_PAGINA = 6;
       </div>
     }
 
-    <!-- ================= MODAL: PERFIL / FUNCIONÁRIO (criar / editar) ================= -->
-    @if (modalPerfilAberto) {
-      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
-        <div class="modal" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
-          <h2>{{ editandoPerfilId === null ? 'Novo Funcionário / Perfil' : 'Editar Funcionário / Perfil' }}</h2>
 
-          <label class="campo">
-            Nome Completo
-            <input type="text" [(ngModel)]="nome" placeholder="Ex: Ana Souza" />
-          </label>
-
-          <label class="campo">
-            E-mail Corporativo (Login)
-            <input type="text" [(ngModel)]="email" placeholder="Ex: ana@empresa.com.br" />
-          </label>
-
-          <label class="campo">
-            Senha de Acesso ao Sistema
-            <input type="text" [(ngModel)]="senhaPerfil" placeholder="Ex: 123456" />
-          </label>
-
-          <label class="campo">
-            Cargo na Empresa
-            <input type="text" [(ngModel)]="cargoPerfil" placeholder="Ex: Analista Financeiro" />
-          </label>
-
-          <label class="campo">
-            Departamento da Empresa
-            <select [(ngModel)]="departamentoId">
-              <option [ngValue]="null">Selecione um departamento</option>
-              @for (dept of departamentos; track dept.id) {
-                <option [ngValue]="dept.id">{{ dept.name }} ({{ dept.costCenter || dept.code }})</option>
-              }
-            </select>
-          </label>
-
-          <label class="campo">
-            Profissão / Nível de Acesso
-            <select [(ngModel)]="profissaoId">
-              <option [ngValue]="null">Selecione uma profissão</option>
-              @for (prof of profissoes; track prof.id) {
-                <option [ngValue]="prof.id">{{ prof.nome }}</option>
-              }
-            </select>
-          </label>
-
-          @if (erro !== '') {
-            <div class="erro">{{ erro }}</div>
-          }
-
-          <div class="modal-botoes">
-            <button type="button" class="btn-secundario" (click)="fecharModais()">Cancelar</button>
-            <button type="button" class="btn-primario" (click)="salvarPerfil()">
-              {{ editandoPerfilId === null ? 'Criar Perfil' : 'Salvar Alterações' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    }
 
     <!-- ================= MODAL: VER PERMISSÕES DA PESSOA ================= -->
     @if (perfilVisualizado !== null) {
@@ -551,7 +495,8 @@ const ITENS_POR_PAGINA = 6;
     }
     .tabela-checks th.col-check { font-size: 0.75rem; text-align: center; min-width: 85px; }
     .col-check { text-align: center; }
-    .col-check input { width: 17px; height: 17px; accent-color: #644ef3; cursor: pointer; }
+    .col-check input { width: 17px; height: 17px; accent-color: #644ef3; }
+    .col-check input:disabled { cursor: not-allowed; opacity: 0.75; }
     .tabela th.col-acoes, .tabela td.col-acoes { text-align: right; white-space: nowrap; width: 140px; }
 
     .pessoa { display: flex; align-items: center; gap: 0.65rem; }

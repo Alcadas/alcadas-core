@@ -127,26 +127,6 @@ export class SidebarComponent {
       icon: 'rule',
       hasSubmenu: false,
     },
-    {
-      id: 'auditoria',
-      featureKey: 'trilha',
-      route: '/auditoria',
-      label: 'Trilha Criptográfica',
-      icon: 'link',
-      badge: 'SHA',
-      badgeColor: '#10B981',
-      hasSubmenu: false,
-    },
-    {
-      id: 'riscos',
-      featureKey: 'motor_riscos',
-      route: '/riscos',
-      label: 'Motor de Riscos',
-      icon: 'security',
-      badge: 'Anti-Fraude',
-      badgeColor: '#F59E0B',
-      hasSubmenu: false,
-    },
   ];
 
   /**
@@ -176,6 +156,14 @@ export class SidebarComponent {
     }));
   });
 
+  readonly isDev = computed(() => {
+    const email = (
+      this.authService.currentUser()?.email || this.settingsService.activeUserEmail()
+    ).toLowerCase();
+    const id = this.authService.currentUser()?.id;
+    return email === 'dev@alcadas.com' || id === 'dev-master';
+  });
+
   toggleCollapse(): void {
     this.isCollapsed.update((v) => !v);
     if (this.isCollapsed()) {
@@ -185,13 +173,11 @@ export class SidebarComponent {
 
   toggleTenantDropdown(event: Event): void {
     event.stopPropagation();
-    if (!this.settingsService.isPlatformSuperAdmin()) {
-      this.selectItem(this.mainMenuItems()[0]);
-      return;
-    }
     if (this.isCollapsed()) {
       this.isCollapsed.set(false);
-      this.isTenantDropdownOpen.set(true);
+      return;
+    }
+    if (!this.isDev()) {
       return;
     }
     this.isTenantDropdownOpen.update((v) => !v);

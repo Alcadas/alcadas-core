@@ -16,33 +16,6 @@
   [hasUnreadAlerts]="adjustmentCount() > 0"
   [showTier2]="true"
 >
-  <div header-actions class="header-actions-group">
-    <button type="button" class="btn-actions-dropdown" (click)="toggleKpis()">
-      <span>Métricas</span>
-      <span class="material-symbols-rounded dropdown-chevron">expand_more</span>
-    </button>
-
-    <button
-      type="button"
-      class="btn-header-outline"
-      (click)="triggerToast('Exportação Iniciada', 'Exportando dados de deliberação em formato CSV...', 'info')"
-    >
-      <span class="material-symbols-rounded">file_download</span>
-      <span>Exportar</span>
-    </button>
-
-    <button
-      type="button"
-      class="btn-header-primary"
-      [disabled]="selectedIds().size === 0"
-      (click)="openBatchSignModal()"
-      title="Assinar e aprovar todas as solicitações selecionadas"
-    >
-      <span class="material-symbols-rounded">done_all</span>
-      <span>Aprovar em Lote ({{ selectedIds().size }})</span>
-    </button>
-  </div>
-
   <div tier2-actions class="tier2-actions-group">
     <div class="table-records-counter">
       <span class="material-symbols-rounded count-icon">table_rows</span>
@@ -57,67 +30,6 @@
 <div class="requests-body-container">
   <!-- Conteúdo Rolável da Página -->
   <main class="page-scrollable-content">
-    <!-- Métricas KPIs (Padrão exato dos quick-cards de requests e dashboard) -->
-    @if (showKpis()) {
-      <section class="quick-cards-grid" aria-label="Indicadores de aprovações">
-        <!-- Card 1: Geral / Aguardando Deliberação -->
-        <article class="quick-card">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-primary">Geral</span>
-            <span class="material-symbols-rounded quick-card-icon">how_to_reg</span>
-          </div>
-          <span class="quick-card-value">{{ pendingCount() }}</span>
-          <div class="quick-card-progress">
-            <div class="progress-bar">
-              <div class="progress-fill fill-primary" [style.width.%]="pendingPercent()"></div>
-            </div>
-            <span class="progress-meta">{{ pendingTotalValue() | currency:'BRL':'symbol':'1.2-2' }} retido</span>
-          </div>
-        </article>
-
-        <!-- Card 2: Em Tramitação / Na Minha Fila -->
-        <article class="quick-card">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-warning">Em Análise</span>
-            <span class="material-symbols-rounded quick-card-icon text-warning">hourglass_top</span>
-          </div>
-          <span class="quick-card-value text-warning">{{ pendingCount() }}</span>
-          <div class="quick-card-bottom-info">
-            <strong class="bottom-amount">{{ pendingTotalValue() | currency:'BRL':'symbol':'1.2-2' }}</strong>
-            <span class="bottom-desc">aguardando sua assinatura</span>
-          </div>
-        </article>
-
-        <!-- Card 3: Aprovadas -->
-        <article class="quick-card">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-success">Aprovadas</span>
-            <span class="material-symbols-rounded quick-card-icon text-success">verified</span>
-          </div>
-          <span class="quick-card-value text-success">{{ approvedCount() }}</span>
-          <div class="quick-card-progress">
-            <div class="progress-bar">
-              <div class="progress-fill fill-success" [style.width.%]="approvalRate()"></div>
-            </div>
-            <span class="progress-meta">{{ approvalRate() }}% taxa de aprovação</span>
-          </div>
-        </article>
-
-        <!-- Card 4: Requer Ajuste -->
-        <article class="quick-card" [class.highlight-warning]="adjustmentCount() > 0">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-adjust">Revisões</span>
-            <span class="material-symbols-rounded quick-card-icon text-adjust">edit_notifications</span>
-          </div>
-          <span class="quick-card-value text-adjust">{{ adjustmentCount() }}</span>
-          <div class="quick-card-bottom-info">
-            <span class="bottom-desc" [class.text-adjust]="adjustmentCount() > 0">
-              {{ adjustmentCount() > 0 ? adjustmentCount() + ' aguardando revisão do solicitante' : 'Nenhuma pendência ativa' }}
-            </span>
-          </div>
-        </article>
-      </section>
-    }
 
     <!-- Toolbar Secundária: Filtros por Categoria, Centro de Custo, Departamento e Ordenação -->
     <section class="toolbar-section">
@@ -187,8 +99,30 @@
         </div>
       </div>
 
-      <div class="counter-indicator">
-        <span>Exibindo <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+      <div class="table-actions-strip">
+        <div class="counter-indicator">
+          <span>Exibindo <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+        </div>
+
+        <button
+          type="button"
+          class="btn-header-outline"
+          (click)="triggerToast('Exportação Iniciada', 'Exportando dados de deliberação em formato CSV...', 'info')"
+        >
+          <span class="material-symbols-rounded">file_download</span>
+          <span>Exportar</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-header-primary"
+          [disabled]="selectedIds().size === 0"
+          (click)="openBatchSignModal()"
+          title="Assinar e aprovar todas as solicitações selecionadas"
+        >
+          <span class="material-symbols-rounded">done_all</span>
+          <span>Aprovar em Lote ({{ selectedIds().size }})</span>
+        </button>
       </div>
     </section>
 
