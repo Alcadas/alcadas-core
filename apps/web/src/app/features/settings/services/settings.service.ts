@@ -424,6 +424,7 @@ function criarTenantsIniciais(): SaasClientTenant[] {
       maxUsers: 100,
       ownerName: 'Mariana Alves Rocha',
       ownerEmail: 'mariana.alves@startop.com.br',
+      ownerJobTitle: 'Diretora Executiva (CEO)',
       ownerRole: 'DIRETOR',
       organization: startopOrg,
       profissoes: criarProfissoesPadrao(),
@@ -436,6 +437,7 @@ function criarTenantsIniciais(): SaasClientTenant[] {
       maxUsers: 50,
       ownerName: 'Roberto Takahashi',
       ownerEmail: 'roberto@nagoya.com.br',
+      ownerJobTitle: 'Diretor Geral Executivo',
       ownerRole: 'DIRETOR',
       organization: nagoyaOrg,
       profissoes: criarProfissoesPadrao(),
@@ -885,6 +887,7 @@ export class SettingsService {
       maxUsers: payload.maxUsers || 50,
       ownerName: payload.ownerName.trim(),
       ownerEmail: payload.ownerEmail.trim().toLowerCase(),
+      ownerJobTitle: payload.ownerJobTitle.trim() || 'Titular / Diretor Executivo',
       ownerRole: payload.ownerRole,
       profissoes,
       organization: {

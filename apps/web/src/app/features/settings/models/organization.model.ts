@@ -76,6 +76,7 @@ export interface SaasClientTenant {
   maxUsers: number;
   ownerName: string;
   ownerEmail: string;
+  ownerJobTitle?: string;
   ownerRole: EmployeeRoleType;
   organization: OrganizationData;
   profissoes: TenantProfession[];
