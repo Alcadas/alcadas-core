@@ -6,7 +6,9 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { requisitosDaSenha, validadoresDeSenha } from '../../../../core/auth/senha';
+import { RecuperacaoSenhaService } from '../../services/recuperacao-senha.service';
 
 function senhasIguais(g: AbstractControl): ValidationErrors | null {
   return g.get('senha')?.value === g.get('confirmar')?.value ? null : { diferentes: true };
@@ -21,26 +23,30 @@ function senhasIguais(g: AbstractControl): ValidationErrors | null {
 })
 export class NovaSenha {
   private fb = inject(FormBuilder);
-
-  /** Dados vindos da tela do código (router state). */
-  private email: string = history.state?.email ?? '';
-  private codigo: string = history.state?.codigo ?? '';
+  private router = inject(Router);
+  private recuperacao = inject(RecuperacaoSenhaService);
 
   carregando = false;
   concluido = false;
+  erro = '';
 
   form = this.fb.nonNullable.group(
     {
-      senha: ['', [Validators.required, Validators.minLength(8)]],
+      senha: ['', validadoresDeSenha],
       confirmar: ['', Validators.required],
     },
     { validators: senhasIguais },
   );
 
+  constructor() {
+    if (!this.recuperacao.podeRedefinir()) {
+      // Só chega aqui depois de confirmar o código.
+      this.router.navigate(['/recuperar-senha']);
+    }
+  }
+
   get req() {
-    return {
-      tamanho: this.form.controls.senha.value.length >= 8,
-    };
+    return requisitosDaSenha(this.form.controls.senha.value);
   }
 
   get diferentes(): boolean {
@@ -54,12 +60,14 @@ export class NovaSenha {
       return;
     }
     this.carregando = true;
-
-    // TODO: enviar ao backend (NestJS) { email, codigo, novaSenha } para trocar a senha.
-    // O backend deve validar o código de novo antes de alterar a senha.
-    console.log({ email: this.email, codigo: this.codigo });
-
-    this.carregando = false;
-    this.concluido = true;
+    this.erro = '';
+    try {
+      this.recuperacao.redefinirSenha(this.form.controls.senha.value);
+      this.concluido = true;
+    } catch (e) {
+      this.erro = (e as Error).message;
+    } finally {
+      this.carregando = false;
+    }
   }
 }

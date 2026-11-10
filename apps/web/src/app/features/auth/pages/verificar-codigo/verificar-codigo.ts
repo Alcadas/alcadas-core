@@ -5,42 +5,50 @@ import {
   QueryList,
   ViewChildren,
   inject,
+  signal,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { RecuperacaoSenhaService } from '../../services/recuperacao-senha.service';
+
+/** Tempo de espera para pedir um novo código. */
+export const SEGUNDOS_PARA_REENVIAR = 30;
 
 @Component({
   selector: 'app-verificar-codigo',
   standalone: true,
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './verificar-codigo.html',
   styleUrls: ['./verificar-codigo.css'],
 })
 
 export class VerificarCodigo implements OnDestroy {
   private router = inject(Router);
+  private recuperacao = inject(RecuperacaoSenhaService);
 
   @ViewChildren('caixa') caixas!: QueryList<ElementRef<HTMLInputElement>>;
 
-  /** E-mail vindo da tela anterior (router state). */
-  email: string = history.state?.email ?? '';
+  /** E-mail que está em recuperação (vem do RecuperacaoSenhaService). */
+  email: string = this.recuperacao.emailPendente();
 
   digitos: string[] = ['', '', '', '', '', ''];
-  erro = '';
+  readonly erro = signal('');
   carregando = false;
-  segundos = 30;
+  /** Signal: o app é zoneless, então o timer só atualiza a tela por um signal. */
+  readonly segundos = signal(SEGUNDOS_PARA_REENVIAR);
 
   private timer?: ReturnType<typeof setInterval>;
 
   constructor() {
+    if (!this.email) {
+      // Entrou direto pela URL, sem pedir o código antes.
+      this.router.navigate(['/recuperar-senha']);
+      return;
+    }
     this.iniciarContagem();
   }
 
   get completo(): boolean {
     return this.digitos.every((d) => d !== '');
-  }
-
-  porIndice(i: number): number {
-    return i;
   }
 
   digitar(ev: Event, i: number): void {
@@ -53,7 +61,7 @@ export class VerificarCodigo implements OnDestroy {
     }
     this.digitos[i] = n;
     el.value = n;
-    this.erro = '';
+    this.erro.set('');
     if (n && i < 5) this.focar(i + 1);
   }
 
@@ -75,28 +83,33 @@ export class VerificarCodigo implements OnDestroy {
 
   verificar(ev: Event): void {
     ev.preventDefault();
-    if (!this.completo) return;
+    if (!this.completo || this.carregando) return;
 
     this.carregando = true;
-    this.erro = '';
-    const codigo = this.digitos.join('');
-
-    // TODO: chamar o backend (NestJS) para validar o código.
-    // Se for válido, ele devolve um token de redefinição; envie-o para a próxima tela.
-    // Se for inválido ou expirado: this.erro = 'Código inválido ou expirado.'
-    console.log('código informado:', codigo);
-
+    const resultado = this.recuperacao.verificarCodigo(this.digitos.join(''));
     this.carregando = false;
-    this.router.navigate(['/nova-senha'], { state: { email: this.email, codigo } });
+
+    if (!resultado.ok) {
+      this.erro.set(resultado.erro);
+      this.digitos = ['', '', '', '', '', ''];
+      this.focar(0);
+      return;
+    }
+    this.erro.set('');
+    this.router.navigate(['/novaSenha']);
   }
 
   reenviar(): void {
-    if (this.segundos > 0) return;
-    // TODO: pedir ao backend para enviar um novo código.
-    this.digitos = ['', '', '', '', '', ''];
-    this.erro = '';
-    this.focar(0);
-    this.iniciarContagem();
+    if (this.segundos() > 0) return;
+    try {
+      this.recuperacao.reenviarCodigo();
+      this.digitos = ['', '', '', '', '', ''];
+      this.erro.set('');
+      this.focar(0);
+      this.iniciarContagem();
+    } catch (e) {
+      this.erro.set((e as Error).message);
+    }
   }
 
   ngOnDestroy(): void {
@@ -106,22 +119,22 @@ export class VerificarCodigo implements OnDestroy {
   private preencher(texto: string, inicio: number): void {
     const n = texto.replace(/\D/g, '').slice(0, 6 - inicio);
     n.split('').forEach((c, k) => (this.digitos[inicio + k] = c));
-    this.erro = '';
+    this.erro.set('');
     this.focar(Math.min(inicio + n.length, 5));
   }
 
   private focar(i: number): void {
-    const el = this.caixas.get(i)?.nativeElement;
+    const el = this.caixas?.get(i)?.nativeElement;
     el?.focus();
     el?.select();
   }
 
   private iniciarContagem(): void {
     clearInterval(this.timer);
-    this.segundos = 30;
+    this.segundos.set(SEGUNDOS_PARA_REENVIAR);
     this.timer = setInterval(() => {
-      this.segundos--;
-      if (this.segundos <= 0) clearInterval(this.timer);
+      this.segundos.update((s) => s - 1);
+      if (this.segundos() <= 0) clearInterval(this.timer);
     }, 1000);
   }
 }
