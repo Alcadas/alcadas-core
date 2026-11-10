@@ -33,15 +33,15 @@
             maxlength="1"
             [value]="digitos[i]"
             [attr.aria-label]="'Dígito ' + (i + 1)"
-            [class.invalido]="!!erro"
+            [class.invalido]="!!erro()"
             (input)="digitar($event, i)"
             (keydown)="teclar($event, i)"
           />
         }
       </div>
 
-      @if (erro) {
-        <span class="erro" role="alert">{{ erro }}</span>
+      @if (erro()) {
+        <span class="erro" role="alert">{{ erro() }}</span>
       }
 
       <button class="botao" type="submit" [disabled]="!completo || carregando">

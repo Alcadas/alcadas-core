@@ -31,7 +31,7 @@ export class VerificarCodigo implements OnDestroy {
   email: string = this.recuperacao.emailPendente();
 
   digitos: string[] = ['', '', '', '', '', ''];
-  erro = '';
+  readonly erro = signal('');
   carregando = false;
   /** Signal: o app é zoneless, então o timer só atualiza a tela por um signal. */
   readonly segundos = signal(SEGUNDOS_PARA_REENVIAR);
@@ -61,7 +61,7 @@ export class VerificarCodigo implements OnDestroy {
     }
     this.digitos[i] = n;
     el.value = n;
-    this.erro = '';
+    this.erro.set('');
     if (n && i < 5) this.focar(i + 1);
   }
 
@@ -90,12 +90,12 @@ export class VerificarCodigo implements OnDestroy {
     this.carregando = false;
 
     if (!resultado.ok) {
-      this.erro = resultado.erro;
+      this.erro.set(resultado.erro);
       this.digitos = ['', '', '', '', '', ''];
       this.focar(0);
       return;
     }
-    this.erro = '';
+    this.erro.set('');
     this.router.navigate(['/novaSenha']);
   }
 
@@ -104,11 +104,11 @@ export class VerificarCodigo implements OnDestroy {
     try {
       this.recuperacao.reenviarCodigo();
       this.digitos = ['', '', '', '', '', ''];
-      this.erro = '';
+      this.erro.set('');
       this.focar(0);
       this.iniciarContagem();
     } catch (e) {
-      this.erro = (e as Error).message;
+      this.erro.set((e as Error).message);
     }
   }
 
@@ -119,7 +119,7 @@ export class VerificarCodigo implements OnDestroy {
   private preencher(texto: string, inicio: number): void {
     const n = texto.replace(/\D/g, '').slice(0, 6 - inicio);
     n.split('').forEach((c, k) => (this.digitos[inicio + k] = c));
-    this.erro = '';
+    this.erro.set('');
     this.focar(Math.min(inicio + n.length, 5));
   }
 
