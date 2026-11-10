@@ -7,6 +7,12 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
+import {
+  DESCRICAO_REGRA_SENHA,
+  requisitosDaSenha,
+  validadoresDeSenha,
+} from '../../../../core/auth/senha';
+import { SettingsService } from '../../services/settings.service';
 
 function passwordMatch(group: AbstractControl): ValidationErrors | null {
   const next = group.get('newPassword')?.value;
@@ -23,6 +29,10 @@ function passwordMatch(group: AbstractControl): ValidationErrors | null {
 })
 export class SecurityComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly settings = inject(SettingsService);
+
+  readonly regraSenha = DESCRICAO_REGRA_SENHA;
+  readonly erroSenha = signal('');
 
   readonly activeTab = signal<'password' | '2fa' | 'sessions'>('password');
   readonly saved = signal(false);
@@ -49,20 +59,37 @@ export class SecurityComponent {
   readonly form = this.fb.nonNullable.group(
     {
       currentPassword: ['', Validators.required],
-      newPassword: ['', [Validators.required, Validators.minLength(8)]],
+      newPassword: ['', validadoresDeSenha],
       confirmPassword: ['', Validators.required],
     },
     { validators: passwordMatch },
   );
 
+  get req() {
+    return requisitosDaSenha(this.form.controls.newPassword.value);
+  }
+
   save(): void {
+    this.saved.set(false);
+    this.erroSenha.set('');
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.saved.set(false);
       return;
     }
-    this.form.reset();
-    this.saved.set(true);
+    const { currentPassword, newPassword } = this.form.getRawValue();
+    try {
+      this.settings.alterarSenhaDaContaLogada(currentPassword, newPassword);
+      this.form.reset();
+      this.saved.set(true);
+    } catch (e) {
+      this.erroSenha.set((e as Error).message);
+    }
+  }
+
+  /** Limpa os avisos quando o usuário volta a digitar. */
+  limparAvisos(): void {
+    this.saved.set(false);
+    this.erroSenha.set('');
   }
 
   revokeSession(id: string): void {

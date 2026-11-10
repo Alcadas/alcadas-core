@@ -7,9 +7,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { requisitosDaSenha, validadoresDeSenha } from '../../../../core/auth/senha';
 import { RecuperacaoSenhaService } from '../../services/recuperacao-senha.service';
-
-export const TAMANHO_MINIMO_SENHA = 6;
 
 function senhasIguais(g: AbstractControl): ValidationErrors | null {
   return g.get('senha')?.value === g.get('confirmar')?.value ? null : { diferentes: true };
@@ -33,15 +32,7 @@ export class NovaSenha {
 
   form = this.fb.nonNullable.group(
     {
-      senha: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(TAMANHO_MINIMO_SENHA),
-          Validators.pattern(/[A-Za-z]/),
-          Validators.pattern(/\d/),
-        ],
-      ],
+      senha: ['', validadoresDeSenha],
       confirmar: ['', Validators.required],
     },
     { validators: senhasIguais },
@@ -55,12 +46,7 @@ export class NovaSenha {
   }
 
   get req() {
-    const senha = this.form.controls.senha.value;
-    return {
-      tamanho: senha.length >= TAMANHO_MINIMO_SENHA,
-      letra: /[A-Za-z]/.test(senha),
-      numero: /\d/.test(senha),
-    };
+    return requisitosDaSenha(this.form.controls.senha.value);
   }
 
   get diferentes(): boolean {

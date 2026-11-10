@@ -1291,6 +1291,24 @@ export class SettingsService {
     return true;
   }
 
+  /**
+   * Troca a senha da conta logada (Configurações > Segurança), conferindo a senha atual.
+   * Lança erro com mensagem amigável quando não for possível.
+   */
+  alterarSenhaDaContaLogada(senhaAtual: string, novaSenha: string): void {
+    const conta = this.findAccountByEmail(this.activeUserEmail());
+    if (!conta) {
+      throw new Error('A troca de senha não está disponível para esta conta.');
+    }
+    if ((conta.employee.password || '123456') !== senhaAtual) {
+      throw new Error('Senha atual incorreta.');
+    }
+    if (senhaAtual === novaSenha) {
+      throw new Error('A nova senha precisa ser diferente da atual.');
+    }
+    this.redefinirSenhaPorEmail(conta.employee.email, novaSenha);
+  }
+
   private atualizarTenantAtivo(
     updater: (tenant: SaasClientTenant) => SaasClientTenant,
   ): void {
