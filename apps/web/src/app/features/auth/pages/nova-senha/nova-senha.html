@@ -28,7 +28,9 @@
         </div>
 
         <ul class="requisitos" id="requisitos">
-          <li [class.ok]="req.tamanho">Mínimo 8 caracteres</li>
+          <li [class.ok]="req.tamanho">Mínimo 6 caracteres</li>
+          <li [class.ok]="req.letra">Pelo menos uma letra</li>
+          <li [class.ok]="req.numero">Pelo menos um número</li>
         </ul>
 
         <div class="campo">
@@ -44,6 +46,10 @@
             <span class="erro" role="alert">As senhas não coincidem.</span>
           }
         </div>
+
+        @if (erro) {
+          <p class="erro" role="alert">{{ erro }} <a routerLink="/recuperar-senha">Recomeçar</a></p>
+        }
 
         <button class="botao" type="submit" [disabled]="form.invalid || carregando">
           Salvar nova senha

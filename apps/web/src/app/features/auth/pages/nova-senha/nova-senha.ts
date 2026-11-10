@@ -6,7 +6,10 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { RecuperacaoSenhaService } from '../../services/recuperacao-senha.service';
+
+export const TAMANHO_MINIMO_SENHA = 6;
 
 function senhasIguais(g: AbstractControl): ValidationErrors | null {
   return g.get('senha')?.value === g.get('confirmar')?.value ? null : { diferentes: true };
@@ -21,25 +24,42 @@ function senhasIguais(g: AbstractControl): ValidationErrors | null {
 })
 export class NovaSenha {
   private fb = inject(FormBuilder);
-
-  /** Dados vindos da tela do código (router state). */
-  private email: string = history.state?.email ?? '';
-  private codigo: string = history.state?.codigo ?? '';
+  private router = inject(Router);
+  private recuperacao = inject(RecuperacaoSenhaService);
 
   carregando = false;
   concluido = false;
+  erro = '';
 
   form = this.fb.nonNullable.group(
     {
-      senha: ['', [Validators.required, Validators.minLength(8)]],
+      senha: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(TAMANHO_MINIMO_SENHA),
+          Validators.pattern(/[A-Za-z]/),
+          Validators.pattern(/\d/),
+        ],
+      ],
       confirmar: ['', Validators.required],
     },
     { validators: senhasIguais },
   );
 
+  constructor() {
+    if (!this.recuperacao.podeRedefinir()) {
+      // Só chega aqui depois de confirmar o código.
+      this.router.navigate(['/recuperar-senha']);
+    }
+  }
+
   get req() {
+    const senha = this.form.controls.senha.value;
     return {
-      tamanho: this.form.controls.senha.value.length >= 8,
+      tamanho: senha.length >= TAMANHO_MINIMO_SENHA,
+      letra: /[A-Za-z]/.test(senha),
+      numero: /\d/.test(senha),
     };
   }
 
@@ -54,12 +74,14 @@ export class NovaSenha {
       return;
     }
     this.carregando = true;
-
-    // TODO: enviar ao backend (NestJS) { email, codigo, novaSenha } para trocar a senha.
-    // O backend deve validar o código de novo antes de alterar a senha.
-    console.log({ email: this.email, codigo: this.codigo });
-
-    this.carregando = false;
-    this.concluido = true;
+    this.erro = '';
+    try {
+      this.recuperacao.redefinirSenha(this.form.controls.senha.value);
+      this.concluido = true;
+    } catch (e) {
+      this.erro = (e as Error).message;
+    } finally {
+      this.carregando = false;
+    }
   }
 }

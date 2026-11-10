@@ -1257,6 +1257,40 @@ export class SettingsService {
     this.apiKeys.update((prev) => prev.filter((k) => k.id !== id));
   }
 
+  /**
+   * Troca a senha de uma conta (cliente ou colaborador) pelo e-mail, em qualquer empresa.
+   * Usado pela recuperação de senha fictícia. Devolve false se o e-mail não existir.
+   */
+  redefinirSenhaPorEmail(email: string, novaSenha: string): boolean {
+    const conta = this.findAccountByEmail(email);
+    if (!conta) return false;
+
+    const { tenantId } = conta.tenant;
+    const funcionarioId = conta.employee.id;
+    this.tenants.update((lista) => {
+      const atualizada = lista.map((t) =>
+        t.tenantId !== tenantId
+          ? t
+          : {
+              ...t,
+              organization: {
+                ...t.organization,
+                employees: t.organization.employees.map((e) =>
+                  e.id === funcionarioId ? { ...e, password: novaSenha } : e,
+                ),
+              },
+            },
+      );
+      salvarTenantsNoStorage(atualizada);
+      const atualizado = atualizada.find((t) => t.tenantId === tenantId);
+      if (atualizado) {
+        this.persistirTenantNoBackend(atualizado);
+      }
+      return atualizada;
+    });
+    return true;
+  }
+
   private atualizarTenantAtivo(
     updater: (tenant: SaasClientTenant) => SaasClientTenant,
   ): void {

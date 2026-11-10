@@ -9,7 +9,7 @@
         alt="Alçadas"
         style="display:block; width:150px; max-width:100%; height:auto; margin:0 auto;"
       />
-      </header>
+    </header>
 
     <h1>Digite o código</h1>
     <p class="sub">
@@ -39,7 +39,7 @@
           />
         }
       </div>
-      
+
       @if (erro) {
         <span class="erro" role="alert">{{ erro }}</span>
       }
@@ -51,9 +51,14 @@
 
     <p class="reenviar">
       Não recebeu?
-      <button type="button" class="link">
-        Reenviar código
+      <button type="button" class="link" [disabled]="segundos > 0" (click)="reenviar()">
+        @if (segundos > 0) {
+          Reenviar em {{ segundos }}s
+        } @else {
+          Reenviar código
+        }
       </button>
     </p>
+    <p class="voltar"><a routerLink="/recuperar-senha">Usar outro e-mail</a></p>
   </section>
 </main>
