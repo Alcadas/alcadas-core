@@ -15,23 +15,6 @@
   (tabChange)="setTab($any($event))"
   [hasUnreadAlerts]="stats().ajustes > 0"
 >
-  <div header-actions class="header-actions-group">
-    <button type="button" class="btn-actions-dropdown" (click)="toggleKpis()">
-      <span>Métricas</span>
-      <span class="material-symbols-rounded dropdown-chevron">expand_more</span>
-    </button>
-
-    <button type="button" class="btn-header-outline" (click)="showToast('Exportando dados em formato CSV...', 'info')">
-      <span class="material-symbols-rounded">file_download</span>
-      <span>Exportar</span>
-    </button>
-
-    <button type="button" class="btn-header-primary" (click)="goToCreatePage()">
-      <span class="material-symbols-rounded">add</span>
-      <span>Nova Solicitação</span>
-    </button>
-  </div>
-
   <div tier2-actions class="tier2-actions-group">
     <div class="table-records-counter">
       <span class="material-symbols-rounded count-icon">table_rows</span>
@@ -46,68 +29,6 @@
 <div class="requests-body-container">
   <!-- Conteúdo Rolável da Página -->
   <main class="page-scrollable-content">
-    <!-- Métricas KPIs (Padrão de quick-cards do dashboard) -->
-    @if (showKpis()) {
-      <section class="quick-cards-grid" aria-label="Indicadores de solicitações">
-        <!-- Card 1: Total -->
-        <article class="quick-card">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-primary">Geral</span>
-            <span class="material-symbols-rounded quick-card-icon">assignment</span>
-          </div>
-          <span class="quick-card-value">{{ stats().total }}</span>
-          <div class="quick-card-progress">
-            <div class="progress-bar">
-              <div class="progress-fill fill-primary" [style.width.%]="stats().totalPercentCompleted"></div>
-            </div>
-            <span class="progress-meta">{{ stats().totalPercentCompleted }}% concluídas</span>
-          </div>
-        </article>
-
-        <!-- Card 2: Em Tramitação -->
-        <article class="quick-card">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-warning">Em Tramitação</span>
-            <span class="material-symbols-rounded quick-card-icon text-warning">hourglass_top</span>
-          </div>
-          <span class="quick-card-value text-warning">{{ stats().pendentes }}</span>
-          <div class="quick-card-bottom-info">
-            <strong class="bottom-amount">{{ stats().pendentesValorTotal | currency:'BRL':'symbol':'1.2-2' }}</strong>
-            <span class="bottom-desc">aguardando parecer</span>
-          </div>
-        </article>
-
-        <!-- Card 3: Aprovadas -->
-        <article class="quick-card">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-success">Aprovadas</span>
-            <span class="material-symbols-rounded quick-card-icon text-success">verified</span>
-          </div>
-          <span class="quick-card-value text-success">{{ stats().aprovadas }}</span>
-          <div class="quick-card-progress">
-            <div class="progress-bar">
-              <div class="progress-fill fill-success" [style.width.%]="stats().taxaAprovacao"></div>
-            </div>
-            <span class="progress-meta">{{ stats().taxaAprovacao }}% taxa de aprovação</span>
-          </div>
-        </article>
-
-        <!-- Card 4: Requer Atenção -->
-        <article class="quick-card" [class.highlight-warning]="stats().ajustes > 0">
-          <div class="quick-card-top">
-            <span class="quick-card-tag tag-adjust">Ajustes</span>
-            <span class="material-symbols-rounded quick-card-icon text-adjust">edit_notifications</span>
-          </div>
-          <span class="quick-card-value text-adjust">{{ stats().ajustes }}</span>
-          <div class="quick-card-bottom-info">
-            <span class="bottom-desc" [class.text-adjust]="stats().ajustes > 0">
-              {{ stats().ajustes > 0 ? 'Documentos ou cotações pendentes' : 'Nenhuma pendência ativa' }}
-            </span>
-          </div>
-        </article>
-      </section>
-    }
-
     <!-- Toolbar Secundária: Filtros por Categoria, Centro de Custo e Ordenação -->
     <section class="toolbar-section">
       <div class="filter-dropdowns">
@@ -159,8 +80,20 @@
         </div>
       </div>
 
-      <div class="counter-indicator">
-        <span>Exibindo <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+      <div class="table-actions-strip">
+        <div class="counter-indicator">
+          <span>Exibindo <strong>{{ paginatedRequests().length }}</strong> de <strong>{{ filteredRequests().length }}</strong> solicitações</span>
+        </div>
+
+        <button type="button" class="btn-header-outline" (click)="showToast('Exportando dados em formato CSV...', 'info')">
+          <span class="material-symbols-rounded">file_download</span>
+          <span>Exportar</span>
+        </button>
+
+        <button type="button" class="btn-header-primary" (click)="goToCreatePage()">
+          <span class="material-symbols-rounded">add</span>
+          <span>Nova Solicitação</span>
+        </button>
       </div>
     </section>
 
@@ -654,10 +587,11 @@
             <select
               id="editCcSelect"
               class="form-select"
+              [disabled]="isCostCenterLocked()"
               [ngModel]="editFormCentroCustoId()"
               (ngModelChange)="editFormCentroCustoId.set($event)"
             >
-              @for (cc of requestsService.costCenters(); track cc.id) {
+              @for (cc of availableCostCenters(); track cc.id) {
                 <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
               }
             </select>

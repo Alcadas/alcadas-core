@@ -1,4 +1,4 @@
-import { StatusSolicitacao, TipoEventoTrilha } from './models';
+import { ApprovalLevel, StatusSolicitacao, TipoEventoTrilha } from './models';
 
 export type PapelUsuario =
   | 'SOLICITANTE'
@@ -14,6 +14,10 @@ export interface CriarSolicitacaoDto {
   categoria: string;
   justificativa: string;
   fornecedor?: string;
+  solicitanteNome?: string;
+  solicitanteCargo?: string;
+  fluxoId?: string;
+  fluxoNome?: string;
 }
 
 export interface Solicitacao {
@@ -21,13 +25,21 @@ export interface Solicitacao {
   tenantId: string;
   centroCustoId: string;
   solicitanteId: string;
+  solicitanteNome?: string | null;
+  solicitanteCargo?: string | null;
   valor: number;
   categoria: string;
   justificativa: string;
-  fornecedor?: string;
+  fornecedor?: string | null;
   status: StatusSolicitacao;
   versao: number;
   alertaRisco: string | null;
+  fluxoId?: string | null;
+  fluxoNome?: string | null;
+  etapaAtual?: number;
+  totalEtapas?: number;
+  aprovadorEsperadoPapel?: string | null;
+  aprovadorEsperadoNivel?: ApprovalLevel | null;
   createdAt: string;
   updatedAt: string;
 }

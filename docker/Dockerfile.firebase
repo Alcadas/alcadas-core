@@ -1,10 +1,12 @@
 FROM node:24-alpine
 
-# Instala OpenJDK 21 JRE, bash e utilitários
-RUN apk add --no-cache openjdk21-jre bash curl
+# Instala OpenJDK 21 JRE Headless (sem bibliotecas de GUI/X11), bash e utilitários
+RUN apk add --no-cache openjdk21-jre-headless bash curl
 
-# Instala firebase-tools na camada de imagem
-RUN npm install -g firebase-tools
+# Instala firebase-tools na camada de imagem e remove o cache do npm
+RUN npm install -g firebase-tools && \
+    npm cache clean --force && \
+    rm -rf /root/.npm
 
 # Prepara e pré-baixa os binários do emulador Firestore e UI
 RUN firebase setup:emulators:firestore && \

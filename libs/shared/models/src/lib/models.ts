@@ -51,6 +51,8 @@ export interface AuthenticatedUser {
   role: UserRole;
   level?: ApprovalLevel;
   maxApprovalLimit?: number | null;
+  costCenterId?: string | null;
+  departmentId?: string | null;
 }
 
 /**
@@ -163,6 +165,8 @@ export interface SolicitacaoResponseDto {
   tenantId: string;
   centroCustoId: string;
   solicitanteId: string;
+  solicitanteNome?: string | null;
+  solicitanteCargo?: string | null;
   valor: number;
   categoria: string;
   justificativa: string;
@@ -174,6 +178,12 @@ export interface SolicitacaoResponseDto {
   decididoPorId?: string;
   motivoDecisao?: string;
   observacaoDecisao?: string;
+  fluxoId?: string | null;
+  fluxoNome?: string | null;
+  etapaAtual?: number;
+  totalEtapas?: number;
+  aprovadorEsperadoPapel?: string | null;
+  aprovadorEsperadoNivel?: ApprovalLevel | null;
   createdAt: string;
   updatedAt: string;
 }

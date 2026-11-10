@@ -12,8 +12,12 @@ export class HealthController {
 
   @Get('healthz')
   @HttpCode(HttpStatus.OK)
-  healthz(): { status: 'ok' } {
-    return { status: 'ok' };
+  healthz(): { status: 'ok'; commit?: string } {
+    const commit = process.env['RENDER_GIT_COMMIT'] ?? process.env['COMMIT_SHA'];
+    return {
+      status: 'ok',
+      ...(commit ? { commit } : {}),
+    };
   }
 
   @Get('readyz')

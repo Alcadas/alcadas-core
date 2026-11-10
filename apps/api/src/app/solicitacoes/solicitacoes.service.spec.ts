@@ -58,4 +58,109 @@ describe('SolicitacoesService', () => {
 
     expect(repositoryMock.listarPorTenant).toHaveBeenCalledWith('tenant-123', { page: 2, limit: 20, status: 'PENDENTE' });
   });
+
+  describe('Associação automática de fluxos de aprovação (Issue #66)', () => {
+    it('associa solicitação de até R$ 1.000 ao fluxo N1 de 1 etapa', async () => {
+      const dto = {
+        centroCustoId: 'CC-01',
+        valor: 800,
+        categoria: 'MATERIAL_ESCRITORIO',
+      } as CriarSolicitacaoDto;
+
+      const result = await service.criarSolicitacao(dto, 'tenant-123', 'user-456');
+
+      expect(result.fluxoId).toBe('tier-n1');
+      expect(result.totalEtapas).toBe(1);
+      expect(result.etapaAtual).toBe(1);
+      expect(result.aprovadorEsperadoPapel).toBe('APROVADOR_N1');
+    });
+
+    it('associa solicitação de R$ 2.500 ao fluxo N2 de 2 etapas com início em N1', async () => {
+      const dto = {
+        centroCustoId: 'CC-01',
+        valor: 2500,
+        categoria: 'SERVICOS_TERCEIROS',
+      } as CriarSolicitacaoDto;
+
+      const result = await service.criarSolicitacao(dto, 'tenant-123', 'user-456');
+
+      expect(result.fluxoId).toBe('tier-n2');
+      expect(result.totalEtapas).toBe(2);
+      expect(result.etapaAtual).toBe(1);
+      expect(result.aprovadorEsperadoPapel).toBe('APROVADOR_N1');
+    });
+
+    it('associa solicitação de R$ 15.000 ao fluxo N3 de 3 etapas com início em N1', async () => {
+      const dto = {
+        centroCustoId: 'CC-01',
+        valor: 15000,
+        categoria: 'EQUIPAMENTOS',
+      } as CriarSolicitacaoDto;
+
+      const result = await service.criarSolicitacao(dto, 'tenant-123', 'user-456');
+
+      expect(result.fluxoId).toBe('tier-n3');
+      expect(result.totalEtapas).toBe(3);
+      expect(result.etapaAtual).toBe(1);
+      expect(result.aprovadorEsperadoPapel).toBe('APROVADOR_N1');
+    });
+
+    it('impede solicitante do RH de criar solicitação para centro de custo de outra área (HTTP 403)', async () => {
+      const dto = {
+        centroCustoId: 'CC-FIN-01',
+        valor: 1500,
+        categoria: 'EQUIPAMENTOS',
+      } as CriarSolicitacaoDto;
+
+      const usuarioRH = {
+        uid: 'user-rh',
+        tenantId: 'tenant-123',
+        papeis: ['SOLICITANTE'],
+        costCenterId: 'CC-RH-103',
+        departmentId: 'dep-rh',
+      };
+
+      await expect(
+        service.criarSolicitacao(dto, 'tenant-123', 'user-rh', usuarioRH),
+      ).rejects.toThrow('O solicitante só pode submeter solicitações para o centro de custo do seu próprio departamento.');
+    });
+
+    it('permite solicitante do RH criar solicitação para o centro de custo do próprio departamento', async () => {
+      const dto = {
+        centroCustoId: 'CC-RH-103',
+        valor: 1500,
+        categoria: 'EQUIPAMENTOS',
+      } as CriarSolicitacaoDto;
+
+      const usuarioRH = {
+        uid: 'user-rh',
+        tenantId: 'tenant-123',
+        papeis: ['SOLICITANTE'],
+        costCenterId: 'CC-RH-103',
+        departmentId: 'dep-rh',
+      };
+
+      const result = await service.criarSolicitacao(dto, 'tenant-123', 'user-rh', usuarioRH);
+      expect(result.centroCustoId).toBe('CC-RH-103');
+    });
+
+    it('permite administrador global criar solicitação para qualquer centro de custo', async () => {
+      const dto = {
+        centroCustoId: 'CC-FIN-01',
+        valor: 1500,
+        categoria: 'EQUIPAMENTOS',
+      } as CriarSolicitacaoDto;
+
+      const usuarioAdmin = {
+        uid: 'user-admin',
+        tenantId: 'tenant-123',
+        papeis: ['ADMIN'],
+        costCenterId: 'CC-RH-103',
+        departmentId: 'dep-rh',
+      };
+
+      const result = await service.criarSolicitacao(dto, 'tenant-123', 'user-admin', usuarioAdmin);
+      expect(result.centroCustoId).toBe('CC-FIN-01');
+    });
+  });
 });

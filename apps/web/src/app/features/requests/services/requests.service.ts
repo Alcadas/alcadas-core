@@ -6,7 +6,7 @@ import {
   EloAuditoriaDto,
   SolicitacaoResponseDto,
 } from '@alcadas-core/models';
-import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
+import { Observable, Subject, Subscription, catchError, forkJoin, map, of, tap, timer } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import { mensagemDeErroDaApi } from '../../../core/http/api-error';
@@ -28,6 +28,9 @@ import {
   LoadState,
   RequestItem,
   RequestStats,
+  RequestStatus,
+  RequestStatusChangeEvent,
+  RequestStatusChangeType,
   WorkflowDestination,
 } from '../requests.models';
 
@@ -241,6 +244,15 @@ export class RequestsService {
   private readonly _loadState = signal<LoadState>('carregando');
   private readonly _loadError = signal<string | null>(null);
 
+  private readonly _statusEvents = new Subject<RequestStatusChangeEvent>();
+  readonly statusEvents$ = this._statusEvents.asObservable();
+  private pollingSubscription: Subscription | null = null;
+  private activePollingCount = 0;
+
+  get isPolling(): boolean {
+    return this.pollingSubscription !== null;
+  }
+
   /** Popula dados de exemplo apenas para testes unitários isolados de componentes. */
   seedForTesting(): void {
     this._requests.set(INITIAL_SEED_REQUESTS);
@@ -315,6 +327,103 @@ export class RequestsService {
         this._loadState.set('erro');
       },
     });
+  }
+
+  /**
+   * Inicia o polling periódico silencioso (padrão: 8s), pausando automaticamente
+   * quando a aba do navegador estiver em segundo plano (Page Visibility API).
+   */
+  startPolling(intervalMs = 8000): void {
+    this.activePollingCount++;
+    if (this.pollingSubscription) {
+      return;
+    }
+
+    this.pollingSubscription = timer(intervalMs, intervalMs).subscribe(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      this.loadSilent().subscribe();
+    });
+  }
+
+  /**
+   * Finaliza ou decrementa o consumidor de polling periódico.
+   */
+  stopPolling(force = false): void {
+    if (force) {
+      this.activePollingCount = 0;
+    } else {
+      this.activePollingCount = Math.max(0, this.activePollingCount - 1);
+    }
+
+    if (this.activePollingCount === 0 && this.pollingSubscription) {
+      this.pollingSubscription.unsubscribe();
+      this.pollingSubscription = null;
+    }
+  }
+
+  /**
+   * Carrega solicitações silenciosamente em background (Stale-While-Revalidate).
+   * Detecta transições de status e emite eventos em statusEvents$.
+   */
+  loadSilent(): Observable<RequestItem[]> {
+    if (!this.http) {
+      return of(this._requests());
+    }
+
+    return this.http
+      .get<SolicitacaoResponseDto[]>(`${this.apiBaseUrl}/solicitacoes`, {
+        params: { page: 1, limit: TAMANHO_DA_PAGINA_DA_API },
+      })
+      .pipe(
+        map((dtos) => dtos.map((dto) => paraRequestItem(dto, this.contexto()))),
+        tap((novas) => {
+          const antigas = this._requests();
+          const antigasMap = new Map<string, RequestItem>(antigas.map((r) => [r.id, r]));
+
+          for (const nova of novas) {
+            const antiga = antigasMap.get(nova.id);
+            if (!antiga) {
+              if (nova.status === 'PENDENTE') {
+                this._statusEvents.next({
+                  type: 'NOVA',
+                  request: nova,
+                });
+              }
+            } else {
+              if (antiga.status !== nova.status) {
+                let type: RequestStatusChangeType = 'NOVA';
+                if (nova.status === 'APROVADA') type = 'APROVADA';
+                else if (nova.status === 'REJEITADA') type = 'REJEITADA';
+                else if (nova.status === 'EM_AJUSTE') type = 'EM_AJUSTE';
+                else if (nova.status === 'PENDENTE') type = 'AVANCO_ETAPA';
+
+                this._statusEvents.next({
+                  type,
+                  request: nova,
+                  statusAnterior: antiga.status,
+                });
+              } else if (
+                nova.status === 'PENDENTE' &&
+                antiga.fluxoDestinado?.etapaAtualNumero !== nova.fluxoDestinado?.etapaAtualNumero
+              ) {
+                this._statusEvents.next({
+                  type: 'AVANCO_ETAPA',
+                  request: nova,
+                  statusAnterior: antiga.status,
+                });
+              }
+            }
+          }
+
+          this._requests.set(novas);
+          if (this._loadState() !== 'pronto') {
+            this._loadState.set('pronto');
+          }
+        }),
+        catchError(() => of(this._requests())),
+      );
   }
 
   /** T01 — `POST /solicitacoes`. A nova solicitação entra no topo da lista. */
@@ -430,6 +539,8 @@ export class RequestsService {
           valor: payload.valor,
           justificativa: justificativaCompleta,
           fornecedor: payload.fornecedor,
+          fluxoId: payload.fluxoId,
+          fluxoNome: payload.fluxoNome,
           solicitanteNome: user?.name,
           solicitanteCargo: user?.profissaoNome || user?.role || 'Solicitante',
         })
@@ -588,6 +699,10 @@ export class RequestsService {
         if (req.id !== id) return req;
         updated = true;
 
+        const etapaAtual = req.etapaAtual ?? 1;
+        const totalEtapas = req.totalEtapas ?? 1;
+        const isAvanco = etapaAtual < totalEtapas;
+
         const currentStepIndex = req.fluxoDestinado.etapas.findIndex(
           (e) => e.status === 'PENDENTE' || e.status === 'EM_ANALISE' || e.status === 'AJUSTE',
         );
@@ -612,8 +727,35 @@ export class RequestsService {
               },
             };
           }
+          if (isAvanco && idx === currentStepIndex + 1) {
+            return {
+              ...step,
+              status: 'EM_ANALISE' as const,
+            };
+          }
           return step;
         });
+
+        if (isAvanco) {
+          const proximaEtapa = etapaAtual + 1;
+          const proximoPapel = proximaEtapa === 2 ? 'APROVADOR_N2' : 'DIRETOR_CFO';
+          return {
+            ...req,
+            etapaAtual: proximaEtapa,
+            aprovadorEsperadoPapel: proximoPapel,
+            status: 'PENDENTE' as const,
+            statusLabel: 'Em análise',
+            statusIcon: 'hourglass_top',
+            versao: req.versao + 1,
+            dataAtualizacao: nowIso,
+            fluxoDestinado: {
+              ...req.fluxoDestinado,
+              etapaAtualNumero: proximaEtapa + 1,
+              etapaAtualNome: 'Aguardando próximo nível',
+              etapas: updatedEtapas,
+            },
+          };
+        }
 
         return {
           ...req,

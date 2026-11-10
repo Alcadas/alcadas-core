@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { ApprovalsComponent } from './approvals.component';
 import { RequestsService } from '../requests/services/requests.service';
+import { AuthService } from '../../core/auth/auth.service';
 
 describe('ApprovalsComponent', () => {
   let component: ApprovalsComponent;
@@ -222,5 +223,101 @@ describe('ApprovalsComponent', () => {
 
     component.closeDetailDrawer();
     expect(component.isDetailDrawerOpen()).toBe(false);
+  });
+
+  describe('Isolamento de Departamento (Cenário 2)', () => {
+    it('deve filtrar e exibir apenas solicitações do próprio departamento para aprovador setorial', () => {
+      const authService = TestBed.inject(AuthService);
+      jest.spyOn(authService, 'currentUser').mockReturnValue({
+        id: 'usr-gestor-rh',
+        email: 'gestor.rh@startop.com.br',
+        name: 'Gestor de RH',
+        role: 'APROVADOR_N1',
+        departmentId: 'dep-rh',
+        departmentName: 'Recursos Humanos',
+        costCenterId: 'CC-RH-01',
+      });
+
+      // Adiciona uma solicitação de outro colaborador do RH (para respeitar SoD)
+      const novaReq = requestsService.createRequest({
+        titulo: 'Treinamento de Liderança RH',
+        categoria: 'SERVICOS_TERCEIROS',
+        centroCustoId: 'CC-RH-01',
+        valor: 800,
+        justificativa: 'Treinamento obrigatório para novos líderes de setor.',
+      });
+      // Simula que a solicitação foi criada por outro colaborador da equipe
+      (requestsService as unknown as { _requests: { update: (fn: (l: unknown[]) => unknown[]) => void } })[
+        '_requests'
+      ].update((lista) =>
+        lista.map((item) =>
+          (item as { id: string }).id === novaReq.id
+            ? {
+                ...(item as Record<string, unknown>),
+                departamento: 'Recursos Humanos',
+                solicitante: { id: 'usr-colaborador-rh', nome: 'Ana Paula (Analista RH)', cargo: 'Analista' },
+              }
+            : item,
+        ),
+      );
+
+      const elegiveis = component.approvalEligibleRequests();
+      // Solicitações de TI & Engenharia devem ter sido excluídas para o gestor de RH
+      expect(elegiveis.some((r) => r.departamento === 'TI & Engenharia')).toBe(false);
+      // Solicitação de RH deve estar presente
+      expect(
+        elegiveis.some((r) => r.centroCustoId === 'CC-RH-01' || r.departamento === 'Recursos Humanos'),
+      ).toBe(true);
+    });
+
+    it('DIRETOR_CFO deve visualizar solicitações de todos os departamentos (escopo corporativo)', () => {
+      const authService = TestBed.inject(AuthService);
+      jest.spyOn(authService, 'currentUser').mockReturnValue({
+        id: 'usr-cfo',
+        email: 'cfo@startop.com.br',
+        name: 'Diretor Financeiro',
+        role: 'DIRETOR_CFO',
+      });
+
+      const elegiveis = component.approvalEligibleRequests();
+      expect(elegiveis.length).toBeGreaterThan(0);
+      expect(elegiveis.some((r) => r.departamento === 'TI & Engenharia')).toBe(true);
+    });
+  });
+
+  describe('Polling Inteligente & Notificações na Esteira de Aprovação', () => {
+    it('inicia o polling ao carregar a tela e encerra no ngOnDestroy', () => {
+      const startSpy = jest.spyOn(requestsService, 'startPolling');
+      const stopSpy = jest.spyOn(requestsService, 'stopPolling');
+
+      component.ngOnInit();
+      expect(startSpy).toHaveBeenCalledWith(8000);
+
+      fixture.destroy();
+      expect(stopSpy).toHaveBeenCalled();
+    });
+
+    it('exibe notificação toast quando uma nova demanda pendente ingressa na esteira', () => {
+      component.ngOnInit();
+
+      // Emite evento simulando chegada de nova demanda via polling
+      (requestsService as unknown as { _statusEvents: { next: (val: unknown) => void } })[
+        '_statusEvents'
+      ].next({
+        type: 'NOVA',
+        request: {
+          id: 'sol-nova-099',
+          codigo: '#SOL-099',
+          status: 'PENDENTE',
+          titulo: 'Servidor Dedicado',
+        },
+      });
+
+      expect(component.toast()).toMatchObject({
+        title: 'Nova Demanda',
+        type: 'info',
+      });
+      expect(component.toast()?.message).toContain('#SOL-099');
+    });
   });
 });

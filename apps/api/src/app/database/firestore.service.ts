@@ -210,7 +210,7 @@ export class FirestoreService {
       }
       try {
         await this.http.patch(`/${relativePath}`, { fields: this.toFirestoreFields(record) }, {
-          params: { 'currentDocument.updateTime': remote.updateTime },
+          params: { 'currentDocument.exists': true },
         });
       } catch (error: unknown) {
         if (axios.isAxiosError(error) && [400, 409, 412].includes(error.response?.status ?? 0)) {

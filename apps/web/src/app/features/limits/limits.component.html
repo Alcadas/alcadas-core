@@ -5,29 +5,6 @@
   searchPlaceholder="Buscar nós no fluxo..."
   [showTier2]="false"
 >
-  <div header-actions class="header-actions-group">
-    <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para Minhas Alçadas">
-      <span class="material-symbols-rounded">arrow_back</span>
-      <span>Voltar</span>
-    </button>
-
-    <button
-      type="button"
-      class="btn-header-outline"
-      [class.active]="isLibraryExpanded()"
-      (click)="toggleLibrary()"
-      title="Expandir/Recolher Modelos de Regras"
-    >
-      <span class="material-symbols-rounded">widgets</span>
-      <span>Modelos</span>
-      <span class="lib-badge">{{ ruleTemplates().length }}</span>
-    </button>
-
-    <button type="button" class="btn-header-primary" (click)="saveWorkflow()">
-      <span class="material-symbols-rounded">save</span>
-      <span>Salvar Fluxo</span>
-    </button>
-  </div>
 </app-page-header>
 
 <!-- 2. Barra de Metadados e Edição Rápida do Fluxo (Abaixo do Header, Acima dos Painéis) -->
@@ -138,6 +115,30 @@
       </button>
       <button type="button" class="btn-ctrl" (click)="centerCanvas()" title="Centralizar Visualização">
         <span class="material-symbols-rounded">center_focus_strong</span>
+      </button>
+    </div>
+
+    <div class="flow-actions-wrap" style="display: flex; gap: 0.5rem; align-items: center">
+      <button type="button" class="btn-header-outline" (click)="goBack()" title="Voltar para Minhas Alçadas">
+        <span class="material-symbols-rounded">arrow_back</span>
+        <span>Voltar</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn-header-outline"
+        [class.active]="isLibraryExpanded()"
+        (click)="toggleLibrary()"
+        title="Expandir/Recolher Modelos de Regras"
+      >
+        <span class="material-symbols-rounded">widgets</span>
+        <span>Modelos</span>
+        <span class="lib-badge">{{ ruleTemplates().length }}</span>
+      </button>
+
+      <button type="button" class="btn-header-primary" (click)="saveWorkflow()">
+        <span class="material-symbols-rounded">save</span>
+        <span>Salvar Fluxo</span>
       </button>
     </div>
   </div>

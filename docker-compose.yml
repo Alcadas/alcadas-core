@@ -32,7 +32,8 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - api-node-modules:/app/node_modules
+      - workspace-node-modules:/app/node_modules
+      - /app/.nx
     command: npx ts-node -T -O '{"module":"NodeNext","moduleResolution":"NodeNext"}' scripts/seed.ts
     environment:
       - NODE_ENV=development
@@ -53,7 +54,8 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - api-node-modules:/app/node_modules
+      - workspace-node-modules:/app/node_modules
+      - /app/.nx
     ports:
       - "3000:3000"
     command: npx nx serve api --host 0.0.0.0
@@ -84,7 +86,8 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - web-node-modules:/app/node_modules
+      - workspace-node-modules:/app/node_modules
+      - /app/.nx
     ports:
       - "4200:4200"
     # Dentro do compose a API é o serviço "api", não o localhost do container web
@@ -97,5 +100,4 @@ services:
 
 volumes:
   firebase-cache:
-  api-node-modules:
-  web-node-modules:
+  workspace-node-modules:

@@ -12,6 +12,13 @@ const TENANT_A = 'startop';
 const TENANT_B = 'empresa-b';
 
 const ana: AuthenticatedUser = { userId: 'ana', tenantId: TENANT_A, role: 'SOLICITANTE' };
+const coordenador: AuthenticatedUser = {
+  userId: 'marcos',
+  tenantId: TENANT_A,
+  role: 'APROVADOR_N1',
+  level: 'N1',
+  maxApprovalLimit: 1000,
+};
 const gerente: AuthenticatedUser = {
   userId: 'carlos',
   tenantId: TENANT_A,
@@ -172,6 +179,222 @@ describe('DecisoesService — decisões via máquina de estados', () => {
     it('trilha de solicitação de outro tenant → 404', async () => {
       await criarSolicitacao('sol-13', 3200);
       await expect(service.obterTrilha(gerenteEmpresaB, 'sol-13')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('Integração de Fluxos com Múltiplas Etapas (Issue #66)', () => {
+    async function criarSolicitacaoComFluxo(id: string, valor: number, totalEtapas = 2) {
+      await firestore.setTenantDocument(TENANT_A, 'requests', id, {
+        id,
+        tenantId: TENANT_A,
+        centroCustoId: 'cc-clinica-centro',
+        solicitanteId: 'ana',
+        valor,
+        categoria: 'SERVICOS_TERCEIROS',
+        justificativa: 'Contratação de consultoria especializada de arquitetura',
+        status: 'PENDENTE',
+        versao: 1,
+        fluxoId: 'tier-n2',
+        fluxoNome: 'Alçada N2 — Gerência',
+        totalEtapas,
+        etapaAtual: 1,
+        aprovadorEsperadoPapel: 'APROVADOR_N1',
+        aprovadorEsperadoNivel: 'N1',
+        createdAt: '2026-10-27T10:00:00.000Z',
+        updatedAt: '2026-10-27T10:00:00.000Z',
+      });
+    }
+
+    it('bloqueia aprovador fora da etapa corrente (N2 não aprova etapa 1 que aguarda N1)', async () => {
+      await criarSolicitacaoComFluxo('sol-fluxo-1', 2500, 2);
+
+      await expect(service.aprovarSolicitacao(gerente, 'sol-fluxo-1', { versao: 1 })).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('avanço de etapa no fluxo (N1 -> N2): N1 aprova -> etapaAtual vira 2 e status continua PENDENTE; N2 aprova -> APROVADA final', async () => {
+      await criarSolicitacaoComFluxo('sol-fluxo-2', 2500, 2);
+
+      // 1. Coordenador N1 aprova etapa 1
+      const etapa1 = await service.aprovarSolicitacao(coordenador, 'sol-fluxo-2', {
+        versao: 1,
+        observacao: 'Triagem N1 aprovada',
+      });
+
+      expect(etapa1).toMatchObject({
+        status: 'PENDENTE',
+        versao: 2,
+        etapaAtual: 2,
+        totalEtapas: 2,
+        aprovadorEsperadoPapel: 'APROVADOR_N2',
+        aprovadorEsperadoNivel: 'N2',
+      });
+
+      const trilha1 = await auditoria.getAuditTrail(TENANT_A, 'sol-fluxo-2');
+      expect(trilha1[trilha1.length - 1]).toMatchObject({
+        tipoEvento: 'APROVACAO',
+        authorId: 'marcos',
+      });
+      expect(trilha1[trilha1.length - 1].payload).toMatchObject({
+        etapaAprovada: 1,
+        proximaEtapa: 2,
+        aprovadorEsperadoPapel: 'APROVADOR_N2',
+        avancoFluxo: true,
+      });
+
+      // 2. Gerente N2 agora pode aprovar etapa 2
+      const etapa2 = await service.aprovarSolicitacao(gerente, 'sol-fluxo-2', {
+        versao: 2,
+        observacao: 'Aprovação orçamentária final N2',
+      });
+
+      expect(etapa2).toMatchObject({
+        status: 'APROVADA',
+        versao: 3,
+        etapaAtual: 2,
+        aprovadorId: 'carlos',
+      });
+
+      const trilha2 = await auditoria.getAuditTrail(TENANT_A, 'sol-fluxo-2');
+      expect(trilha2[trilha2.length - 1].payload).toMatchObject({
+        etapaAprovada: 2,
+        aprovacaoFinal: true,
+      });
+    });
+
+    it('reenvio pelo solicitante após ajuste reseta a esteira para etapaAtual: 1', async () => {
+      await criarSolicitacaoComFluxo('sol-fluxo-3', 2500, 2);
+
+      // Coordenador pede ajuste
+      await service.solicitarAjuste(coordenador, 'sol-fluxo-3', {
+        versao: 1,
+        motivo: 'Favor detalhar o escopo da consultoria',
+      });
+
+      // Solicitante reenvia
+      const reenviada = await service.atualizarOuReenviarSolicitacao(ana, 'sol-fluxo-3', {
+        justificativa: 'Consultoria detalhada com 3 propostas e escopo anexo',
+      });
+
+      expect(reenviada).toMatchObject({
+        status: 'PENDENTE',
+        versao: 3,
+        etapaAtual: 1,
+        aprovadorEsperadoPapel: 'APROVADOR_N1',
+        aprovadorEsperadoNivel: 'N1',
+      });
+    });
+  });
+
+  describe('Isolamento de Departamento / Centro de Custo (Cenário 2)', () => {
+    const gerenteRH: AuthenticatedUser = {
+      userId: 'gestor-rh',
+      tenantId: TENANT_A,
+      role: 'APROVADOR_N2',
+      level: 'N2',
+      maxApprovalLimit: 5000,
+      costCenterId: 'cc-rh',
+      departmentId: 'dep-rh',
+    };
+
+    const gerenteTI: AuthenticatedUser = {
+      userId: 'gestor-ti',
+      tenantId: TENANT_A,
+      role: 'APROVADOR_N2',
+      level: 'N2',
+      maxApprovalLimit: 5000,
+      costCenterId: 'cc-ti',
+      departmentId: 'dep-ti',
+    };
+
+    const diretorCFO: AuthenticatedUser = {
+      userId: 'diretor-cfo',
+      tenantId: TENANT_A,
+      role: 'DIRETOR_CFO',
+      level: 'N3',
+      maxApprovalLimit: null,
+      costCenterId: 'cc-fin',
+      departmentId: 'dep-fin',
+    };
+
+    const superUserGeral: AuthenticatedUser = {
+      userId: 'super-geral',
+      tenantId: TENANT_A,
+      role: 'SUPER_USER',
+      level: 'N3',
+      maxApprovalLimit: null,
+    };
+
+    async function criarSolicitacaoRH(id: string, valor: number) {
+      await firestore.setTenantDocument(TENANT_A, 'requests', id, {
+        id,
+        tenantId: TENANT_A,
+        centroCustoId: 'cc-rh',
+        solicitanteId: 'ana-rh',
+        valor,
+        categoria: 'SERVICOS_TERCEIROS',
+        justificativa: 'Consultoria de recrutamento e treinamento para o RH',
+        status: 'PENDENTE',
+        versao: 1,
+        createdAt: '2026-10-27T10:00:00.000Z',
+        updatedAt: '2026-10-27T10:00:00.000Z',
+      });
+    }
+
+    it('aprovador N2 de RH aprova solicitação do centro de custo RH com sucesso', async () => {
+      await criarSolicitacaoRH('sol-rh-1', 2500);
+
+      const r = await service.aprovarSolicitacao(gerenteRH, 'sol-rh-1', { versao: 1 });
+      expect(r).toMatchObject({
+        status: 'APROVADA',
+        versao: 2,
+        aprovadorId: 'gestor-rh',
+      });
+    });
+
+    it('aprovador N2 de TI tentando aprovar solicitação do RH é recusado com HTTP 403 Forbidden', async () => {
+      await criarSolicitacaoRH('sol-rh-2', 2500);
+
+      await expect(service.aprovarSolicitacao(gerenteTI, 'sol-rh-2', { versao: 1 })).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.aprovarSolicitacao(gerenteTI, 'sol-rh-2', { versao: 1 })).rejects.toThrow(
+        /Isolamento de Departamento/,
+      );
+    });
+
+    it('aprovador N2 de TI tentando rejeitar solicitação do RH é recusado com HTTP 403 Forbidden', async () => {
+      await criarSolicitacaoRH('sol-rh-3', 2500);
+
+      await expect(
+        service.rejeitarSolicitacao(gerenteTI, 'sol-rh-3', {
+          versao: 1,
+          motivo: 'Motivo com mais de dez caracteres',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('DIRETOR_CFO aprova solicitação de qualquer centro de custo com sucesso (escopo corporativo)', async () => {
+      await criarSolicitacaoRH('sol-rh-4', 2500);
+
+      const r = await service.aprovarSolicitacao(diretorCFO, 'sol-rh-4', { versao: 1 });
+      expect(r).toMatchObject({
+        status: 'APROVADA',
+        versao: 2,
+        aprovadorId: 'diretor-cfo',
+      });
+    });
+
+    it('SUPER_USER aprova solicitação de qualquer centro de custo com sucesso (escopo global)', async () => {
+      await criarSolicitacaoRH('sol-rh-5', 2500);
+
+      const r = await service.aprovarSolicitacao(superUserGeral, 'sol-rh-5', { versao: 1 });
+      expect(r).toMatchObject({
+        status: 'APROVADA',
+        versao: 2,
+        aprovadorId: 'super-geral',
+      });
     });
   });
 });

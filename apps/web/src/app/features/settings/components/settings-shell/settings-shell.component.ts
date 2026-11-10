@@ -50,15 +50,6 @@ export class SettingsShellComponent {
       });
     }
 
-    if (isSuper || allowed.includes('organizacao')) {
-      items.push({
-        path: 'integracoes',
-        label: 'Integrações & API',
-        icon: 'hub',
-        externalHint: true,
-      });
-    }
-
     return items;
   });
 

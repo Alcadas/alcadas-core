@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: alcadas-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: WEB_URL
+        value: https://alcadas-app.web.app,http://localhost:4200
+    healthCheckPath: /api/healthz
+    autoDeploy: true

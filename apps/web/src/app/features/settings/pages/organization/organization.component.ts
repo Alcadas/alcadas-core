@@ -44,6 +44,7 @@ export class OrganizationComponent {
   // Estado de Departamentos
   readonly isAddingDepartment = signal(false);
   readonly editingDepartmentId = signal<string | null>(null);
+  readonly expandedDepartmentId = signal<string | null>(null);
   readonly deptError = signal('');
 
   readonly deptColors = [
@@ -402,6 +403,14 @@ export class OrganizationComponent {
     this.settingsService.updatePolicies(this.policiesForm.getRawValue());
     this.policiesForm.markAsPristine();
     this.showFeedback('Políticas de governança do projeto atualizadas.');
+  }
+
+  toggleDepartmentExpansion(deptId: string): void {
+    this.expandedDepartmentId.update((curr) => (curr === deptId ? null : deptId));
+  }
+
+  getDepartmentEmployees(deptId: string): OrganizationEmployee[] {
+    return this.org().employees.filter((emp) => emp.departmentId === deptId);
   }
 
   employeesCountByDept(deptId: string): number {

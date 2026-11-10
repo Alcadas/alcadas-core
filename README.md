@@ -138,6 +138,57 @@ Os comandos abaixo podem ser executados via `npm run <script>` ou `npx nx <targe
 
 ---
 
+## 🐳 Contêineres de Produção & Deploy no Render (CP3)
+
+A plataforma conta com imagens Docker multi-stage otimizadas para produção, com imagem base Node.js Alpine com versão fixa (`node:24.21.0-alpine`), execução sob usuário não-privilegiado (`USER node`, UID 1000) e Blueprint declarativo para o Render (`render.yaml`).
+
+### Construção e Execução Local da API (Produção)
+
+```bash
+# 1. Construir a imagem da API
+docker build -f apps/api/Dockerfile -t alcadas-api:prod .
+
+# 2. Validar que o contêiner roda como usuário não-root (USER node)
+docker run --rm alcadas-api:prod whoami
+# Saída esperada: node
+
+docker run --rm alcadas-api:prod id
+# Saída esperada: uid=1000(node) gid=1000(node)
+
+# 3. Executar o contêiner localmente
+docker run -d --name alcadas-api -p 3000:3000 -e NODE_ENV=production alcadas-api:prod
+
+# 4. Validar o health check de liveness (HTTP 200)
+curl -i http://localhost:3000/api/healthz
+# Resposta esperada: HTTP/1.1 200 OK {"status":"ok"}
+
+# 5. Parar o contêiner de teste
+docker stop alcadas-api && docker rm alcadas-api
+```
+
+### Publicação no Render (Plano Gratuito — Custo Zero)
+
+O arquivo [`render.yaml`](render.yaml) na raiz do repositório configura o Web Service da API no Render de forma automática:
+- **Runtime:** Docker (`apps/api/Dockerfile`)
+- **Docker Build Context:** `.` (raiz do monorepo Nx)
+- **Health Check:** `/api/healthz`
+- **Variáveis de Ambiente:** `NODE_ENV=production`, `PORT=3000`, `WEB_URL`
+- **Rastreabilidade:** O Render injeta automaticamente a variável `RENDER_GIT_COMMIT`, cujo SHA é exibido nos logs de inicialização da API e no painel de deploy do Render.
+
+### Publicação no Firebase Hosting & Security Rules (Plano Spark — Custo Zero)
+
+O arquivo [`firebase.json`](firebase.json) configura o deploy do frontend Angular e as regras estritas do Firestore:
+- **Hosting SPA:** Aponta para `dist/apps/web/browser` com `rewrites` redirecionando todas as rotas (`**`) para `/index.html`, evitando erro 404 em rotas como `/solicitacoes`.
+- **Security Rules Deny-All:** [`firestore.rules`](firestore.rules) bloqueia qualquer leitura ou gravação direta pelo navegador (`allow read, write: if false;`), garantindo que o acesso ocorra exclusivamente através da API autenticada.
+- **Deploy:**
+  ```bash
+  # Deploy de regras e frontend
+  npx firebase-tools deploy --only firestore:rules,hosting
+  ```
+Para detalhes completos de arquitetura e limites do plano Spark, consulte o [Guia do Firebase Hosting (docs/cloud/firebase-spark-hosting.md)](docs/cloud/firebase-spark-hosting.md).
+
+---
+
 ## 🤝 Como Contribuir
 
 Antes de submeter código ou criar uma branch, leia atentamente nosso [**Guia de Contribuição (CONTRIBUTING.md)**](CONTRIBUTING.md) e o [**Código de Conduta (CODE_OF_CONDUCT.md)**](CODE_OF_CONDUCT.md).

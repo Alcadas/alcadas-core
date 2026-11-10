@@ -9,6 +9,7 @@ import { APP_CONFIG } from '../../core/config/app-config';
 import { eloDaApi, solicitacaoDaApi, tetoDaApi } from '../../core/testing/api-fixtures';
 import { CONFIG_DE_TESTE } from '../../core/testing/test-config';
 import { RequestsComponent } from './requests.component';
+import { RequestsService } from './services/requests.service';
 
 const URL_LISTA = '/api/solicitacoes?page=1&limit=50';
 
@@ -273,6 +274,59 @@ describe('RequestsComponent', () => {
 
       expect(component.decisionError()).toContain('Conflito de concorrência');
       expect(component.selectedRequest()?.status).toBe('PENDENTE');
+    });
+  });
+
+  describe('Polling Inteligente & Notificações em Tempo Real', () => {
+    it('inicia o polling inteligente ao inicializar e encerra no ngOnDestroy', () => {
+      const requestsService = TestBed.inject(RequestsService);
+      const startSpy = jest.spyOn(requestsService, 'startPolling');
+      const stopSpy = jest.spyOn(requestsService, 'stopPolling');
+
+      iniciar();
+      responderCarga();
+
+      expect(startSpy).toHaveBeenCalledWith(8000);
+
+      fixture.destroy();
+      expect(stopSpy).toHaveBeenCalled();
+    });
+
+    it('exibe toast comemorativo quando uma solicitação do usuário é aprovada via polling', () => {
+      iniciar();
+      responderCarga([
+        solicitacaoDaApi({ id: 'sol-carlos-1', codigo: '#SOL-101', solicitanteId: 'carlos', status: 'PENDENTE' }),
+      ]);
+
+      const requestsService = TestBed.inject(RequestsService);
+      // Dispara loadSilent com status APROVADA
+      requestsService.loadSilent().subscribe();
+      http
+        .expectOne('/api/solicitacoes?page=1&limit=50')
+        .flush([
+          solicitacaoDaApi({ id: 'sol-carlos-1', codigo: '#SOL-101', solicitanteId: 'carlos', status: 'APROVADA', versao: 2 }),
+        ]);
+
+      expect(component.toastMessage()).toContain('#SOL-CARLOS-1 foi aprovada! 🎉');
+      expect(component.toastType()).toBe('success');
+    });
+
+    it('exibe toast de aviso quando uma solicitação do usuário é devolvida para ajuste via polling', () => {
+      iniciar();
+      responderCarga([
+        solicitacaoDaApi({ id: 'sol-carlos-2', solicitanteId: 'carlos', status: 'PENDENTE' }),
+      ]);
+
+      const requestsService = TestBed.inject(RequestsService);
+      requestsService.loadSilent().subscribe();
+      http
+        .expectOne('/api/solicitacoes?page=1&limit=50')
+        .flush([
+          solicitacaoDaApi({ id: 'sol-carlos-2', solicitanteId: 'carlos', status: 'EM_AJUSTE', versao: 2 }),
+        ]);
+
+      expect(component.toastMessage()).toContain('#SOL-CARLOS-2 foi devolvida para ajustes');
+      expect(component.toastType()).toBe('info');
     });
   });
 });
