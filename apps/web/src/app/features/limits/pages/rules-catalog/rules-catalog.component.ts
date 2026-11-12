@@ -611,8 +611,6 @@ export class RulesCatalogComponent {
         },
       ]);
     }
-
-    this.activeCatalogTab.set('editor');
   }
 
   closeEditor(): void {

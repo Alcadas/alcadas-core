@@ -17,11 +17,6 @@
       <span class="material-symbols-rounded">account_tree</span>
       <span>Meus Fluxos</span>
     </button>
-
-    <button type="button" class="btn-header-primary" (click)="openCreateModal()" title="Criar nova regra de alçada">
-      <span class="material-symbols-rounded">add</span>
-      <span>Nova Regra</span>
-    </button>
   </div>
 </app-page-header>
 
@@ -33,35 +28,6 @@
   <section class="governance-overview-banner">
     <div class="overview-header-row">
       <h2 class="overview-title">Gestão de Regras de Alçadas & Tetos</h2>
-      <button type="button" class="btn-collapse-overview" aria-label="Recolher visão geral">
-        <span class="material-symbols-rounded">keyboard_arrow_up</span>
-      </button>
-    </div>
-
-    <!-- Card de Metadados da Política (Idêntico ao topo da Imagem 2) -->
-    <div class="overview-meta-card">
-      <div class="meta-cols-grid">
-        <div class="meta-col">
-          <span class="meta-col-label">Política Geral Ativa</span>
-          <strong class="meta-col-value">Matriz Corporativa de Alçadas 2026</strong>
-        </div>
-
-        <div class="meta-col">
-          <span class="meta-col-label">Data de Vigência</span>
-          <div class="meta-with-icon">
-            <span class="material-symbols-rounded icon-sm">calendar_month</span>
-            <span class="meta-col-value">25/06/25 • 14:30</span>
-          </div>
-        </div>
-
-        <div class="meta-col status-col">
-          <span class="meta-col-label">Status da Governança</span>
-          <div class="status-live-badge">
-            <span class="live-dot"></span>
-            <span>Ativo em Produção</span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Sub-Abas de Navegação (Idêntico a "Featured Tabs / Featured Pages" da Imagem 2) -->
@@ -86,20 +52,6 @@
         <span class="subtab-counter">{{ limitsService.ruleTemplatesState().length }}</span>
       </button>
 
-      @if (activeCatalogTab() === 'editor' && editingRule(); as editRule) {
-        <button
-          type="button"
-          class="subtab-btn is-active editor-subtab"
-        >
-          <span class="material-symbols-rounded editor-tab-icon">
-            @if (editingMode() === 'prompt') { auto_awesome }
-            @else if (editingMode() === 'document') { description }
-            @else { tune }
-          </span>
-          <span>Editor: {{ editRule.name }}</span>
-          <span class="editor-mode-badge">{{ editingMode() | uppercase }}</span>
-        </button>
-      }
     </nav>
   </section>
 
@@ -316,11 +268,22 @@
     </main>
   }
 
-  <!-- ========================================================================= -->
-  <!-- CONTEÚDO DA ABA 3: EDITOR DA REGRA (CONFORME MÉTODO SELECIONADO)           -->
-  <!-- ========================================================================= -->
-  @if (activeCatalogTab() === 'editor' && editingRule(); as rule) {
-    <main class="editor-view-wrapper">
+</div>
+
+<!-- ========================================================================= -->
+<!-- POP-UP DO EDITOR DA REGRA (CONFORME MÉTODO SELECIONADO)                   -->
+<!-- ========================================================================= -->
+@if (editingRule(); as rule) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Editar regra">
+    <button
+      type="button"
+      class="modal-backdrop-btn"
+      (click)="closeEditor()"
+      tabindex="-1"
+      aria-label="Fechar editor"
+    ></button>
+
+    <main class="editor-view-wrapper editor-modal-card">
       <!-- Topo do Editor com Botão Voltar e Ações -->
       <div class="editor-header-bar">
         <div class="editor-header-left">
@@ -335,37 +298,6 @@
         </div>
 
         <div class="editor-header-right">
-          <!-- Seletor de Modo no Topo do Editor -->
-          <div class="mode-switcher-pills">
-            <button
-              type="button"
-              class="mode-pill"
-              [class.active]="editingMode() === 'prompt'"
-              (click)="editingMode.set('prompt')"
-            >
-              <span class="material-symbols-rounded">auto_awesome</span>
-              <span>Chat IA</span>
-            </button>
-            <button
-              type="button"
-              class="mode-pill"
-              [class.active]="editingMode() === 'manual'"
-              (click)="editingMode.set('manual')"
-            >
-              <span class="material-symbols-rounded">tune</span>
-              <span>Manual</span>
-            </button>
-            <button
-              type="button"
-              class="mode-pill"
-              [class.active]="editingMode() === 'document'"
-              (click)="editingMode.set('document')"
-            >
-              <span class="material-symbols-rounded">description</span>
-              <span>Por Documento</span>
-            </button>
-          </div>
-
           <button type="button" class="btn-save-rule" (click)="saveEditorChanges()">
             <span class="material-symbols-rounded">check</span>
             <span>Salvar Regra</span>
@@ -625,8 +557,8 @@
         </div>
       }
     </main>
-  }
-</div>
+  </div>
+}
 
 <!-- ========================================================================= -->
 <!-- MODAL DE CRIAÇÃO DE REGRA (DESIGN IDÊNTICO À IMAGEM 1 DE REFERÊNCIA)       -->

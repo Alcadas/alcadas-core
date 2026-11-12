@@ -124,119 +124,6 @@ $bg-page: #f8fafc;
     }
   }
 
-  .overview-meta-card {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-
-    .meta-cols-grid {
-      display: grid;
-      grid-template-columns: 2fr 1.5fr 1.5fr;
-      gap: 1.5rem;
-
-      @media (max-width: 768px) {
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
-      }
-
-      .meta-col {
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-
-        .meta-col-label {
-          font-size: 0.7rem;
-          color: $muted;
-        }
-
-        .meta-col-value {
-          font-size: 0.85rem;
-          color: $text;
-        }
-
-        .meta-with-icon {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-
-          .icon-sm {
-            font-size: 16px;
-            color: $muted;
-          }
-        }
-
-        &.status-col {
-          align-items: flex-start;
-        }
-      }
-
-      .status-live-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #059669;
-
-        .live-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #10b981;
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-        }
-      }
-    }
-
-    .quick-filter-pills {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      padding-top: 0.75rem;
-      border-top: 1px solid #eef2f6;
-
-      .filter-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.42rem 0.85rem;
-        border-radius: 9999px;
-        border: 1px solid #cbd5e1;
-        background: #ffffff;
-        color: #475569;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.15s ease;
-
-        .pill-icon {
-          font-size: 16px;
-          color: #64748b;
-        }
-
-        &:hover {
-          background: #f1f5f9;
-          color: $text;
-        }
-
-        &.active {
-          background: #4f46e5;
-          color: #ffffff;
-          border-color: #4f46e5;
-
-          .pill-icon {
-            color: #ffffff;
-          }
-        }
-      }
-    }
-  }
-
   .catalog-subtabs-nav {
     display: flex;
     align-items: center;
@@ -972,38 +859,6 @@ $bg-page: #f8fafc;
       align-items: center;
       gap: 1rem;
 
-      .mode-switcher-pills {
-        display: flex;
-        background: #f1f5f9;
-        border-radius: 8px;
-        padding: 2px;
-        gap: 2px;
-
-        .mode-pill {
-          background: transparent;
-          border: none;
-          padding: 0.42rem 0.8rem;
-          border-radius: 6px;
-          font-size: 0.8125rem;
-          font-weight: 600;
-          color: #64748b;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-
-          .material-symbols-rounded {
-            font-size: 17px;
-          }
-
-          &.active {
-            background: #ffffff;
-            color: $text;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-          }
-        }
-      }
-
       .btn-save-rule {
         background: #059669;
         color: #ffffff;
@@ -1486,6 +1341,20 @@ $bg-page: #f8fafc;
   margin: 0;
   width: 100%;
   height: 100%;
+}
+
+// Editor da regra exibido como pop-up (mesmo overlay do modal de criação)
+.editor-view-wrapper.editor-modal-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1180px;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 .modal-card-creation {

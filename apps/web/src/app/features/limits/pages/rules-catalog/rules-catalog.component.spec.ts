@@ -83,14 +83,13 @@ describe('RulesCatalogComponent', () => {
     expect(component.isCreateModalOpen()).toBe(true);
   });
 
-  it('should create rule and switch to editor tab', () => {
+  it('should create rule and open the editor pop-up', () => {
     component.openCreateModal();
     component.modalRuleName.set('Regra Teste Unitário');
     component.selectModalMethod('prompt');
     component.confirmCreateRule();
 
     expect(component.isCreateModalOpen()).toBe(false);
-    expect(component.activeCatalogTab()).toBe('editor');
     expect(component.editingRule()?.name).toBe('Regra Teste Unitário');
     expect(component.editingMode()).toBe('prompt');
   });
@@ -202,10 +201,11 @@ describe('RulesCatalogComponent', () => {
     });
   });
 
-  it('should save editor changes and return to rules tab', () => {
+  it('should open the editor pop-up over the list and save changes', () => {
     const rule = component.rulesList()[0];
     component.openEditorForRule(rule);
-    expect(component.activeCatalogTab()).toBe('editor');
+    expect(component.editingRule()?.id).toBe(rule.id);
+    expect(component.activeCatalogTab()).toBe('rules');
 
     component.manualAmount.set(99000);
     component.manualRole.set('DIRETOR');
