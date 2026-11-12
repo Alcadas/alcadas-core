@@ -1796,6 +1796,38 @@ $bg-page: #f8fafc;
     }
   }
 
+  // Criação do zero: aviso de "em desenvolvimento"
+  .scratch-wip-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+    padding: 2.5rem 1.5rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+
+    .wip-icon {
+      font-size: 40px;
+      color: #f59e0b;
+    }
+
+    .wip-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: $text;
+    }
+
+    .wip-text {
+      margin: 0;
+      max-width: 360px;
+      font-size: 0.85rem;
+      color: $muted;
+    }
+  }
+
   // Seletor de Escopo no Topo (Idêntico a People / Companies da Imagem 1)
   .modal-scope-switch {
     display: grid;

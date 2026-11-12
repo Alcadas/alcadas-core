@@ -878,89 +878,14 @@
       }
 
       @if (wizardStep() === 'scratch') {
-      <!-- Seletor de Escopo no Topo (Idêntico a People / Companies da Imagem 1) -->
-      <div class="modal-scope-switch">
-        <button
-          type="button"
-          class="scope-btn"
-          [class.active]="modalScope() === 'global'"
-          (click)="selectModalScope('global')"
-        >
-          <span class="material-symbols-rounded">group</span>
-          <span>Regra Global (Toda a Empresa)</span>
-        </button>
-
-        <button
-          type="button"
-          class="scope-btn"
-          [class.active]="modalScope() === 'department'"
-          (click)="selectModalScope('department')"
-        >
-          <span class="material-symbols-rounded">apartment</span>
-          <span>Específica por Departamento</span>
-        </button>
-      </div>
-
-      <!-- Método de criação: apenas Manual -->
-      <div class="method-section-title-row">
-        <span class="method-section-label">Método de criação</span>
-      </div>
-
-      <div class="creation-methods-cards-row single-method">
-        <button
-          type="button"
-          class="creation-type-card"
-          [class.is-selected]="modalCreationMethod() === 'manual'"
-          (click)="selectModalMethod('manual')"
-        >
-          <div class="card-icon-box bg-kanban">
-            <span class="material-symbols-rounded">tune</span>
-          </div>
-          <strong class="card-title-text">Manual</strong>
-          <span class="card-subtitle-text">Configure valores, limites, aprovadores e SLA manualmente</span>
-        </button>
-      </div>
-
-      <!-- Campo de Nome da Regra (Label) (Idêntico à Imagem 1) -->
-      <div class="modal-label-field">
-        <label for="ruleNameInput" class="input-title-label">Nome da Regra</label>
-        <div class="input-highlight-wrapper">
-          <input
-            id="ruleNameInput"
-            type="text"
-            class="name-input-control"
-            placeholder="Digite um nome para esta regra... (ex: Alçada de Capex de TI)"
-            [ngModel]="modalRuleName()"
-            (ngModelChange)="modalRuleName.set($event); modalErrorMessage.set(null)"
-            (keydown.enter)="confirmCreateRule()"
-          />
+        <!-- Criação do zero: em desenvolvimento -->
+        <div class="scratch-wip-box">
+          <span class="material-symbols-rounded wip-icon">construction</span>
+          <h4 class="wip-title">Em desenvolvimento</h4>
+          <p class="wip-text">
+            A criação de regras do zero ainda está sendo construída. Por enquanto, use um dos modelos predefinidos.
+          </p>
         </div>
-        @if (modalErrorMessage()) {
-          <span class="error-inline">{{ modalErrorMessage() }}</span>
-        }
-      </div>
-
-      <!-- Rodapé do Modal (Idêntico à Imagem 1) -->
-      <div class="modal-creation-footer">
-        <div class="footer-toggle-wrap">
-          <button
-            type="button"
-            class="switch-control"
-            [class.active]="modalActivateImmediately()"
-            (click)="modalActivateImmediately.update(v => !v)"
-            role="switch"
-            [attr.aria-checked]="modalActivateImmediately()"
-            aria-label="Ativar regra imediatamente"
-          >
-            <span class="switch-handle"></span>
-          </button>
-          <span class="footer-toggle-text">Ativar imediatamente</span>
-        </div>
-
-        <button type="button" class="btn-create-view-primary" (click)="confirmCreateRule()">
-          <span>Criar Regra e Editar</span>
-        </button>
-      </div>
       }
     </div>
   </div>
