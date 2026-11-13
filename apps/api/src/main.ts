@@ -4,6 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { AlcadasService } from './app/alcadas/alcadas.service';
 import { AppModule } from './app/app.module';
+import { resolverOrigensCors } from './app/common/cors';
 import { FiltroErrosHttp } from './app/common/filtro-erros-http';
 import { FirestoreService } from './app/database/firestore.service';
 import { getFirebaseApp } from './app/firebase/firebase-app';
@@ -115,9 +116,8 @@ async function bootstrap() {
   const globalPrefix = 'api';
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new FiltroErrosHttp());
-  // Origens do frontend liberadas no CORS, separadas por vírgula (Plano Custo Zero — ADR-011).
-  const origensPermitidas = (process.env['WEB_URL'] ?? 'http://localhost:4200').split(',').map((o) => o.trim());
-  app.enableCors({ origin: origensPermitidas });
+  // CORS restrito às origens de WEB_URL e aos canais de preview do Firebase Hosting (#34 / ADR-011).
+  app.enableCors({ origin: resolverOrigensCors() });
   const port = process.env.PORT || 3000;
   const commitSha = process.env['RENDER_GIT_COMMIT'] ?? process.env['COMMIT_SHA'] ?? 'dev';
   await app.listen(port);

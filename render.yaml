@@ -11,7 +11,11 @@ services:
         value: production
       - key: PORT
         value: 3000
+      # CORS (#34): só o domínio oficial; os canais de preview do site abaixo são aceitos por padrão
+      # (https://alcadas-app--pr12-abc.web.app). Nenhuma outra origem é liberada em produção.
       - key: WEB_URL
-        value: https://alcadas-app.web.app,http://localhost:4200
+        value: https://alcadas-app.web.app
+      - key: FIREBASE_HOSTING_SITE
+        value: alcadas-app
     healthCheckPath: /api/healthz
     autoDeploy: true
