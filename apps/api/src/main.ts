@@ -1,11 +1,10 @@
-import { Logger } from '@nestjs/common';
+import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { AlcadasService } from './app/alcadas/alcadas.service';
 import { AppModule } from './app/app.module';
-import { resolverOrigensCors } from './app/common/cors';
-import { FiltroErrosHttp } from './app/common/filtro-erros-http';
+import { configurarApp, PREFIXO_GLOBAL } from './app/common/configurar-app';
 import { FirestoreService } from './app/database/firestore.service';
 import { getFirebaseApp } from './app/firebase/firebase-app';
 
@@ -111,17 +110,24 @@ async function seedDeveloperAccess(app: Awaited<ReturnType<typeof NestFactory.cr
   }
 }
 
+/**
+ * Sobe a API.
+ *
+ * Em produção o logger do Nest emite JSON (uma linha por evento), de modo que todo o stdout do
+ * serviço seja estruturado e possa ser filtrado por `requestId`/`severity` no painel de logs (#35).
+ * Prefixo, log de requisições, filtro de erros e CORS ficam em `configurarApp`.
+ */
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const globalPrefix = 'api';
-  app.setGlobalPrefix('api');
-  app.useGlobalFilters(new FiltroErrosHttp());
-  // CORS restrito às origens de WEB_URL e aos canais de preview do Firebase Hosting (#34 / ADR-011).
-  app.enableCors({ origin: resolverOrigensCors() });
+  const producao = process.env['NODE_ENV'] === 'production';
+  const app = await NestFactory.create(
+    AppModule,
+    producao ? { logger: new ConsoleLogger({ json: true }) } : {},
+  );
+  configurarApp(app);
   const port = process.env.PORT || 3000;
   const commitSha = process.env['RENDER_GIT_COMMIT'] ?? process.env['COMMIT_SHA'] ?? 'dev';
   await app.listen(port);
-  Logger.log(`🚀 Application is running on: http://localhost:${port}/${globalPrefix}`);
+  Logger.log(`🚀 Application is running on: http://localhost:${port}/${PREFIXO_GLOBAL}`);
   Logger.log(`🔖 Versão / Commit SHA ativo: ${commitSha}`);
   void seedDeveloperAccess(app);
 }
