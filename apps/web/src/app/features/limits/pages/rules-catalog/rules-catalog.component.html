@@ -185,6 +185,16 @@
                       >
                         <span class="material-symbols-rounded">edit</span>
                       </button>
+
+                      <button
+                        type="button"
+                        class="btn-row-edit"
+                        (click)="openInFlowEditor(rule); $event.stopPropagation()"
+                        title="Abrir no Editor de Fluxo"
+                        aria-label="Abrir no Editor de Fluxo {{ rule.name }}"
+                      >
+                        <span class="material-symbols-rounded">account_tree</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -298,6 +308,10 @@
         </div>
 
         <div class="editor-header-right">
+          <button type="button" class="btn-bar-draft" (click)="openInFlowEditor(rule)" title="Abrir esta regra no editor visual de fluxo">
+            <span class="material-symbols-rounded">account_tree</span>
+            <span>Abrir no Editor de Fluxo</span>
+          </button>
           <button type="button" class="btn-save-rule" (click)="saveEditorChanges()">
             <span class="material-symbols-rounded">check</span>
             <span>Salvar Regra</span>

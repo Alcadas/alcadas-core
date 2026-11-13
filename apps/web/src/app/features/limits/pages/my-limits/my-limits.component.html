@@ -204,70 +204,396 @@
   </section>
 </div>
 
-<!-- Modal de Criação de Alçada -->
+<!-- Modal Guiado / Wizard de Criação de Alçada (#69 / CP2) -->
 @if (isCreateModalOpen()) {
   <div class="modal-backdrop" (click)="closeCreateModal()" (keydown.escape)="closeCreateModal()" tabindex="-1">
-    <div class="modal-card" (click)="$event.stopPropagation()" (keydown.escape)="closeCreateModal()" tabindex="-1">
+    <div
+      class="modal-card modal-card-wizard"
+      [class.modal-card-wide]="wizardStep() === 'configure'"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="closeCreateModal()"
+      tabindex="-1"
+    >
       <div class="modal-header">
         <div class="modal-title-wrap">
-          <span class="material-symbols-rounded modal-icon">add_task</span>
-          <h3>Nova Regra de Alçada</h3>
+          @if (wizardStep() !== 'choose') {
+            <button type="button" class="btn-wizard-back" (click)="wizardBack()" title="Voltar ao passo anterior">
+              <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+          }
+          <span class="material-symbols-rounded modal-icon">
+            {{ wizardStep() === 'template' ? 'widgets' : wizardStep() === 'configure' ? 'tune' : 'add_task' }}
+          </span>
+          <div>
+            <h3>
+              @if (wizardStep() === 'choose') { Novo Fluxo de Alçada }
+              @else if (wizardStep() === 'template') { Escolha um Modelo Pré-definido }
+              @else if (wizardStep() === 'configure') { Personalizar Regra e Parâmetros }
+              @else { Criar Fluxo do Zero }
+            </h3>
+            <span class="modal-step-chip">
+              @if (wizardStep() === 'choose') { Passo 1 de 2 · Modo de criação }
+              @else if (wizardStep() === 'template') { Passo 2 de 3 · Catálogo de mercado }
+              @else if (wizardStep() === 'configure') { Passo 3 de 3 · Ajustes e resumo }
+              @else { Configuração manual }
+            </span>
+          </div>
         </div>
-        <button type="button" class="btn-modal-close" (click)="closeCreateModal()">
+        <button type="button" class="btn-modal-close" (click)="closeCreateModal()" aria-label="Fechar modal">
           <span class="material-symbols-rounded">close</span>
         </button>
       </div>
 
       <div class="modal-body">
-        <div class="form-field">
-          <label for="ruleName">Nome da Alçada / Finalidade</label>
-          <input
-            id="ruleName"
-            type="text"
-            placeholder="Ex: Aquisição de Softwares e Serviços Cloud"
-            [ngModel]="newRuleTitle()"
-            (ngModelChange)="newRuleTitle.set($event)"
-          />
-        </div>
+        <!-- PASSO 1: ESCOLHA ENTRE MODELO PRONTO OU CRIAR DO ZERO -->
+        @if (wizardStep() === 'choose') {
+          <p class="wizard-intro">Como você deseja iniciar este fluxo de aprovação?</p>
+          <div class="wizard-choice-row">
+            <button type="button" class="wizard-choice-card" (click)="startFromTemplate()">
+              <span class="choice-icon bg-template">
+                <span class="material-symbols-rounded">widgets</span>
+              </span>
+              <strong>Usar Modelo Pronto</strong>
+              <span>Escolha um modelo de mercado já com faixas de valor, centro de custo e alçadas sugeridas.</span>
+              <span class="choice-tag">Recomendado · {{ modelos.length }} modelos</span>
+            </button>
 
-        <div class="form-row">
-          <div class="form-field">
-            <label for="deptSelect">Departamento / Centro</label>
-            <select id="deptSelect" [ngModel]="newRuleDept()" (ngModelChange)="newRuleDept.set($event)">
-              @for (dept of limitsService.departments(); track dept.id) {
-                <option [value]="dept.name">{{ dept.code }} — {{ dept.name }}</option>
+            <button type="button" class="wizard-choice-card" (click)="startFromScratch()">
+              <span class="choice-icon bg-scratch">
+                <span class="material-symbols-rounded">edit_note</span>
+              </span>
+              <strong>Criar do Zero</strong>
+              <span>Defina manualmente o nome, departamento, teto e quórum inicial da alçada.</span>
+              <span class="choice-tag-neutral">Em branco</span>
+            </button>
+          </div>
+        }
+
+        <!-- PASSO 2: CATÁLOGO DE MODELOS PRÉ-DEFINIDOS (4+ MODELOS DE MERCADO) -->
+        @if (wizardStep() === 'template') {
+          <p class="wizard-intro">Selecione um dos modelos corporativos para preencher automaticamente os parâmetros:</p>
+          <div class="wizard-template-list">
+            @for (tpl of modelos; track tpl.id) {
+              <button type="button" class="wizard-template-item" (click)="selectTemplate(tpl)">
+                <span class="material-symbols-rounded tpl-icon">{{ tpl.icone }}</span>
+                <span class="tpl-body">
+                  <strong>{{ tpl.nome }}</strong>
+                  <span class="tpl-desc">{{ tpl.descricao }}</span>
+                  <span class="tpl-tiers">
+                    <span class="tier-chip category-chip">{{ tpl.categoria }}</span>
+                    <span class="tier-chip">{{ tpl.centroCustoSugerido }}</span>
+                    <span class="tier-chip">{{ tpl.quorum }}</span>
+                    <span class="tier-chip">SLA {{ tpl.slaHoras }}h</span>
+                    <span class="tier-chip highlight-chip">{{ tpl.faixas.length }} faixas</span>
+                  </span>
+                </span>
+                <span class="material-symbols-rounded tpl-arrow">arrow_forward</span>
+              </button>
+            }
+          </div>
+        }
+
+        <!-- PASSO 3: CONFIGURAÇÃO DO MODELO + VALIDAÇÃO + RESUMO DINÂMICO -->
+        @if (wizardStep() === 'configure') {
+          <div class="wizard-configure-grid">
+            <div class="wizard-form">
+              <div class="wizard-field">
+                <label for="flowWizardName">Nome do Fluxo / Regra</label>
+                <input
+                  id="flowWizardName"
+                  type="text"
+                  class="wizard-input"
+                  [class.has-error]="wizardNameError()"
+                  [ngModel]="wizardName()"
+                  (ngModelChange)="wizardName.set($event)"
+                  placeholder="Ex: Reembolso de Despesas Operacionais"
+                />
+                @if (wizardNameError(); as err) { <span class="field-error">{{ err }}</span> }
+              </div>
+
+              <div class="wizard-row-3">
+                <div class="wizard-field">
+                  <label for="flowWizardCc">Centro de Custo / Departamento</label>
+                  <input
+                    id="flowWizardCc"
+                    type="text"
+                    class="wizard-input"
+                    list="flowCcOptions"
+                    [ngModel]="wizardCostCenter()"
+                    (ngModelChange)="wizardCostCenter.set($event)"
+                    placeholder="Ex: CC-ADM · Administrativo"
+                  />
+                  <datalist id="flowCcOptions">
+                    @for (cc of costCenterSuggestions(); track cc) { <option [value]="cc"></option> }
+                  </datalist>
+                </div>
+
+                <div class="wizard-field">
+                  <label for="flowWizardQuorum">Quórum de Decisão</label>
+                  <select
+                    id="flowWizardQuorum"
+                    class="wizard-input"
+                    [ngModel]="wizardQuorum()"
+                    (ngModelChange)="wizardQuorum.set($event)"
+                  >
+                    @for (q of quoruns; track q) { <option [value]="q">{{ q }}</option> }
+                  </select>
+                </div>
+
+                <div class="wizard-field">
+                  <label for="flowWizardSla">SLA (horas)</label>
+                  <input
+                    id="flowWizardSla"
+                    type="number"
+                    min="1"
+                    class="wizard-input"
+                    [class.has-error]="wizardSlaError()"
+                    [ngModel]="wizardSlaHours()"
+                    (ngModelChange)="wizardSlaHours.set($event)"
+                  />
+                  @if (wizardSlaError(); as err) { <span class="field-error">{{ err }}</span> }
+                </div>
+              </div>
+
+              <!-- Faixas de Valores e Alçadas com Edição em Tempo Real -->
+              <div class="wizard-tiers">
+                <div class="tiers-header">
+                  <span class="tiers-title">
+                    <span class="material-symbols-rounded title-icon">tune</span>
+                    <span>Faixas de valor e instâncias de alçada</span>
+                  </span>
+                  <button type="button" class="btn-add-tier" (click)="addFaixa()">
+                    <span class="material-symbols-rounded">add</span>
+                    <span>Adicionar faixa</span>
+                  </button>
+                </div>
+
+                @for (f of wizardFaixas(); track f.id; let i = $index, last = $last) {
+                  <div class="tier-row">
+                    <span class="tier-index">{{ i + 1 }}</span>
+
+                    <div class="wizard-field">
+                      <label [for]="'tierMin' + i">Mínimo (R$)</label>
+                      <input
+                        [id]="'tierMin' + i"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="wizard-input"
+                        [class.has-error]="faixaError(i, 'valorMinimo')"
+                        [ngModel]="f.valorMinimo"
+                        (ngModelChange)="updateFaixaValor(i, 'valorMinimo', $event)"
+                      />
+                    </div>
+
+                    <div class="wizard-field">
+                      <label [for]="'tierMax' + i">Máximo (R$)</label>
+                      @if (f.valorMaximo === null && !isMaximoEmBranco(f)) {
+                        <span class="tier-unlimited">Sem limite</span>
+                      } @else {
+                        <input
+                          [id]="'tierMax' + i"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="wizard-input"
+                          [class.has-error]="faixaError(i, 'valorMaximo')"
+                          [ngModel]="f.valorMaximo"
+                          (ngModelChange)="updateFaixaValor(i, 'valorMaximo', $event)"
+                        />
+                      }
+                      @if (last) {
+                        <label class="tier-check">
+                          <input
+                            type="checkbox"
+                            [checked]="f.valorMaximo === null && !isMaximoEmBranco(f)"
+                            (change)="toggleSemLimite(i)"
+                          />
+                          <span>sem limite</span>
+                        </label>
+                      }
+                    </div>
+
+                    <div class="wizard-field">
+                      <label [for]="'tierRole' + i">Aprovador</label>
+                      <select
+                        [id]="'tierRole' + i"
+                        class="wizard-input"
+                        [class.has-error]="faixaError(i, 'papelAprovador')"
+                        [ngModel]="f.papelAprovador"
+                        (ngModelChange)="updateFaixa(i, { papelAprovador: $event })"
+                      >
+                        <option value="" disabled>Selecione...</option>
+                        @for (p of papeisAprovador; track p.id) { <option [value]="p.id">{{ p.label }}</option> }
+                      </select>
+                      <label class="tier-check">
+                        <input
+                          type="checkbox"
+                          [checked]="!!f.aprovacaoTecnica"
+                          (change)="updateFaixa(i, { aprovacaoTecnica: !f.aprovacaoTecnica })"
+                        />
+                        <span>+ aprovação técnica</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="btn-remove-tier"
+                      [disabled]="wizardFaixas().length === 1"
+                      (click)="removeFaixa(i)"
+                      aria-label="Remover faixa {{ i + 1 }}"
+                    >
+                      <span class="material-symbols-rounded">delete</span>
+                    </button>
+
+                    @for (err of faixaErrors(i); track err) {
+                      <span class="field-error tier-error">{{ err }}</span>
+                    }
+                  </div>
+                }
+
+                @for (e of wizardFaixaErrors(); track e.mensagem) {
+                  @if (e.indice === null) { <span class="field-error">{{ e.mensagem }}</span> }
+                }
+              </div>
+            </div>
+
+            <!-- Resumo Dinâmico do Fluxo Antes de Salvar -->
+            <aside class="wizard-summary" aria-live="polite">
+              <h4>
+                <span class="material-symbols-rounded">visibility</span>
+                <span>Resumo do Fluxo</span>
+              </h4>
+              <p class="summary-name">{{ wizardName() || 'Fluxo sem nome' }}</p>
+              <p class="summary-meta">
+                {{ wizardCostCenter() || 'Todos os Departamentos' }} · {{ wizardQuorum() }} · SLA {{ wizardSlaHours() ?? '—' }}h
+              </p>
+
+              <ol class="summary-tiers">
+                @for (f of wizardFaixas(); track f.id; let i = $index) {
+                  <li [class.invalid]="faixaErrors(i).length > 0">
+                    <span class="summary-range">
+                      @if (isMaximoEmBranco(f)) {
+                        {{ formatCurrency(f.valorMinimo ?? 0) }} a —
+                      } @else if (f.valorMaximo === null) {
+                        Acima de {{ formatCurrency(f.valorMinimo ?? 0) }}
+                      } @else {
+                        {{ formatCurrency(f.valorMinimo ?? 0) }} a {{ formatCurrency(f.valorMaximo) }}
+                      }
+                    </span>
+                    <span class="summary-role">
+                      {{ f.papelAprovador ? rotuloPapel(f.papelAprovador) : 'Aprovador não definido' }}
+                      @if (f.aprovacaoTecnica) { <span class="tech-badge">+ TI</span> }
+                    </span>
+                  </li>
+                }
+              </ol>
+
+              @if (canSaveWizard()) {
+                <div class="summary-status ok">
+                  <span class="material-symbols-rounded">check_circle</span>
+                  <span>Esteira pronta para gerar fluxo</span>
+                </div>
+              } @else {
+                <div class="summary-status warn">
+                  <span class="material-symbols-rounded">error</span>
+                  <span>Corrija as faixas destacadas para prosseguir</span>
+                </div>
               }
-            </select>
+            </aside>
           </div>
+        }
 
-          <div class="form-field">
-            <label for="amountLimit">Teto Máximo Inicial (R$)</label>
-            <input
-              id="amountLimit"
-              type="number"
-              step="1000"
-              [ngModel]="newRuleAmount()"
-              (ngModelChange)="newRuleAmount.set(+$event)"
-            />
+        <!-- PASSO 4: CRIAR DO ZERO (SCRATCH) -->
+        @if (wizardStep() === 'scratch') {
+          <div class="scratch-form">
+            <div class="form-field">
+              <label for="scratchRuleName">Nome da Alçada / Finalidade</label>
+              <input
+                id="scratchRuleName"
+                type="text"
+                class="wizard-input"
+                placeholder="Ex: Aquisição de Softwares e Serviços Cloud"
+                [ngModel]="newRuleTitle()"
+                (ngModelChange)="newRuleTitle.set($event)"
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label for="scratchDeptSelect">Departamento / Centro</label>
+                <select id="scratchDeptSelect" class="wizard-input" [ngModel]="newRuleDept()" (ngModelChange)="newRuleDept.set($event)">
+                  @for (dept of limitsService.departments(); track dept.id) {
+                    <option [value]="dept.name">{{ dept.code }} — {{ dept.name }}</option>
+                  }
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="scratchAmountLimit">Teto Máximo Inicial (R$)</label>
+                <input
+                  id="scratchAmountLimit"
+                  type="number"
+                  step="1000"
+                  class="wizard-input"
+                  [ngModel]="newRuleAmount()"
+                  (ngModelChange)="newRuleAmount.set(+$event)"
+                />
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="scratchQuorumSelect">Quórum de Decisão</label>
+              <select id="scratchQuorumSelect" class="wizard-input" [ngModel]="newRuleQuorum()" (ngModelChange)="newRuleQuorum.set($event)">
+                <option value="1 Aprovador (Assinatura Individual)">1 Aprovador (Assinatura Individual)</option>
+                <option value="2 Aprovadores (Quórum Duplo)">2 Aprovadores (Quórum Duplo Obrigatório)</option>
+                <option value="Conselho de Administração">Conselho de Administração</option>
+              </select>
+            </div>
           </div>
-        </div>
-
-        <div class="form-field">
-          <label for="quorumSelect">Quórum de Decisão</label>
-          <select id="quorumSelect" [ngModel]="newRuleQuorum()" (ngModelChange)="newRuleQuorum.set($event)">
-            <option value="1 Aprovador (Assinatura Individual)">1 Aprovador (Assinatura Individual)</option>
-            <option value="2 Aprovadores (Quórum Duplo)">2 Aprovadores (Quórum Duplo Obrigatório)</option>
-            <option value="Conselho de Administração">Conselho de Administração</option>
-          </select>
-        </div>
+        }
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn-cancel" (click)="closeCreateModal()">Cancelar</button>
-        <button type="button" class="btn-submit" (click)="confirmCreate()">
-          <span class="material-symbols-rounded">arrow_forward</span>
-          <span>Criar e Configurar Fluxo</span>
-        </button>
+        @if (wizardStep() === 'choose') {
+          <button type="button" class="btn-cancel" (click)="closeCreateModal()">Cancelar</button>
+        } @else if (wizardStep() === 'template') {
+          <button type="button" class="btn-cancel" (click)="wizardBack()">Voltar</button>
+        } @else if (wizardStep() === 'configure') {
+          <div class="footer-left-controls">
+            <button
+              type="button"
+              class="switch-control"
+              [class.active]="activateImmediately()"
+              (click)="activateImmediately.update(v => !v)"
+              role="switch"
+              [attr.aria-checked]="activateImmediately()"
+              aria-label="Ativar imediatamente"
+            >
+              <span class="switch-handle"></span>
+            </button>
+            <span class="switch-label">Ativar imediatamente</span>
+          </div>
+
+          <div class="footer-right-actions">
+            <button type="button" class="btn-cancel" (click)="wizardBack()">Voltar</button>
+            <button
+              type="button"
+              class="btn-submit"
+              [disabled]="!canSaveWizard()"
+              (click)="confirmCreateFromTemplate()"
+            >
+              <span class="material-symbols-rounded">arrow_forward</span>
+              <span>Criar e Abrir no Editor de Fluxo</span>
+            </button>
+          </div>
+        } @else if (wizardStep() === 'scratch') {
+          <button type="button" class="btn-cancel" (click)="wizardBack()">Voltar</button>
+          <button type="button" class="btn-submit" (click)="confirmCreateFromScratch()">
+            <span class="material-symbols-rounded">arrow_forward</span>
+            <span>Criar Fluxo e Configurar Nós</span>
+          </button>
+        }
       </div>
     </div>
   </div>
