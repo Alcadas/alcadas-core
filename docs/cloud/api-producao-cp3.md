@@ -7,6 +7,7 @@ versionado: os segredos ficam no painel do Render (ver [`render.yaml`](../../ren
 | :--- | :--- | :--- |
 | #34 | CORS restrito aos domínios da equipe | `apps/api/src/app/common/cors.ts` |
 | #35 | Logs JSON com `requestId`, sem dados pessoais | `apps/api/src/app/common/log-requisicoes.ts` |
+| #29 | Firestore real via Admin SDK, sem fallback em memória, `/readyz` | `apps/api/src/app/database/firestore.service.ts` |
 
 ---
 
@@ -51,3 +52,35 @@ Cada requisição gera **uma** linha JSON no stdout e a resposta leva o cabeçal
   (`[A-Za-z0-9._-]{8,64}`); caso contrário a API gera um UUID.
 - Para investigar um erro, peça o `X-Request-Id` da resposta e filtre os logs do Render por ele.
 - Em produção as mensagens do próprio NestJS também saem em JSON.
+
+---
+
+## Firestore real e `/api/readyz` (#29)
+
+| Ambiente | Banco | Se o banco falhar |
+| :--- | :--- | :--- |
+| `NODE_ENV=production` | Firestore real (Admin SDK) | **HTTP 503** `FIRESTORE_INDISPONIVEL` — nada fica em memória |
+| desenvolvimento / testes | Emulador (`FIRESTORE_EMULATOR_HOST`) | store em memória, só para desenvolver |
+
+| Variável | Obrigatória | Para quê |
+| :--- | :--- | :--- |
+| `FIREBASE_PROJECT_ID` | sim | Projeto Firebase (Auth + Firestore) |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | sim¹ | Conta de serviço do Admin SDK — JSON puro ou em base64. **Nunca versionar.** |
+| `READYZ_CACHE_TTL_MS` | não | Validade do `/readyz` saudável (padrão `60000`) |
+
+¹ Dispensável quando o ambiente já fornece credenciais padrão (`GOOGLE_APPLICATION_CREDENTIALS`).
+
+**Boot resiliente:** o Firebase é inicializado na primeira operação, então a API sobe mesmo sem
+credencial válida. Nesse caso `/api/healthz` responde 200 (processo vivo) e `/api/readyz` responde 503
+até a credencial ser corrigida.
+
+```bash
+curl -i https://<api>.onrender.com/api/readyz
+# 200 {"status":"ok","firestore":"ok"}
+# 503 {"statusCode":503,"error":"NAO_PRONTO","message":"Firestore indisponível.", ...}
+```
+
+**Cotas (plano Spark):** cada verificação real custa 1 leitura. O resultado saudável é reaproveitado por
+60 s, então um monitor batendo em `/readyz` gasta no máximo ~1.440 das 50.000 leituras diárias.
+Falhas não são cacheadas e qualquer operação que falhe invalida o cache. O health check do Render
+continua em `/api/healthz`, que não toca no banco.
