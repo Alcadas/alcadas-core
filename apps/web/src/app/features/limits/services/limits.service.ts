@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import { SettingsService } from '../../settings/services/settings.service';
@@ -233,6 +234,20 @@ export class LimitsService {
         ...(rulesCatalog ? { rulesCatalog } : {}),
       })
       .subscribe({ error: () => undefined });
+  }
+
+  /**
+   * Persiste uma única regra do catálogo (coleção rules_catalog no Firestore) e
+   * devolve o Observable para a tela dar feedback de sucesso/erro (#69).
+   */
+  saveRuleCatalogEntry(rule: unknown): Observable<{ savedWorkflows: number; savedRules: number }> {
+    if (!this.http) {
+      return throwError(() => new Error('HttpClient indisponível.'));
+    }
+    return this.http.put<{ savedWorkflows: number; savedRules: number }>(
+      `${this.apiBaseUrl}/organizacao/fluxos`,
+      { rulesCatalog: [rule] },
+    );
   }
 
   // Lista filtrada e reativa

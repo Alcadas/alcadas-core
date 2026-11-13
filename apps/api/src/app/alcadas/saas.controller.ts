@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -10,7 +11,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { getAuth } from 'firebase-admin/auth';
-import { AuthenticatedUser } from '@alcadas-core/models';
+import {
+  AuthenticatedUser,
+  FaixaRegraAlcada,
+  validarFaixasRegra,
+} from '@alcadas-core/models';
 import { CurrentUser } from '../auth/auth.decorators';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FirestoreService } from '../database/firestore.service';
@@ -251,6 +256,11 @@ export class SaasController {
     let savedWorkflows = 0;
     let savedRules = 0;
 
+    // Valida todas as regras com faixas de valor antes de persistir qualquer documento (#69)
+    if (Array.isArray(body.rulesCatalog)) {
+      this.assertRulesCatalogValid(body.rulesCatalog);
+    }
+
     if (Array.isArray(body.workflows)) {
       for (const wf of body.workflows) {
         const id = String(wf.id || `wf-${Date.now()}`);
@@ -268,6 +278,30 @@ export class SaasController {
     }
 
     return { savedWorkflows, savedRules };
+  }
+
+  /**
+   * Regras criadas pelo construtor (com `faixas`) precisam ter nome e faixas de valor
+   * coerentes (mínimo < máximo, sem sobreposição, aprovador definido). Regras legadas
+   * sem `faixas` continuam aceitas como antes.
+   */
+  private assertRulesCatalogValid(rules: Array<Record<string, unknown>>): void {
+    rules.forEach((rule, posicao) => {
+      if (!('faixas' in rule)) return;
+
+      const nome = typeof rule['name'] === 'string' ? rule['name'].trim() : '';
+      if (!nome) {
+        throw new BadRequestException(`Regra #${posicao + 1}: o nome da regra é obrigatório.`);
+      }
+
+      const erros = validarFaixasRegra(rule['faixas'] as FaixaRegraAlcada[]);
+      if (erros.length > 0) {
+        const detalhes = erros
+          .map((e) => (e.indice === null ? e.mensagem : `Faixa ${e.indice + 1}: ${e.mensagem}`))
+          .join(' ');
+        throw new BadRequestException(`Regra "${nome}": ${detalhes}`);
+      }
+    });
   }
 
   private async syncEmployeesWithFirebaseAuth(
