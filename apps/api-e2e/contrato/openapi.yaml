@@ -1,0 +1,641 @@
+openapi: 3.0.3
+info:
+  title: API Alçadas - Checkpoint 1
+  description: >-
+    Especificação formal da API REST do sistema Alçadas para o Checkpoint 1.
+    Cobre as cinco jornadas do MVP: criação de solicitações, decisão de aprovação,
+    bloqueio/rejeição com justificativa, trilha de auditoria criptográfica e
+    verificação de integridade da cadeia de hashes SHA-256.
+  version: 0.1.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: Equipe Alçadas - UnB
+    url: https://github.com/Alcadas/alcadas-docs
+
+servers:
+  - url: https://api.alcadas.unb.br/v1
+    description: Servidor Principal
+  - url: http://127.0.0.1:3000/api
+    description: Servidor de Desenvolvimento Local (Emuladores Firebase)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT emitido pelo Firebase Auth contendo tenantId e roles do usuário.
+
+  schemas:
+    StatusSolicitacao:
+      type: string
+      enum:
+        - PENDENTE
+        - EM_AJUSTE
+        - APROVADA
+        - REJEITADA
+      example: PENDENTE
+
+    TipoEventoTrilha:
+      type: string
+      enum:
+        - CRIACAO_SOLICITACAO
+        - APROVACAO
+        - REJEICAO
+        - PEDIDO_AJUSTE
+        - REENVIO_SOLICITACAO
+        - DELEGACAO_CRIADA
+        - DELEGACAO_EXPIRADA
+        - BLOQUEIO_SOD
+        - BLOQUEIO_FRACIONAMENTO
+        - ALERTA_DUPLICIDADE
+      example: APROVACAO
+
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - message
+        - error
+      properties:
+        statusCode:
+          type: integer
+          example: 403
+        message:
+          type: string
+          example: 'SoD: O solicitante está estritamente proibido de aprovar a própria solicitação.'
+        error:
+          type: string
+          example: Forbidden
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-10-20T18:30:00.000Z'
+
+    CriarSolicitacaoDto:
+      type: object
+      required:
+        - centroCustoId
+        - valor
+        - categoria
+        - justificativa
+      properties:
+        centroCustoId:
+          type: string
+          example: CC-FIN-01
+          description: Identificador do centro de custo cadastrado.
+        valor:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 4500.00
+          description: Valor monetário da despesa (duas casas decimais, maior que zero).
+        categoria:
+          type: string
+          example: EQUIPAMENTOS
+          description: Categoria financeira da solicitação.
+        justificativa:
+          type: string
+          minLength: 10
+          example: Aquisição emergencial de licenças adicionais para o setor financeiro.
+          description: Justificativa comercial (mínimo de 30 caracteres se o valor exceder a base da categoria).
+        fornecedor:
+          type: string
+          example: Softwares SA
+          description: Nome ou CNPJ do fornecedor cotado.
+
+    SolicitacaoResponseDto:
+      type: object
+      required:
+        - id
+        - tenantId
+        - centroCustoId
+        - solicitanteId
+        - valor
+        - categoria
+        - justificativa
+        - status
+        - versao
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: sol-98124
+        tenantId:
+          type: string
+          example: clinica-alpha
+        centroCustoId:
+          type: string
+          example: CC-FIN-01
+        solicitanteId:
+          type: string
+          example: usr-solic-01
+        valor:
+          type: number
+          format: double
+          example: 4500.00
+        categoria:
+          type: string
+          example: EQUIPAMENTOS
+        justificativa:
+          type: string
+          example: Aquisição emergencial de licenças adicionais para o setor financeiro.
+        status:
+          $ref: '#/components/schemas/StatusSolicitacao'
+        versao:
+          type: integer
+          example: 1
+          description: Versão de concorrência otimista (OCC).
+        alertaRisco:
+          type: string
+          nullable: true
+          example: Suspeita de duplicidade detectada em intervalo inferior a 7 dias.
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-20T18:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-20T18:00:00.000Z'
+
+    DecisaoAprovacaoDto:
+      type: object
+      required:
+        - versao
+      properties:
+        versao:
+          type: integer
+          example: 1
+          description: Versão atual da solicitação para validação de concorrência (OCC).
+        observacao:
+          type: string
+          example: Aprovado conforme alçada da gerência financeira.
+
+    DecisaoRejeicaoDto:
+      type: object
+      required:
+        - versao
+        - motivo
+      properties:
+        versao:
+          type: integer
+          example: 1
+          description: Versão atual da solicitação para validação de concorrência (OCC).
+        motivo:
+          type: string
+          minLength: 10
+          example: Valor fora do planejamento orçamentário aprovado para o trimestre.
+          description: Motivo formal da reprovação (mínimo obrigatório de 10 caracteres).
+
+    DecisaoAjusteDto:
+      type: object
+      required:
+        - versao
+        - motivo
+      properties:
+        versao:
+          type: integer
+          example: 1
+          description: Versão atual da solicitação para validação de concorrência (OCC).
+        motivo:
+          type: string
+          minLength: 10
+          example: Favor anexar os três orçamentos comparativos exigidos pela política.
+          description: Instruções de ajuste enviadas ao solicitante (mínimo 10 caracteres).
+
+    EloAuditoriaDto:
+      type: object
+      required:
+        - sequencia
+        - hashAtual
+        - hashAnterior
+        - tipoEvento
+        - authorId
+        - timestampUtc
+        - payload
+      properties:
+        sequencia:
+          type: integer
+          example: 2
+        hashAtual:
+          type: string
+          example: a3b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1
+          description: Hash SHA-256 do elo atual.
+        hashAnterior:
+          type: string
+          example: '0000000000000000000000000000000000000000000000000000000000000000'
+          description: Hash SHA-256 do elo anterior (H0 para o elo gênese).
+        tipoEvento:
+          $ref: '#/components/schemas/TipoEventoTrilha'
+        authorId:
+          type: string
+          example: usr-aprov-02
+        timestampUtc:
+          type: string
+          format: date-time
+          example: '2026-10-20T18:15:30.000Z'
+        payload:
+          type: object
+          description: Carga de dados determinística serializada.
+
+    VerificacaoTrilhaResponseDto:
+      type: object
+      required:
+        - status
+        - totalElos
+        - tempoProcessamentoMs
+        - eloInconsistente
+      properties:
+        status:
+          type: string
+          enum: [INTEGRA, INCONSISTENTE]
+          example: INTEGRA
+        totalElos:
+          type: integer
+          example: 4
+        tempoProcessamentoMs:
+          type: number
+          example: 42.5
+          description: Tempo gasto para o recálculo integral da cadeia em milissegundos (< 1000 ms).
+        eloInconsistente:
+          type: integer
+          nullable: true
+          example: null
+          description: Sequência do primeiro elo divergente encontrado, se houver.
+        mensagem:
+          type: string
+          example: Todos os selos criptográficos SHA-256 coincidem deterministicamente.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /solicitacoes:
+    post:
+      summary: Criar solicitação financeira
+      description: Submete um novo pedido de compra, pagamento ou reembolso, gerando o elo Log 1 na trilha.
+      operationId: criarSolicitacao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarSolicitacaoDto'
+      responses:
+        '201':
+          description: Solicitação criada com sucesso no status PENDENTE.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponseDto'
+        '400':
+          description: Dados inválidos (campos faltantes ou justificativa insuficiente).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autenticado (token ausente ou inválido).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Acesso proibido para o tenant informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Listar solicitações
+      description: Retorna lista paginada de solicitações pertencentes estritamente ao tenant do usuário autenticado.
+      operationId: listarSolicitacoes
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/StatusSolicitacao'
+          description: Filtrar por status específico.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Lista recuperada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SolicitacaoResponseDto'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}:
+    get:
+      summary: Consultar detalhes da solicitação
+      description: Retorna os dados completos da solicitação. Aplica isolamento de tenant rigoroso (retorna 403 ou 404 em acessos cruzados).
+      operationId: obterSolicitacaoPorId
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID da solicitação.
+      responses:
+        '200':
+          description: Solicitação encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponseDto'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tentativa de acesso cruzado a dados de outro tenant (RNF07).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Solicitação não encontrada no tenant do requisitante.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}/aprovar:
+    post:
+      summary: Aprovar solicitação financeira
+      description: Registra parecer favorável de aprovador competente, avança para APROVADA e grava o elo Log 2 na trilha.
+      operationId: aprovarSolicitacao
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisaoAprovacaoDto'
+      responses:
+        '200':
+          description: Solicitação aprovada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponseDto'
+        '400':
+          description: Payload de aprovação inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Bloqueio de SoD (solicitante tentando aprovar) ou valor acima da alçada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Decisão concorrente (conflito de versão) ou solicitação já em estado terminal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}/rejeitar:
+    post:
+      summary: Rejeitar solicitação financeira
+      description: Reprova formalmente o pedido com justificativa de no mínimo 10 caracteres, avança para REJEITADA e grava o elo Log 3.
+      operationId: rejeitarSolicitacao
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisaoRejeicaoDto'
+      responses:
+        '200':
+          description: Solicitação rejeitada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponseDto'
+        '400':
+          description: Motivo não informado ou inferior a 10 caracteres.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Não autorizado a decidir esta solicitação.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflito concorrente ou solicitação já encerrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}/ajuste:
+    post:
+      summary: Solicitar ajuste na solicitação
+      description: Devolve o pedido para correção pelo solicitante com orientações formais (mínimo 10 caracteres), avança para EM_AJUSTE e grava o elo Log 4.
+      operationId: solicitarAjuste
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisaoAjusteDto'
+      responses:
+        '200':
+          description: Solicitação marcada como EM_AJUSTE com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponseDto'
+        '400':
+          description: Motivo não informado ou inferior a 10 caracteres.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflito de concorrência ou estado inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}/trilha:
+    get:
+      summary: Consultar trilha de auditoria criptográfica
+      description: Retorna a sequência ordenada de elos e hashes SHA-256 encadeados do ciclo de vida da solicitação. Rota imutável (sem PUT/DELETE).
+      operationId: obterTrilhaAuditoria
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sequência completa de elos da trilha de auditoria.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EloAuditoriaDto'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Acesso proibido ao tenant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Solicitação não encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}/trilha/verificar:
+    post:
+      summary: Verificar integridade criptográfica da trilha
+      description: Executa o algoritmo determinístico de recálculo dos hashes SHA-256 elo a elo, validando se houve adulteração no banco de dados (< 1 s).
+      operationId: verificarIntegridadeTrilha
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resultado da verificação da integridade criptográfica.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificacaoTrilhaResponseDto'
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Acesso proibido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Solicitação não encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /solicitacoes/{id}/trilha/exportar:
+    get:
+      summary: Exportar relatório de auditoria
+      description: Exporta os elos completos e selos digitais em formato CSV ou JSON para validação externa independente (RF09 / US-13).
+      operationId: exportarTrilha
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: formato
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [csv, json]
+            default: json
+      responses:
+        '200':
+          description: Arquivo de conformidade estruturado gerado.
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+        '401':
+          description: Não autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

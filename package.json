@@ -68,6 +68,7 @@
     "jest": "~30.3.0",
     "jest-environment-jsdom": "~30.3.0",
     "jest-environment-node": "~30.3.0",
+    "jest-openapi": "^0.14.2",
     "jest-preset-angular": "~17.0.0",
     "jest-util": "~30.3.0",
     "nx": "23.3.0",
