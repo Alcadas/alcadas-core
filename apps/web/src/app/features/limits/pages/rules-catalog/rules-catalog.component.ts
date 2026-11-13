@@ -256,6 +256,12 @@ export class RulesCatalogComponent {
   readonly wizardSlaHours = signal<number | null>(24);
   readonly wizardDescription = signal<string>('');
   readonly wizardFaixas = signal<FaixaRegraAlcada[]>([]);
+  /**
+   * IDs das faixas cujo "Máximo" foi apagado pelo usuário. No modelo, `valorMaximo: null`
+   * significa "sem limite"; este conjunto distingue o campo em branco (continua editável)
+   * do "sem limite" marcado de propósito no checkbox.
+   */
+  readonly faixasMaximoEmBranco = signal<ReadonlySet<string>>(new Set());
   readonly wizardSaving = signal<boolean>(false);
   readonly wizardSaveError = signal<string | null>(null);
   private faixaSeq = 0;
@@ -268,9 +274,24 @@ export class RulesCatalogComponent {
     return Array.from(new Set([...fromOrg, ...fromModels]));
   });
 
-  readonly wizardFaixaErrors = computed<ErroFaixaRegra[]>(() =>
-    validarFaixasRegra(this.wizardFaixas()),
-  );
+  readonly wizardFaixaErrors = computed<ErroFaixaRegra[]>(() => {
+    const faixas = this.wizardFaixas();
+    const emBranco = this.faixasMaximoEmBranco();
+    const indicesEmBranco = new Set(
+      faixas
+        .map((f, i) => (f.valorMaximo === null && emBranco.has(f.id) ? i : -1))
+        .filter((i) => i >= 0),
+    );
+    // Para o campo em branco, troca o erro de "sem limite" por um pedido de preenchimento
+    const erros = validarFaixasRegra(faixas).filter(
+      (e) => !(e.campo === 'valorMaximo' && e.indice !== null && indicesEmBranco.has(e.indice)),
+    );
+    const errosEmBranco = [...indicesEmBranco].map(
+      (indice) =>
+        ({ indice, campo: 'valorMaximo', mensagem: 'Informe o valor máximo.' }) as ErroFaixaRegra,
+    );
+    return [...erros, ...errosEmBranco];
+  });
 
   readonly wizardNameError = computed(() =>
     this.wizardName().trim() ? null : 'Informe o nome da regra.',
@@ -373,6 +394,7 @@ export class RulesCatalogComponent {
     this.wizardSlaHours.set(modelo.slaHoras);
     this.wizardDescription.set(modelo.descricao);
     this.wizardFaixas.set(modelo.faixas.map((f) => ({ ...f, id: this.nextFaixaId() })));
+    this.faixasMaximoEmBranco.set(new Set());
     this.wizardSaveError.set(null);
     this.wizardStep.set('configure');
   }
@@ -433,12 +455,36 @@ export class RulesCatalogComponent {
   /** Converte o valor do input numérico (vazio vira null). */
   updateFaixaValor(index: number, campo: 'valorMinimo' | 'valorMaximo', raw: unknown): void {
     const valor = raw === '' || raw === null || raw === undefined ? null : Number(raw);
+    if (campo === 'valorMaximo') {
+      const id = this.wizardFaixas()[index]?.id;
+      if (id) this.marcarMaximoEmBranco(id, valor === null);
+    }
     this.updateFaixa(index, { [campo]: valor } as Partial<FaixaRegraAlcada>);
+  }
+
+  /** O máximo está vazio porque o usuário apagou o valor (não porque marcou "sem limite"). */
+  isMaximoEmBranco(faixa: FaixaRegraAlcada): boolean {
+    return faixa.valorMaximo === null && this.faixasMaximoEmBranco().has(faixa.id);
+  }
+
+  private marcarMaximoEmBranco(id: string, emBranco: boolean): void {
+    this.faixasMaximoEmBranco.update((atual) => {
+      if (atual.has(id) === emBranco) return atual;
+      const novo = new Set(atual);
+      if (emBranco) novo.add(id);
+      else novo.delete(id);
+      return novo;
+    });
   }
 
   toggleSemLimite(index: number): void {
     const faixa = this.wizardFaixas()[index];
     if (!faixa) return;
+    if (this.isMaximoEmBranco(faixa)) {
+      // Campo apagado + checkbox marcado: vira "sem limite" de verdade
+      this.marcarMaximoEmBranco(faixa.id, false);
+      return;
+    }
     if (faixa.valorMaximo === null) {
       const base = typeof faixa.valorMinimo === 'number' ? faixa.valorMinimo : 0;
       this.updateFaixa(index, { valorMaximo: base + 1000 });

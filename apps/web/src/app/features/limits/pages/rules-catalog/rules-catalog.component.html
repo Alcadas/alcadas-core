@@ -734,7 +734,7 @@
 
                   <div class="wizard-field">
                     <label [for]="'tierMax' + i">Máximo (R$)</label>
-                    @if (f.valorMaximo === null) {
+                    @if (f.valorMaximo === null && !isMaximoEmBranco(f)) {
                       <span class="tier-unlimited">Sem limite</span>
                     } @else {
                       <input
@@ -750,7 +750,7 @@
                     }
                     @if (last) {
                       <label class="tier-check">
-                        <input type="checkbox" [checked]="f.valorMaximo === null" (change)="toggleSemLimite(i)" />
+                        <input type="checkbox" [checked]="f.valorMaximo === null && !isMaximoEmBranco(f)" (change)="toggleSemLimite(i)" />
                         <span>sem limite</span>
                       </label>
                     }
@@ -815,7 +815,9 @@
               @for (f of wizardFaixas(); track f.id; let i = $index) {
                 <li [class.invalid]="faixaErrors(i).length > 0">
                   <span class="summary-range">
-                    @if (f.valorMaximo === null) {
+                    @if (isMaximoEmBranco(f)) {
+                      {{ (f.valorMinimo ?? 0) | currency:'BRL':'symbol':'1.2-2' }} a —
+                    } @else if (f.valorMaximo === null) {
                       Acima de {{ (f.valorMinimo ?? 0) | currency:'BRL':'symbol':'1.2-2' }}
                     } @else {
                       {{ (f.valorMinimo ?? 0) | currency:'BRL':'symbol':'1.2-2' }} a {{ f.valorMaximo | currency:'BRL':'symbol':'1.2-2' }}
