@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { AuthenticatedUser, MODELOS_REGRAS_ALCADA } from '@alcadas-core/models';
 import { FirestoreService } from '../database/firestore.service';
 import { AlcadasService } from './alcadas.service';
+import { ProvisionamentoColaboradoresService } from './provisionamento-colaboradores.service';
 import { SaasController } from './saas.controller';
 
 describe('SaasController — PUT /organizacao/fluxos (#69)', () => {
@@ -12,7 +13,11 @@ describe('SaasController — PUT /organizacao/fluxos (#69)', () => {
   beforeEach(() => {
     setTenantDocument = jest.fn().mockResolvedValue(undefined);
     const firestore = { setTenantDocument } as unknown as FirestoreService;
-    controller = new SaasController(firestore, {} as AlcadasService);
+    controller = new SaasController(
+      firestore,
+      {} as AlcadasService,
+      {} as ProvisionamentoColaboradoresService,
+    );
   });
 
   const regraDoModelo = () => {
