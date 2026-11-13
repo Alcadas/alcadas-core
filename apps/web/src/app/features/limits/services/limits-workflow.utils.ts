@@ -13,6 +13,7 @@ export interface BuildWorkflowNodesOptions {
   quorum?: QuorumRegra | string;
   slaHours?: number;
   initialIsNew?: boolean;
+  faixas?: readonly FaixaRegraAlcada[];
 }
 
 /** Formata número em moeda brasileira BRL sem decimal quando inteiro ou com 2 decimais. */

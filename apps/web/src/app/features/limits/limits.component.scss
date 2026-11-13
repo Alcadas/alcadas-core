@@ -690,7 +690,7 @@ $border: #eef2f6;
       .material-symbols-rounded { font-size: 15px; }
 
       &:hover {
-        background: darken($primary, 6%);
+        background: $primary-dark;
         box-shadow: 0 2px 8px rgba($primary, 0.3);
       }
     }
