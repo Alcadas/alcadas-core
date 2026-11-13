@@ -286,4 +286,115 @@ describe('DecisoesService — decisões via máquina de estados', () => {
       });
     });
   });
+
+  describe('Isolamento de Departamento / Centro de Custo (Cenário 2)', () => {
+    const gerenteRH: AuthenticatedUser = {
+      userId: 'gestor-rh',
+      tenantId: TENANT_A,
+      role: 'APROVADOR_N2',
+      level: 'N2',
+      maxApprovalLimit: 5000,
+      costCenterId: 'cc-rh',
+      departmentId: 'dep-rh',
+    };
+
+    const gerenteTI: AuthenticatedUser = {
+      userId: 'gestor-ti',
+      tenantId: TENANT_A,
+      role: 'APROVADOR_N2',
+      level: 'N2',
+      maxApprovalLimit: 5000,
+      costCenterId: 'cc-ti',
+      departmentId: 'dep-ti',
+    };
+
+    const diretorCFO: AuthenticatedUser = {
+      userId: 'diretor-cfo',
+      tenantId: TENANT_A,
+      role: 'DIRETOR_CFO',
+      level: 'N3',
+      maxApprovalLimit: null,
+      costCenterId: 'cc-fin',
+      departmentId: 'dep-fin',
+    };
+
+    const superUserGeral: AuthenticatedUser = {
+      userId: 'super-geral',
+      tenantId: TENANT_A,
+      role: 'SUPER_USER',
+      level: 'N3',
+      maxApprovalLimit: null,
+    };
+
+    async function criarSolicitacaoRH(id: string, valor: number) {
+      await firestore.setTenantDocument(TENANT_A, 'requests', id, {
+        id,
+        tenantId: TENANT_A,
+        centroCustoId: 'cc-rh',
+        solicitanteId: 'ana-rh',
+        valor,
+        categoria: 'SERVICOS_TERCEIROS',
+        justificativa: 'Consultoria de recrutamento e treinamento para o RH',
+        status: 'PENDENTE',
+        versao: 1,
+        createdAt: '2026-10-27T10:00:00.000Z',
+        updatedAt: '2026-10-27T10:00:00.000Z',
+      });
+    }
+
+    it('aprovador N2 de RH aprova solicitação do centro de custo RH com sucesso', async () => {
+      await criarSolicitacaoRH('sol-rh-1', 2500);
+
+      const r = await service.aprovarSolicitacao(gerenteRH, 'sol-rh-1', { versao: 1 });
+      expect(r).toMatchObject({
+        status: 'APROVADA',
+        versao: 2,
+        aprovadorId: 'gestor-rh',
+      });
+    });
+
+    it('aprovador N2 de TI tentando aprovar solicitação do RH é recusado com HTTP 403 Forbidden', async () => {
+      await criarSolicitacaoRH('sol-rh-2', 2500);
+
+      await expect(service.aprovarSolicitacao(gerenteTI, 'sol-rh-2', { versao: 1 })).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.aprovarSolicitacao(gerenteTI, 'sol-rh-2', { versao: 1 })).rejects.toThrow(
+        /Isolamento de Departamento/,
+      );
+    });
+
+    it('aprovador N2 de TI tentando rejeitar solicitação do RH é recusado com HTTP 403 Forbidden', async () => {
+      await criarSolicitacaoRH('sol-rh-3', 2500);
+
+      await expect(
+        service.rejeitarSolicitacao(gerenteTI, 'sol-rh-3', {
+          versao: 1,
+          motivo: 'Motivo com mais de dez caracteres',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('DIRETOR_CFO aprova solicitação de qualquer centro de custo com sucesso (escopo corporativo)', async () => {
+      await criarSolicitacaoRH('sol-rh-4', 2500);
+
+      const r = await service.aprovarSolicitacao(diretorCFO, 'sol-rh-4', { versao: 1 });
+      expect(r).toMatchObject({
+        status: 'APROVADA',
+        versao: 2,
+        aprovadorId: 'diretor-cfo',
+      });
+    });
+
+    it('SUPER_USER aprova solicitação de qualquer centro de custo com sucesso (escopo global)', async () => {
+      await criarSolicitacaoRH('sol-rh-5', 2500);
+
+      const r = await service.aprovarSolicitacao(superUserGeral, 'sol-rh-5', { versao: 1 });
+      expect(r).toMatchObject({
+        status: 'APROVADA',
+        versao: 2,
+        aprovadorId: 'super-geral',
+      });
+    });
+  });
 });

@@ -12,17 +12,6 @@
   [activeTab]="limitsService.activeTab()"
   (tabChange)="selectTab($event)"
 >
-  <div header-actions class="header-actions-group">
-    <button type="button" class="btn-header-outline" (click)="goToRulesCatalog()">
-      <span class="material-symbols-rounded">rule</span>
-      <span>Catálogo de Regras</span>
-    </button>
-    <button type="button" class="btn-header-primary" (click)="openCreateModal()">
-      <span class="material-symbols-rounded">add</span>
-      <span>Nova Alçada</span>
-    </button>
-  </div>
-
   <div tier2-actions class="tier2-actions-group">
     <div class="table-records-counter">
       <span class="material-symbols-rounded count-icon">account_tree</span>
@@ -34,7 +23,7 @@
 <!-- Container Principal com scroll interno -->
 <div class="page-container" (click)="closeActionsMenu()" (keydown.escape)="closeActionsMenu()" tabindex="-1">
 
-  <!-- 3. Barra de Busca e Ação "+ Nova Alçada" -->
+  <!-- 3. Barra de Busca e Ações da Tabela de Alçadas -->
   <section class="toolbar-section">
     <div class="search-wrapper">
       <span class="material-symbols-rounded search-icon">search</span>
@@ -47,10 +36,17 @@
       />
     </div>
 
-    <button type="button" class="btn-add-action" (click)="openCreateModal()">
-      <span class="material-symbols-rounded">add</span>
-      <span>Criar Regra</span>
-    </button>
+    <div class="toolbar-actions-group" style="display: flex; gap: 0.65rem; align-items: center">
+      <button type="button" class="btn-header-outline" (click)="goToRulesCatalog()">
+        <span class="material-symbols-rounded">rule</span>
+        <span>Catálogo de Regras</span>
+      </button>
+
+      <button type="button" class="btn-header-primary" (click)="openCreateModal()">
+        <span class="material-symbols-rounded">add</span>
+        <span>Nova Alçada</span>
+      </button>
+    </div>
   </section>
 
   <!-- 4. Lista de Alçadas Cadastradas (Cards com Borda Lateral e Pipeline Stepper) -->

@@ -202,6 +202,15 @@ function criarTenantsIniciais(): SaasClientTenant[] {
         managerName: 'Dr. Henrique Vasconcelos',
         color: '#0284c7',
       },
+      {
+        id: 'dep-rh',
+        code: 'RH',
+        name: 'Recursos Humanos',
+        costCenter: 'CC-103',
+        monthlyBudget: 220000,
+        managerName: 'Ana Paula Nogueira',
+        color: '#8b5cf6',
+      },
     ],
     employees: [
       {
@@ -415,6 +424,7 @@ function criarTenantsIniciais(): SaasClientTenant[] {
       maxUsers: 100,
       ownerName: 'Mariana Alves Rocha',
       ownerEmail: 'mariana.alves@startop.com.br',
+      ownerJobTitle: 'Diretora Executiva (CEO)',
       ownerRole: 'DIRETOR',
       organization: startopOrg,
       profissoes: criarProfissoesPadrao(),
@@ -427,6 +437,7 @@ function criarTenantsIniciais(): SaasClientTenant[] {
       maxUsers: 50,
       ownerName: 'Roberto Takahashi',
       ownerEmail: 'roberto@nagoya.com.br',
+      ownerJobTitle: 'Diretor Geral Executivo',
       ownerRole: 'DIRETOR',
       organization: nagoyaOrg,
       profissoes: criarProfissoesPadrao(),
@@ -876,6 +887,7 @@ export class SettingsService {
       maxUsers: payload.maxUsers || 50,
       ownerName: payload.ownerName.trim(),
       ownerEmail: payload.ownerEmail.trim().toLowerCase(),
+      ownerJobTitle: payload.ownerJobTitle.trim() || 'Titular / Diretor Executivo',
       ownerRole: payload.ownerRole,
       profissoes,
       organization: {
@@ -1246,6 +1258,58 @@ export class SettingsService {
 
   revokeApiKey(id: string): void {
     this.apiKeys.update((prev) => prev.filter((k) => k.id !== id));
+  }
+
+  /**
+   * Troca a senha de uma conta (cliente ou colaborador) pelo e-mail, em qualquer empresa.
+   * Usado pela recuperação de senha fictícia. Devolve false se o e-mail não existir.
+   */
+  redefinirSenhaPorEmail(email: string, novaSenha: string): boolean {
+    const conta = this.findAccountByEmail(email);
+    if (!conta) return false;
+
+    const { tenantId } = conta.tenant;
+    const funcionarioId = conta.employee.id;
+    this.tenants.update((lista) => {
+      const atualizada = lista.map((t) =>
+        t.tenantId !== tenantId
+          ? t
+          : {
+              ...t,
+              organization: {
+                ...t.organization,
+                employees: t.organization.employees.map((e) =>
+                  e.id === funcionarioId ? { ...e, password: novaSenha } : e,
+                ),
+              },
+            },
+      );
+      salvarTenantsNoStorage(atualizada);
+      const atualizado = atualizada.find((t) => t.tenantId === tenantId);
+      if (atualizado) {
+        this.persistirTenantNoBackend(atualizado);
+      }
+      return atualizada;
+    });
+    return true;
+  }
+
+  /**
+   * Troca a senha da conta logada (Configurações > Segurança), conferindo a senha atual.
+   * Lança erro com mensagem amigável quando não for possível.
+   */
+  alterarSenhaDaContaLogada(senhaAtual: string, novaSenha: string): void {
+    const conta = this.findAccountByEmail(this.activeUserEmail());
+    if (!conta) {
+      throw new Error('A troca de senha não está disponível para esta conta.');
+    }
+    if ((conta.employee.password || '123456') !== senhaAtual) {
+      throw new Error('Senha atual incorreta.');
+    }
+    if (senhaAtual === novaSenha) {
+      throw new Error('A nova senha precisa ser diferente da atual.');
+    }
+    this.redefinirSenhaPorEmail(conta.employee.email, novaSenha);
   }
 
   private atualizarTenantAtivo(

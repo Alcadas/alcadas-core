@@ -137,5 +137,19 @@ export interface CreateRequestFormPayload {
 
 export type DecisionAction = 'aprovar' | 'rejeitar' | 'ajuste';
 
+/** Eventos emitidos em tempo real pelo motor de polling inteligente. */
+export type RequestStatusChangeType =
+  | 'APROVADA'
+  | 'REJEITADA'
+  | 'EM_AJUSTE'
+  | 'AVANCO_ETAPA'
+  | 'NOVA';
+
+export interface RequestStatusChangeEvent {
+  type: RequestStatusChangeType;
+  request: RequestItem;
+  statusAnterior?: RequestStatus;
+}
+
 /** Estado de carregamento de uma tela ou bloco (RNF08). */
 export type LoadState = 'carregando' | 'pronto' | 'erro';

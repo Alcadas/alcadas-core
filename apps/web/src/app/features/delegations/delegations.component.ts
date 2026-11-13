@@ -7,6 +7,7 @@ import {
   mapearProfissaoParaRole,
   mapearRoleParaProfissaoId,
 } from '../settings/services/settings.service';
+import { OrganizationDepartment } from '../settings/models/organization.model';
 
 // ---------- Tipos ----------
 
@@ -28,6 +29,7 @@ export interface Perfil {
   email: string;
   profissaoId: number;
   departamento?: string;
+  departamentoId?: string;
   cargo?: string;
   senha?: string;
   alcada?: number;
@@ -70,14 +72,10 @@ const ITENS_POR_PAGINA = 6;
         </div>
 
         <div class="header-actions-group">
-          <a routerLink="/configuracoes/organizacao" class="btn-secundario" style="text-decoration: none">
+          <a routerLink="/configuracoes/organizacao" class="btn-primario" style="text-decoration: none">
             <span class="material-symbols-rounded" style="font-size: 18px">domain</span>
-            <span>Quadro da Organização</span>
+            <span>Gerenciar Funcionários no Quadro</span>
           </a>
-          <button type="button" class="btn-primario" (click)="abrirNovoPerfil()">
-            <span class="material-symbols-rounded" style="font-size: 18px">person_add</span>
-            <span>Novo Funcionário / Perfil</span>
-          </button>
         </div>
       </header>
 
@@ -128,7 +126,8 @@ const ITENS_POR_PAGINA = 6;
                         <input
                           type="checkbox"
                           [checked]="temFuncionalidade(prof, f.chave)"
-                          (change)="alternarFuncionalidade(prof, f.chave)"
+                          disabled
+                          title="Para alterar permissões, clique no botão de editar da profissão"
                         />
                       </td>
                     }
@@ -218,9 +217,14 @@ const ITENS_POR_PAGINA = 6;
                       <button type="button" class="btn-icone" title="Ver permissões" (click)="abrirVisualizacao(perfil)">
                         <span class="material-symbols-rounded">visibility</span>
                       </button>
-                      <button type="button" class="btn-icone" title="Editar dados e senha" (click)="abrirEdicaoPerfil(perfil)">
+                      <a
+                        routerLink="/configuracoes/organizacao"
+                        class="btn-icone"
+                        title="Gerenciar funcionário na Organização"
+                        style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;"
+                      >
                         <span class="material-symbols-rounded">edit</span>
-                      </button>
+                      </a>
                       <button type="button" class="btn-icone perigo" title="Excluir" (click)="pedirExclusaoPerfil(perfil)">
                         <span class="material-symbols-rounded">delete</span>
                       </button>
@@ -287,55 +291,7 @@ const ITENS_POR_PAGINA = 6;
       </div>
     }
 
-    <!-- ================= MODAL: PERFIL / FUNCIONÁRIO (criar / editar) ================= -->
-    @if (modalPerfilAberto) {
-      <div class="modal-fundo" role="presentation" tabindex="-1" (click)="fecharModais()" (keydown.escape)="fecharModais()">
-        <div class="modal" role="dialog" aria-modal="true" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="fecharModais()">
-          <h2>{{ editandoPerfilId === null ? 'Novo Funcionário / Perfil' : 'Editar Funcionário / Perfil' }}</h2>
 
-          <label class="campo">
-            Nome Completo
-            <input type="text" [(ngModel)]="nome" placeholder="Ex: Ana Souza" />
-          </label>
-
-          <label class="campo">
-            E-mail Corporativo (Login)
-            <input type="text" [(ngModel)]="email" placeholder="Ex: ana@empresa.com.br" />
-          </label>
-
-          <label class="campo">
-            Senha de Acesso ao Sistema
-            <input type="text" [(ngModel)]="senhaPerfil" placeholder="Ex: 123456" />
-          </label>
-
-          <label class="campo">
-            Cargo na Empresa
-            <input type="text" [(ngModel)]="cargoPerfil" placeholder="Ex: Analista Financeiro" />
-          </label>
-
-          <label class="campo">
-            Profissão / Nível de Acesso
-            <select [(ngModel)]="profissaoId">
-              <option [ngValue]="null">Selecione uma profissão</option>
-              @for (prof of profissoes; track prof.id) {
-                <option [ngValue]="prof.id">{{ prof.nome }}</option>
-              }
-            </select>
-          </label>
-
-          @if (erro !== '') {
-            <div class="erro">{{ erro }}</div>
-          }
-
-          <div class="modal-botoes">
-            <button type="button" class="btn-secundario" (click)="fecharModais()">Cancelar</button>
-            <button type="button" class="btn-primario" (click)="salvarPerfil()">
-              {{ editandoPerfilId === null ? 'Criar Perfil' : 'Salvar Alterações' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    }
 
     <!-- ================= MODAL: VER PERMISSÕES DA PESSOA ================= -->
     @if (perfilVisualizado !== null) {
@@ -539,7 +495,8 @@ const ITENS_POR_PAGINA = 6;
     }
     .tabela-checks th.col-check { font-size: 0.75rem; text-align: center; min-width: 85px; }
     .col-check { text-align: center; }
-    .col-check input { width: 17px; height: 17px; accent-color: #644ef3; cursor: pointer; }
+    .col-check input { width: 17px; height: 17px; accent-color: #644ef3; }
+    .col-check input:disabled { cursor: not-allowed; opacity: 0.75; }
     .tabela th.col-acoes, .tabela td.col-acoes { text-align: right; white-space: nowrap; width: 140px; }
 
     .pessoa { display: flex; align-items: center; gap: 0.65rem; }
@@ -688,6 +645,7 @@ export class DelegationsComponent {
   senhaPerfil = '123456';
   cargoPerfil = '';
   profissaoId: number | null = null;
+  departamentoId: string | null = null;
 
   erro = '';
 
@@ -700,6 +658,10 @@ export class DelegationsComponent {
       this.settingsService.activeProfissoes();
       this.carregarDadosDoTenantAtivo();
     });
+  }
+
+  get departamentos(): OrganizationDepartment[] {
+    return this.settingsService.organization().departments;
   }
 
   get nomeEmpresaAtiva(): string {
@@ -726,6 +688,7 @@ export class DelegationsComponent {
       email: emp.email,
       profissaoId: emp.profissaoId ?? mapearRoleParaProfissaoId(emp.role, profs),
       departamento: emp.departmentName,
+      departamentoId: emp.departmentId,
       cargo: emp.jobTitle,
       senha: emp.password || '123456',
       alcada: emp.approvalLimit,
@@ -929,6 +892,7 @@ export class DelegationsComponent {
     this.senhaPerfil = '123456';
     this.cargoPerfil = '';
     this.profissaoId = null;
+    this.departamentoId = this.departamentos[0]?.id ?? null;
     this.erro = '';
     this.modalPerfilAberto = true;
   }
@@ -940,6 +904,7 @@ export class DelegationsComponent {
     this.senhaPerfil = perfil.senha || '123456';
     this.cargoPerfil = perfil.cargo || '';
     this.profissaoId = perfil.profissaoId;
+    this.departamentoId = perfil.departamentoId ?? null;
     this.erro = '';
     this.modalPerfilAberto = true;
   }
@@ -964,6 +929,10 @@ export class DelegationsComponent {
       this.erro = 'Informe um email válido.';
       return;
     }
+    if (!this.departamentoId) {
+      this.erro = 'Selecione um departamento.';
+      return;
+    }
     if (this.profissaoId === null) {
       this.erro = 'Selecione uma profissão.';
       return;
@@ -980,7 +949,7 @@ export class DelegationsComponent {
     const nomeProf = this.nomeDaProfissao(idDaProfissao);
     const roleMapeado = mapearProfissaoParaRole(nomeProf);
     const depts = this.settingsService.organization().departments;
-    const deptPadrao = depts[0];
+    const deptEscolhido = depts.find((d) => d.id === this.departamentoId) || depts[0];
 
     if (this.editandoPerfilId === null) {
       const nextNum = 210 + this.perfis.length;
@@ -991,8 +960,8 @@ export class DelegationsComponent {
         phone: '',
         jobTitle: this.cargoPerfil.trim() || nomeProf,
         role: roleMapeado,
-        departmentId: deptPadrao?.id ?? 'dep-geral',
-        departmentName: deptPadrao?.name ?? 'Geral',
+        departmentId: deptEscolhido?.id ?? 'dep-geral',
+        departmentName: deptEscolhido?.name ?? 'Geral',
         approvalLimit: roleMapeado === 'DIRETOR' ? 200000 : roleMapeado === 'GERENTE' ? 50000 : 0,
         status: 'ATIVO',
         password: this.senhaPerfil.trim() || '123456',
@@ -1011,7 +980,12 @@ export class DelegationsComponent {
           role: roleMapeado,
           profissaoId: idDaProfissao,
           password: this.senhaPerfil.trim() || '123456',
+          departmentId: deptEscolhido?.id ?? alvo.departamentoId ?? 'dep-geral',
+          departmentName: deptEscolhido?.name ?? alvo.departamento ?? 'Geral',
         });
+        if (this.authService?.currentUser()?.email?.toLowerCase() === emailLimpo) {
+          this.authService.loginWithTenantAccount(emailLimpo);
+        }
       }
       this.exibirFeedback(`Dados e permissões de ${nomeLimpo} atualizados.`);
     }

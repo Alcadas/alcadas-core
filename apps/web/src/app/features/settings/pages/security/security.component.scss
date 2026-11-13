@@ -1,1 +1,41 @@
 @use '../../shared/settings-form';
+
+.password-reqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: #64748b;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+
+    &::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+
+    &.ok {
+      color: #047857;
+      font-weight: 600;
+
+      &::before {
+        background: #059669;
+      }
+    }
+  }
+}
+
+.settings-actions-bar .save-feedback.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}

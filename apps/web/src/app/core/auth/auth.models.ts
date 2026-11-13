@@ -10,6 +10,7 @@ export interface AuthUser {
   name?: string;
   /** Papel da custom claim `role` (ex.: SOLICITANTE, APROVADOR_N2) — ADR-007. */
   role?: string;
+  roles?: string[];
   /** Empresa do usuário (custom claim `tenantId`) — RNF07. */
   tenantId?: string;
   /** Profissão vinculada na matriz de Delegações (/delegacoes) da empresa. */
@@ -17,6 +18,11 @@ export interface AuthUser {
   profissaoNome?: string;
   /** Lista de chaves de funcionalidades liberadas para este usuário na empresa. */
   allowedFeatures?: string[];
+  /** Departamento e Centro de Custo de lotação do colaborador (Cenário 2). */
+  departmentId?: string;
+  departmentName?: string;
+  costCenterId?: string;
+  approvalLimit?: number;
 }
 
 /** Sessão guardada no sessionStorage enquanto a aba estiver aberta. */

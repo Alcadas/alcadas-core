@@ -4,11 +4,12 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { AuthService } from './core/auth/auth.service';
 import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
+import { NotificacoesComponent } from './shared/components/notificacao/notificacao.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterModule, SidebarComponent],
+  imports: [RouterModule, SidebarComponent, NotificacoesComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -27,6 +28,7 @@ export class App {
   private readonly rotasPublicas = [
     '/login',
     '/register',
+    '/recuperar-senha',
     '/verificarCodigo',
     '/novaSenha',
   ];

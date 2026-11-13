@@ -1,6 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import {
   PageHeaderComponent,
   PageHeaderTab,
@@ -30,10 +31,13 @@ export type ApprovalsTab = 'pendentes' | 'ajustes' | 'aprovadas' | 'todas';
   templateUrl: './approvals.component.html',
   styleUrl: './approvals.component.scss',
 })
-export class ApprovalsComponent {
+export class ApprovalsComponent implements OnInit, OnDestroy {
   readonly requestsService = inject(RequestsService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
+
+  private pollingSub: Subscription | null = null;
+  private visibilityListener: (() => void) | null = null;
 
   // Filtros e Navegação
   readonly currentTab = signal<ApprovalsTab>('pendentes');
@@ -87,6 +91,39 @@ export class ApprovalsComponent {
     this.requestsService.ensureLoaded();
   }
 
+  ngOnInit(): void {
+    this.requestsService.startPolling(8000);
+
+    this.pollingSub = this.requestsService.statusEvents$.subscribe((event) => {
+      if (event.type === 'NOVA' && event.request.status === 'PENDENTE') {
+        this.triggerToast(
+          'Nova Demanda',
+          `Solicitação ${event.request.codigo} aguardando sua revisão.`,
+          'info'
+        );
+      }
+    });
+
+    if (typeof document !== 'undefined') {
+      this.visibilityListener = () => {
+        if (document.visibilityState === 'visible') {
+          this.requestsService.loadSilent().subscribe();
+        }
+      };
+      document.addEventListener('visibilitychange', this.visibilityListener);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.requestsService.stopPolling();
+    this.pollingSub?.unsubscribe();
+    this.pollingSub = null;
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener);
+      this.visibilityListener = null;
+    }
+  }
+
   // Abas do PageHeader
   readonly headerTabs = computed<PageHeaderTab[]>(() => {
     return [
@@ -130,9 +167,6 @@ export class ApprovalsComponent {
    */
   readonly approvalEligibleRequests = computed<RequestItem[]>(() => {
     const all = this.requestsService.requests();
-    if (this.settingsService.isPlatformSuperAdmin()) {
-      return all;
-    }
     const user = this.authService.currentUser();
     const myId = user?.id;
     const myName = (user?.name || '').trim().toLowerCase();
@@ -142,19 +176,53 @@ export class ApprovalsComponent {
     const userAccount = myEmail ? this.settingsService.findAccountByEmail(myEmail) : null;
     const approvalLimit = userAccount?.employee?.approvalLimit ?? this.authorizedLimit;
 
+    // Identificação de departamento e centro de custo do usuário
+    const userDeptId = (user?.departmentId ?? userAccount?.employee?.departmentId ?? '').toLowerCase();
+    const userDeptName = (user?.departmentName ?? userAccount?.employee?.departmentName ?? '').trim().toLowerCase();
+
+    const deptObj = this.settingsService.organization().departments.find(
+      (d) => d.id.toLowerCase() === userDeptId || d.name.toLowerCase() === userDeptName,
+    );
+    const userCostCenter = (deptObj?.costCenter || deptObj?.id || user?.costCenterId || '').toLowerCase();
+
+    // Papéis de escopo corporativo transversal
+    const isGlobalApprover =
+      user?.role === 'DIRETOR_CFO' ||
+      user?.role === 'ADMIN' ||
+      user?.role === 'SUPER_USER' ||
+      this.settingsService.isPlatformSuperAdmin();
+
     return all.filter((r) => {
-      // 1. Bloqueia solicitações de autoria do próprio usuário (Segregação de Funções - SoD)
+      // 1. SoD Incondicional: Bloqueia solicitações de autoria do próprio usuário (Segregação de Funções)
       if (myId && r.solicitante.id === myId) return false;
       if (myEmail && r.solicitante.id?.toLowerCase() === myEmail) return false;
       if (myName && r.solicitante.nome?.trim().toLowerCase() === myName) return false;
+      if (r.solicitante.nome === 'Você') return false;
 
-      // 2. Checagem de alçada: a solicitação só chega para aprovar se o valor estiver dentro do limite de alçada do gestor
+      // 2. Isolamento de Departamento / Centro de Custo (Cenário 2):
+      // Aprovadores setoriais só deliberam sobre solicitações do seu próprio departamento/centro de custo.
+      if (!isGlobalApprover && (userDeptName || userCostCenter || userDeptId)) {
+        const reqDept = (r.departamento || '').toLowerCase();
+        const reqCc = (r.centroCustoId || '').toLowerCase();
+
+        const bateDepartamento =
+          (userDeptName && reqDept === userDeptName) ||
+          (userDeptId && reqDept === userDeptId);
+        const bateCentroCusto =
+          userCostCenter && (reqCc === userCostCenter || reqDept === userCostCenter);
+
+        if (!bateDepartamento && !bateCentroCusto) {
+          return false;
+        }
+      }
+
+      // 3. Checagem de alçada: a solicitação só chega para aprovar se o valor estiver dentro do limite de alçada do gestor
       // e se ele tiver papel aprovador (ex: Gerente, Diretor, CFO ou Admin)
       if (approvalLimit > 0 && r.valor > approvalLimit && user?.role !== 'DIRETOR_CFO' && user?.role !== 'ADMIN') {
         return false;
       }
 
-      // 3. Regra de Etapa Corrente (Issue #66):
+      // 4. Regra de Etapa Corrente (Issue #66):
       // Apenas o aprovador da etapa corrente visualiza a solicitação em /aprovacoes
       if (
         user?.role !== 'ADMIN' &&

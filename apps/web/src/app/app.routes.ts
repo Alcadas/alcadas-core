@@ -17,6 +17,13 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'recuperar-senha',
+    loadComponent: () =>
+      import('./features/auth/pages/recuperar-senha/recuperar-senha').then(
+        (m) => m.RecuperarSenha,
+      ),
+  },
+  {
     path: 'verificarCodigo',
     loadComponent: () =>
       import('./features/auth/pages/verificar-codigo/verificar-codigo').then(

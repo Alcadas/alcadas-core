@@ -105,6 +105,7 @@ function mapRoleToClaim(role: string): string {
 }
 
 @Controller()
+@UseGuards(JwtAuthGuard)
 export class SaasController {
   constructor(
     private readonly firestore: FirestoreService,
@@ -190,7 +191,11 @@ export class SaasController {
     }
 
     // 4. Sincroniza contas dos colaboradores/clientes no Firebase Auth Emulator (quando disponível)
-    void this.syncEmployeesWithFirebaseAuth(tenantId, normalized.organization?.employees ?? []);
+    void this.syncEmployeesWithFirebaseAuth(
+      tenantId,
+      normalized.organization?.employees ?? [],
+      departments,
+    );
 
     return normalized;
   }
@@ -302,6 +307,7 @@ export class SaasController {
   private async syncEmployeesWithFirebaseAuth(
     tenantId: string,
     employees: EmployeePayload[],
+    departments: DepartmentPayload[] = [],
   ): Promise<void> {
     if (process.env['NODE_ENV'] === 'production') return;
     try {
@@ -311,11 +317,20 @@ export class SaasController {
         const email = emp.email.trim().toLowerCase();
         const password = emp.password && emp.password.length >= 6 ? emp.password : '123456';
         const roleClaim = mapRoleToClaim(emp.role);
-        const claims = {
+        const dept = departments.find(
+          (d) => d.id === emp.departmentId || d.name === emp.departmentName,
+        );
+        const costCenterId = dept?.costCenter || dept?.id;
+
+        const claims: Record<string, unknown> = {
           tenantId,
           role: roleClaim,
           roles: [roleClaim],
           name: emp.fullName,
+          departmentId: emp.departmentId || null,
+          departmentName: emp.departmentName || null,
+          costCenterId: costCenterId || null,
+          limiteAlcada: emp.approvalLimit ?? null,
         };
 
         try {

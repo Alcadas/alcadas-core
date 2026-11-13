@@ -1,8 +1,8 @@
 <!-- ========================================================================= -->
-<!-- TIER 1: BREADCRUMB, BUSCA E AÇÕES GLOBAIS                                -->
+<!-- TIER 1: BREADCRUMB (LOCALIZAÇÃO) E ÍCONES UTILITÁRIOS GLOBAIS             -->
 <!-- ========================================================================= -->
 <header class="page-header-tier1">
-  <!-- Esquerda: Breadcrumb -->
+  <!-- Esquerda: Breadcrumb (Local onde o usuário está) -->
   <div class="breadcrumb-container">
     @if (breadcrumbRoot()) {
       <span class="breadcrumb-root">{{ breadcrumbRoot() }}</span>
@@ -11,48 +11,21 @@
     <h1 class="breadcrumb-current">{{ breadcrumbCurrent() }}</h1>
   </div>
 
-  <!-- Centro: Barra de Pesquisa Integrada com Atalho ⌘K -->
-  @if (showSearch()) {
-    <div class="search-container">
-      <div class="search-box">
-        <span class="material-symbols-rounded search-icon">search</span>
-        <input
-          type="text"
-          class="search-input"
-          [placeholder]="searchPlaceholder()"
-          [ngModel]="searchQuery()"
-          (ngModelChange)="onSearchInput($event)"
-          [attr.aria-label]="searchPlaceholder()"
-        />
-        @if (searchQuery()) {
-          <button
-            type="button"
-            class="btn-clear-search"
-            (click)="clearSearch()"
-            title="Limpar busca"
-            aria-label="Limpar busca"
-          >
-            <span class="material-symbols-rounded">close</span>
-          </button>
-        } @else {
-          <kbd class="kbd-badge">⌘K</kbd>
-        }
-      </div>
-    </div>
-  }
-
-  <!-- Direita: Ícones Rápidos e Ações Injetadas -->
+  <!-- Direita: Somente Ícones Utilitários (Notificação, Calendário e Alerta) -->
   <div class="header-actions-container">
     @if (showQuickIcons()) {
       <div class="quick-icons-strip">
         <button
           type="button"
-          class="btn-quick-icon"
-          title="Mensagens"
-          aria-label="Mensagens"
-          (click)="onQuickActionClick('messages')"
+          class="btn-quick-icon has-badge"
+          title="Notificações"
+          aria-label="Notificações"
+          (click)="onQuickActionClick('notifications')"
         >
-          <span class="material-symbols-rounded">mail</span>
+          <span class="material-symbols-rounded">notifications</span>
+          @if (hasUnreadAlerts()) {
+            <span class="unread-dot"></span>
+          }
         </button>
 
         <button
@@ -67,23 +40,15 @@
 
         <button
           type="button"
-          class="btn-quick-icon has-badge"
-          title="Notificações e Alertas"
-          aria-label="Notificações e Alertas"
-          (click)="onQuickActionClick('notifications')"
+          class="btn-quick-icon"
+          title="Alertas e Avisos do Sistema"
+          aria-label="Alertas e Avisos do Sistema"
+          (click)="onQuickActionClick('alerts')"
         >
-          <span class="material-symbols-rounded">notifications</span>
-          @if (hasUnreadAlerts()) {
-            <span class="unread-dot"></span>
-          }
+          <span class="material-symbols-rounded">warning</span>
         </button>
       </div>
     }
-
-    <!-- Injeção dos Botões de Ação Específicos de Cada Funcionalidade -->
-    <div class="custom-actions-slot">
-      <ng-content select="[header-actions]"></ng-content>
-    </div>
   </div>
 </header>
 
@@ -133,7 +98,7 @@
       </div>
     }
 
-    <!-- Ações Secundárias Injetadas à Direita (ex: Resumo IA, Toggle de Visualização) -->
+    <!-- Ações Secundárias Injetadas à Direita -->
     <div class="tier2-custom-actions">
       <ng-content select="[tier2-actions]"></ng-content>
     </div>

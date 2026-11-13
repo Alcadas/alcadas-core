@@ -21,6 +21,16 @@ function decodificarJwtLocal(token: string): Record<string, unknown> | null {
   if (process.env['NODE_ENV'] === 'production') {
     return null;
   }
+  if (token.startsWith('test:')) {
+    const [, tenantId, role = 'SOLICITANTE', userId = 'usr-test-01'] = token.split(':');
+    if (!tenantId) return null;
+    return {
+      uid: userId,
+      tenantId,
+      role,
+      roles: [role],
+    };
+  }
   const partes = token.split('.');
   if (partes.length !== 3) {
     return null;
@@ -71,11 +81,29 @@ export class FirebaseAuthGuard implements CanActivate {
       throw new ForbiddenException('Usuário sem empresa (tenant) associada');
     }
 
+    const costCenterId =
+      typeof decodificado['costCenterId'] === 'string'
+        ? (decodificado['costCenterId'] as string)
+        : typeof decodificado['centroCustoId'] === 'string'
+        ? (decodificado['centroCustoId'] as string)
+        : typeof req.headers['x-cost-center-id'] === 'string'
+        ? (req.headers['x-cost-center-id'] as string)
+        : undefined;
+
+    const departmentId =
+      typeof decodificado['departmentId'] === 'string'
+        ? (decodificado['departmentId'] as string)
+        : typeof req.headers['x-department-id'] === 'string'
+        ? (req.headers['x-department-id'] as string)
+        : undefined;
+
     const usuario: UsuarioAutenticado = {
       uid: String(decodificado.uid ?? decodificado['user_id'] ?? decodificado['sub'] ?? ''),
       email: typeof decodificado.email === 'string' ? decodificado.email : undefined,
       tenantId,
       papeis: extrairPapeis(decodificado),
+      costCenterId,
+      departmentId,
       ip: req.ip,
     };
     req.usuario = usuario;

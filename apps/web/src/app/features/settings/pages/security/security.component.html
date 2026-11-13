@@ -46,7 +46,7 @@
   </nav>
 
   @if (activeTab() === 'password') {
-    <form [formGroup]="form" (ngSubmit)="save()" (input)="saved.set(false)" novalidate>
+    <form [formGroup]="form" (ngSubmit)="save()" (input)="limparAvisos()" novalidate>
       <section class="settings-section-block">
         <div class="section-header-bar">
           <div class="section-title-group">
@@ -86,7 +86,7 @@
               <span class="req">*</span>
             </label>
             <p class="field-description">
-              Deve conter no mínimo 8 caracteres com letras e números.
+              {{ regraSenha }}
             </p>
           </div>
           <div class="field-control">
@@ -98,8 +98,13 @@
               autocomplete="new-password"
               [class.invalid]="invalid('newPassword')"
             />
+            <ul class="password-reqs" aria-label="Requisitos da senha">
+              <li [class.ok]="req.tamanho">Mínimo 6 caracteres</li>
+              <li [class.ok]="req.letra">Pelo menos uma letra</li>
+              <li [class.ok]="req.numero">Pelo menos um número</li>
+            </ul>
             @if (invalid('newPassword')) {
-              <span class="field-error">A nova senha precisa ter ao menos 8 caracteres.</span>
+              <span class="field-error">A nova senha não atende aos requisitos.</span>
             }
           </div>
         </div>
@@ -140,6 +145,12 @@
             <span>Atualizar senha</span>
           </button>
         </div>
+        @if (erroSenha()) {
+          <div class="save-feedback error" role="alert">
+            <span class="material-symbols-rounded">error</span>
+            <span>{{ erroSenha() }}</span>
+          </div>
+        }
         @if (saved()) {
           <div class="save-feedback" role="status">
             <span class="material-symbols-rounded">check_circle</span>

@@ -257,227 +257,138 @@
     </div>
   </div>
 
-  <!-- 5. Lista de Empresas Clientes e suas Contas Vinculadas -->
-  <div class="tenants-list">
-    @for (tenant of filteredTenants(); track tenant.tenantId) {
-      <section class="tenant-card">
-        <div class="tenant-card-header">
-          <div class="tenant-main-info">
-            <div class="tenant-avatar">
-              {{ initials(tenant.organization.tradeName) }}
-            </div>
-            <div>
-              <div class="tenant-title-row">
-                <h2>{{ tenant.organization.tradeName }}</h2>
-                <span class="cc-tag">tenant: {{ tenant.tenantId }}</span>
-                <span class="settings-pill primary">{{ tenant.plan }}</span>
-                <span
-                  class="settings-pill"
-                  [class.success]="tenant.status === 'ATIVO'"
-                  [class.warning]="tenant.status === 'SUSPENSO'"
-                >
-                  {{ tenant.status }}
-                </span>
-              </div>
-              <p class="tenant-sub">
-                {{ tenant.organization.legalName }} · CNPJ {{ tenant.organization.cnpj }} ·
-                <strong>{{ tenant.organization.departments.length }}</strong> departamentos ·
-                <strong>{{ tenant.organization.employees.length }}</strong> usuários cadastrados
-              </p>
-            </div>
-          </div>
+  <!-- 5. Tabela Central de Empresas & Clientes Titulares -->
+  <div class="saas-table-card">
+    <div class="saas-table-header">
+      <div class="header-info">
+        <h3>Empresas Registradas no SaaS</h3>
+        <p>Clique em qualquer empresa para acessar o quadro de organização, departamentos e colaboradores.</p>
+      </div>
+      <span class="companies-counter">{{ filteredTenants().length }} empresas</span>
+    </div>
 
-          <div class="tenant-actions">
-            <button
-              type="button"
-              class="btn-settings"
-              (click)="openAddClientUser(tenant.tenantId)"
-            >
-              <span class="material-symbols-rounded">person_add</span>
-              <span>Nova Conta de Cliente</span>
-            </button>
-            <button
-              type="button"
-              class="btn-settings"
-              (click)="inspectTenantOrganization(tenant)"
-              title="Gerir dados, departamentos e funcionários desta empresa"
-            >
-              <span class="material-symbols-rounded">domain</span>
-              <span>Ver Organização</span>
-            </button>
-            <button
-              type="button"
-              class="btn-settings"
-              (click)="inspectTenantDelegations(tenant)"
-              title="Configurar profissões e permissões de acesso desta empresa"
-            >
-              <span class="material-symbols-rounded">admin_panel_settings</span>
-              <span>Ver Delegações</span>
-            </button>
-            @if (tenant.tenantId !== 'startop') {
-              <button
-                type="button"
-                class="btn-settings"
-                [class.danger]="tenant.status === 'ATIVO'"
-                (click)="toggleTenantStatus(tenant)"
+    @if (filteredTenants().length === 0) {
+      <div class="empty-saas-box">
+        <span class="material-symbols-rounded">business_center</span>
+        <span>Nenhuma empresa encontrada com os filtros informados.</span>
+      </div>
+    } @else {
+      <div class="saas-table-wrapper">
+        <table class="saas-table">
+          <thead>
+            <tr>
+              <th>Empresa</th>
+              <th>Tenant / CNPJ</th>
+              <th>Cliente Titular / Responsável</th>
+              <th>Quadro</th>
+              <th>Plano & Status</th>
+              <th style="text-align: right">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tenant of filteredTenants(); track tenant.tenantId) {
+              <tr
+                class="saas-row"
+                tabindex="0"
+                role="button"
+                (click)="inspectTenantOrganization(tenant)"
+                (keydown.enter)="inspectTenantOrganization(tenant)"
+                (keydown.space)="inspectTenantOrganization(tenant); $event.preventDefault()"
               >
-                <span>{{ tenant.status === 'ATIVO' ? 'Suspender' : 'Reativar' }}</span>
-              </button>
-            }
-          </div>
-        </div>
-
-        <!-- Sub-formulário para adicionar mais uma conta de cliente/diretor nesta empresa -->
-        @if (addingUserToTenantId() === tenant.tenantId) {
-          <form
-            class="inline-editor-card"
-            style="margin-top: 1rem"
-            [formGroup]="newClientUserForm"
-            (ngSubmit)="saveClientUser(tenant.tenantId)"
-            novalidate
-          >
-            <div class="editor-card-head">
-              <h3>
-                Nova Conta de Cliente / Gestor para {{ tenant.organization.tradeName }} (#{{ tenant.tenantId }})
-              </h3>
-              <button type="button" class="btn-settings ghost" (click)="cancelAddClientUser()">
-                Cancelar
-              </button>
-            </div>
-
-            <div class="settings-subgrid">
-              <div class="col-2 sub-field">
-                <label for="newCliName">Nome Completo *</label>
-                <input
-                  id="newCliName"
-                  class="settings-input"
-                  formControlName="fullName"
-                  placeholder="Ex: Fernanda Oliveira"
-                />
-              </div>
-              <div class="col-2 sub-field">
-                <label for="newCliEmail">E-mail de Login *</label>
-                <input
-                  id="newCliEmail"
-                  type="email"
-                  class="settings-input"
-                  formControlName="email"
-                  placeholder="fernanda@empresa.com.br"
-                />
-              </div>
-              <div class="col-2 sub-field">
-                <label for="newCliPass">Senha de Acesso *</label>
-                <input
-                  id="newCliPass"
-                  type="text"
-                  class="settings-input"
-                  formControlName="password"
-                />
-              </div>
-              <div class="col-2 sub-field">
-                <label for="newCliJob">Cargo *</label>
-                <input
-                  id="newCliJob"
-                  class="settings-input"
-                  formControlName="jobTitle"
-                />
-              </div>
-              <div class="col-2 sub-field">
-                <label for="newCliRole">Nível de Acesso *</label>
-                <select id="newCliRole" class="settings-select" formControlName="role">
-                  <option value="DIRETOR">Diretor (Acesso Geral da Empresa)</option>
-                  <option value="ADMINISTRADOR">Administrador da Empresa</option>
-                  <option value="GERENTE">Gerente Aprovador</option>
-                  <option value="SOLICITANTE">Colaborador / Solicitante</option>
-                  <option value="AUDITOR">Auditor & Compliance</option>
-                </select>
-              </div>
-              <div class="col-2 sub-field">
-                <label for="newCliLimit">Alçada Financeira (R$) *</label>
-                <input
-                  id="newCliLimit"
-                  type="number"
-                  class="settings-input"
-                  formControlName="approvalLimit"
-                />
-              </div>
-            </div>
-
-            @if (formError()) {
-              <span class="field-error">{{ formError() }}</span>
-            }
-
-            <div class="editor-card-foot">
-              <button type="button" class="btn-settings" (click)="cancelAddClientUser()">
-                Cancelar
-              </button>
-              <button type="submit" class="btn-settings primary">
-                <span class="material-symbols-rounded">check</span>
-                <span>Gerar Conta na Empresa</span>
-              </button>
-            </div>
-          </form>
-        }
-
-        <!-- Lista de Contas / Clientes / Funcionários desta Empresa -->
-        <div class="tenant-accounts-box">
-          <div class="accounts-caption">
-            <span>Contas de Acesso Vinculadas a <strong>{{ tenant.organization.tradeName }}</strong></span>
-            <span>Credenciais prontas para login em <code>/login</code> ou acesso rápido em 1 clique</span>
-          </div>
-
-          <div class="accounts-table-wrap">
-            <table class="accounts-table">
-              <thead>
-                <tr>
-                  <th>Usuário / Cliente</th>
-                  <th>E-mail de Login</th>
-                  <th>Senha</th>
-                  <th>Papel & Alçada</th>
-                  <th style="text-align: right">Acesso Rápido</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (emp of tenant.organization.employees; track emp.id) {
-                  <tr>
-                    <td>
-                      <div class="acc-user-cell">
-                        <span class="acc-avatar">{{ initials(emp.fullName) }}</span>
-                        <div>
-                          <strong>{{ emp.fullName }}</strong>
-                          @if (emp.isCompanyAdmin || emp.role === 'DIRETOR' || emp.role === 'ADMINISTRADOR') {
-                            <span class="admin-chip">Titular / Admin</span>
-                          }
-                          <div class="acc-job">{{ emp.jobTitle }} · {{ emp.departmentName }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td><code>{{ emp.email }}</code></td>
-                    <td><code>{{ emp.password || '123456' }}</code></td>
-                    <td>
-                      <span class="role-badge">{{ emp.role }}</span>
-                      <span class="limit-hint">
-                        {{ emp.approvalLimit > 0 ? formatCurrency(emp.approvalLimit) : 'Sem alçada' }}
-                      </span>
-                    </td>
-                    <td style="text-align: right">
+                <td>
+                  <div class="company-cell">
+                    <span class="company-avatar">{{ initials(tenant.organization.tradeName) }}</span>
+                    <div class="company-names">
+                      <strong>{{ tenant.organization.tradeName }}</strong>
+                      <span class="legal-name">{{ tenant.organization.legalName }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="tenant-id-cell">
+                    <code>{{ tenant.tenantId }}</code>
+                    <span class="cnpj-text">{{ tenant.organization.cnpj }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="owner-cell">
+                    <strong class="owner-name">{{ tenant.ownerName }}</strong>
+                    <span class="owner-job">{{ tenant.ownerJobTitle || tenant.ownerRole }}</span>
+                    <span class="owner-email">{{ tenant.ownerEmail }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="cadre-cell">
+                    <span class="cadre-badge">
+                      <span class="material-symbols-rounded">apartment</span>
+                      {{ tenant.organization.departments.length }} deptos
+                    </span>
+                    <span class="cadre-badge secondary">
+                      <span class="material-symbols-rounded">group</span>
+                      {{ tenant.organization.employees.length }} funcionários
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div class="status-cell">
+                    <span class="settings-pill primary">{{ tenant.plan }}</span>
+                    <span
+                      class="settings-pill"
+                      [class.success]="tenant.status === 'ATIVO'"
+                      [class.warning]="tenant.status === 'SUSPENSO'"
+                    >
+                      {{ tenant.status }}
+                    </span>
+                  </div>
+                </td>
+                <td style="text-align: right">
+                  <div class="row-actions-group">
+                    <button
+                      type="button"
+                      class="btn-saas-action primary"
+                      (click)="inspectTenantOrganization(tenant); $event.stopPropagation()"
+                      title="Acessar informações completas da empresa"
+                    >
+                      <span class="material-symbols-rounded">domain</span>
+                      <span>Acessar</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-saas-action"
+                      (click)="inspectTenantDelegations(tenant); $event.stopPropagation()"
+                      title="Configurar Delegações desta empresa"
+                    >
+                      <span class="material-symbols-rounded">admin_panel_settings</span>
+                      <span>Delegações</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-saas-action"
+                      (click)="impersonateAccount(tenant.ownerEmail); $event.stopPropagation()"
+                      title="Entrar como o titular desta empresa"
+                    >
+                      <span class="material-symbols-rounded">login</span>
+                      <span>Titular</span>
+                    </button>
+                    @if (tenant.tenantId !== 'startop') {
                       <button
                         type="button"
-                        class="btn-impersonate"
-                        (click)="impersonateAccount(emp.email)"
-                        title="Entrar imediatamente no sistema com a visão isolada deste usuário"
+                        class="btn-saas-action danger"
+                        (click)="toggleTenantStatus(tenant); $event.stopPropagation()"
+                        [title]="tenant.status === 'ATIVO' ? 'Suspender empresa' : 'Reativar empresa'"
                       >
-                        <span class="material-symbols-rounded">login</span>
-                        <span>Entrar como este usuário</span>
+                        <span class="material-symbols-rounded">
+                          {{ tenant.status === 'ATIVO' ? 'block' : 'check_circle' }}
+                        </span>
                       </button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
   </div>
 </div>
