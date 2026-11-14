@@ -632,6 +632,26 @@ export class RulesCatalogComponent {
     );
   }
 
+  openInFlowEditor(rule: RuleListItem): void {
+    const existing = this.limitsService.getRuleById(rule.id);
+    if (!existing) {
+      this.limitsService.createRule({
+        id: rule.id,
+        title: rule.name,
+        department: rule.propertyScope,
+        locationOrCenter: rule.centroCusto || rule.propertyScope,
+        ceilingAmount: rule.ceilingAmount || 20000,
+        quorumLabel: rule.quorum || '1 Aprovador',
+        slaHours: rule.slaHours || 24,
+        status: rule.isActive ? 'ACTIVE' : 'DRAFT',
+        statusLabel: rule.isActive ? 'Ativo' : 'Rascunho',
+        modeloId: rule.modeloId,
+        faixas: rule.faixas,
+      });
+    }
+    this.router.navigate(['/alcadas/editor', rule.id]);
+  }
+
   // =========================================================================
   // AÇÕES DE EDIÇÃO & ABAS
   // =========================================================================

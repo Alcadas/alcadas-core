@@ -1,3 +1,5 @@
+import { FaixaRegraAlcada } from '@alcadas-core/models';
+
 export type NodeType = 'TRIGGER' | 'CONDITION_VALUE' | 'APPROVER' | 'RISK_CHECK' | 'SLA_TIMER' | 'TERMINAL';
 
 export interface WorkflowNode {
@@ -76,5 +78,15 @@ export interface LimitRuleItem {
   accentColor: string;
   steps: LimitStep[];
   currentStepLabel?: string;
+  /** Identificador do modelo de regra de alçada original (#69). */
+  modeloId?: string;
+  /** Faixas de valores e alçadas configuradas no modelo (#69). */
+  faixas?: FaixaRegraAlcada[];
+  /** Pipeline completo de nós persistido no editor de fluxos (#69). */
+  nodes?: WorkflowNode[];
+  /** Empresa/unidade do fluxo. */
+  company?: string;
+  /** Categoria / finalidade do fluxo. */
+  category?: string;
 }
 

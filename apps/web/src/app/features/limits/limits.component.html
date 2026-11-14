@@ -229,18 +229,45 @@
             </button>
           </div>
           <p class="library-subtitle">
-            @if (pendingInsertIndex() !== null) {
-              Clique em uma regra para inserir na posição selecionada.
+            @if (libraryTab() === 'market') {
+              Aplique um modelo pronto de mercado para preencher toda a esteira de aprovação.
+            } @else if (pendingInsertIndex() !== null) {
+              Clique em um nó para inserir na posição selecionada.
             } @else {
               Selecione para incluir ao final da esteira de aprovação.
             }
           </p>
 
+          <!-- Abas de Navegação da Biblioteca -->
+          <div class="lib-tabs-strip">
+            <button
+              type="button"
+              class="lib-tab-btn"
+              [class.active]="libraryTab() === 'market'"
+              (click)="libraryTab.set('market')"
+            >
+              <span class="material-symbols-rounded tab-mini-icon">auto_awesome</span>
+              <span>Modelos Prontos</span>
+              <span class="tab-chip">{{ marketModels.length }}</span>
+            </button>
+
+            <button
+              type="button"
+              class="lib-tab-btn"
+              [class.active]="libraryTab() === 'elements'"
+              (click)="libraryTab.set('elements')"
+            >
+              <span class="material-symbols-rounded tab-mini-icon">layers</span>
+              <span>Nós / Etapas</span>
+              <span class="tab-chip">{{ ruleTemplates().length }}</span>
+            </button>
+          </div>
+
           <div class="library-search">
             <span class="material-symbols-rounded search-icon">search</span>
             <input
               type="text"
-              placeholder="Filtrar modelos de regras..."
+              placeholder="Filtrar modelos ou etapas..."
               [value]="templateSearch()"
               (input)="templateSearch.set($any($event.target).value)"
             />
@@ -248,38 +275,89 @@
         </div>
 
         <div class="templates-list">
-          @for (template of filteredTemplates(); track template.title) {
-            <div
-              class="template-card"
-              tabindex="0"
-              role="button"
-              (click)="addNode(template)"
-              (keydown.enter)="addNode(template)"
-              (keydown.space)="addNode(template)"
-            >
-              <div class="template-top">
-                <span class="template-icon-wrap" [style.color]="template.badgeColor">
-                  <span class="material-symbols-rounded">{{ template.icon }}</span>
-                </span>
-                <span class="template-badge" [style.background-color]="template.badgeColor + '18'" [style.color]="template.badgeColor">
-                  {{ template.badge }}
+          @if (libraryTab() === 'market') {
+            <!-- 1. MODELOS DE MERCADO PRÉ-DEFINIDOS (#69 / CP2) -->
+            @for (modelo of filteredMarketModels(); track modelo.id) {
+              <div class="market-template-card">
+                <div class="market-top">
+                  <div class="market-icon-badge">
+                    <span class="material-symbols-rounded market-icon">{{ modelo.icone }}</span>
+                    <span class="category-chip">{{ modelo.categoria }}</span>
+                  </div>
+                  <span class="quorum-chip">{{ modelo.quorum }} · SLA {{ modelo.slaHoras }}h</span>
+                </div>
+
+                <h3 class="market-name">{{ modelo.nome }}</h3>
+                <p class="market-desc">{{ modelo.descricao }}</p>
+
+                <div class="market-cc-info">
+                  <span class="material-symbols-rounded cc-icon">domain</span>
+                  <span>{{ modelo.centroCustoSugerido }}</span>
+                </div>
+
+                <!-- Lista resumida de faixas do modelo -->
+                <div class="market-tiers-preview">
+                  <span class="tiers-preview-title">Alçadas Sugeridas ({{ modelo.faixas.length }} faixas):</span>
+                  <ul class="tiers-preview-list">
+                    @for (f of modelo.faixas; track f.id; let i = $index) {
+                      <li>
+                        @if (f.valorMaximo !== null) {
+                          <span>Até {{ formatCurrency(f.valorMaximo) }}:</span>
+                        } @else {
+                          <span>Acima de {{ formatCurrency(f.valorMinimo || 0) }}:</span>
+                        }
+                        <strong>{{ f.papelAprovador }}</strong>
+                        @if (f.aprovacaoTecnica) { <em class="tech-tag">+ TI</em> }
+                      </li>
+                    }
+                  </ul>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn-apply-market-model"
+                  (click)="applyMarketModel(modelo)"
+                >
+                  <span class="material-symbols-rounded">play_circle</span>
+                  <span>Aplicar Modelo à Esteira</span>
+                </button>
+              </div>
+            }
+          } @else {
+            <!-- 2. NÓS E ETAPAS INDIVIDUAIS -->
+            @for (template of filteredTemplates(); track template.title) {
+              <div
+                class="template-card"
+                tabindex="0"
+                role="button"
+                (click)="addNode(template)"
+                (keydown.enter)="addNode(template)"
+                (keydown.space)="addNode(template)"
+              >
+                <div class="template-top">
+                  <span class="template-icon-wrap" [style.color]="template.badgeColor">
+                    <span class="material-symbols-rounded">{{ template.icon }}</span>
+                  </span>
+                  <span class="template-badge" [style.background-color]="template.badgeColor + '18'" [style.color]="template.badgeColor">
+                    {{ template.badge }}
+                  </span>
+                </div>
+
+                <h3 class="template-name">{{ template.title }}</h3>
+                <p class="template-desc">{{ template.description }}</p>
+
+                <span class="btn-add-to-flow">
+                  <span class="material-symbols-rounded">add</span>
+                  <span>
+                    @if (pendingInsertIndex() !== null) {
+                      Inserir Nesta Posição
+                    } @else {
+                      Adicionar ao Fluxo
+                    }
+                  </span>
                 </span>
               </div>
-
-              <h3 class="template-name">{{ template.title }}</h3>
-              <p class="template-desc">{{ template.description }}</p>
-
-              <span class="btn-add-to-flow">
-                <span class="material-symbols-rounded">add</span>
-                <span>
-                  @if (pendingInsertIndex() !== null) {
-                    Inserir Nesta Posição
-                  } @else {
-                    Adicionar ao Fluxo
-                  }
-                </span>
-              </span>
-            </div>
+            }
           }
 
           <!-- Botão para acessar o catálogo e criar nova regra via IA / Documento / Manual -->
@@ -289,7 +367,7 @@
             (click)="goToRulesCatalog()"
           >
             <span class="material-symbols-rounded">auto_awesome</span>
-            <span>Criar Nova Regra Personalizada</span>
+            <span>Abrir Catálogo de Regras</span>
           </button>
         </div>
       </div>
