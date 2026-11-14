@@ -126,4 +126,42 @@ describe('AuthService', () => {
     expect(token).toBeNull();
     expect(service.isAuthenticated()).toBe(false);
   });
+
+  describe('Bloqueio de atalhos de desenvolvedor em produção (Issue #39)', () => {
+    beforeEach(() => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          { provide: APP_CONFIG, useValue: { ...CONFIG_DE_TESTE, production: true } },
+        ],
+      });
+      service = TestBed.inject(AuthService);
+      http = TestBed.inject(HttpTestingController);
+    });
+
+    it('recusa loginAsDeveloper() quando production === true', () => {
+      expect(() => service.loginAsDeveloper()).toThrow(
+        'Acesso de desenvolvedor desabilitado em produção.',
+      );
+      expect(service.isAuthenticated()).toBe(false);
+    });
+
+    it('não faz bypass local ao tentar autenticar com credenciais de dev em produção', () => {
+      let erroCapturado: Error | undefined;
+      service
+        .login({ email: 'dev@alcadas.com', password: 'dev123456' })
+        .subscribe({ error: (e: Error) => (erroCapturado = e) });
+
+      const req = http.expectOne(URL_LOGIN);
+      req.flush(
+        { error: { code: 400, message: 'INVALID_LOGIN_CREDENTIALS' } },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+      expect(erroCapturado?.message).toBe('E-mail ou senha incorretos.');
+      expect(service.isAuthenticated()).toBe(false);
+    });
+  });
 });

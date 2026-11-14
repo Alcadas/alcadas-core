@@ -79,6 +79,10 @@ service cloud.firestore {
 
 ## 🚀 4. Comandos de Build, Deploy e Verificação
 
+### Remoção de Atalhos de Desenvolvedor em Produção (Issue #39)
+- Em `apps/web/src/environments/environment.prod.ts`, `production: true` desativa o botão **"Acesso de Desenvolvedor"** na tela de login (`LoginComponent`) e bloqueia qualquer autenticação sintética no `AuthService`.
+- As credenciais locais de desenvolvimento (`devAccess`) existem exclusivamente em `environment.ts` e são substituídas via `fileReplacements` durante o build de produção, garantindo que `dev@alcadas.com` e `dev123456` não constem no pacote compilado (`dist/apps/web/browser`).
+
 ### Compilação do Frontend
 ```bash
 # Compilar a aplicação Angular em modo de produção

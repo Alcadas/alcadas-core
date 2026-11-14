@@ -2,6 +2,7 @@ import { AppConfig } from '../config/app-config.model';
 
 /** Configuração fixa usada nas specs (não depende de `src/environments`). */
 export const CONFIG_DE_TESTE: AppConfig = {
+  production: false,
   apiBaseUrl: '/api',
   auth: {
     apiKey: 'chave-teste',

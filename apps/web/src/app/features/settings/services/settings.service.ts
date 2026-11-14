@@ -524,8 +524,9 @@ export class SettingsService {
 
   readonly isPlatformSuperAdmin = computed<boolean>(() => {
     const role = this.activeUserRole();
+    const devEmail = this.appConfig?.devAccess?.email?.toLowerCase();
     const email = this.activeUserEmail().toLowerCase();
-    return role === 'SUPER_USER' || email === 'dev@alcadas.com';
+    return role === 'SUPER_USER' || Boolean(devEmail && email === devEmail);
   });
 
   readonly userProfile = signal<UserProfile>({
@@ -535,9 +536,13 @@ export class SettingsService {
     bio: 'Conta de Acesso Geral de Desenvolvedor e Administração SaaS Multi-Tenant.',
     avatarUrl: null,
     avatarColor: '#0f172a',
-    email: 'dev@alcadas.com',
+    email: this.appConfig?.devAccess?.email ?? 'governanca@startop.com.br',
     additionalEmails: [
-      { email: 'dev@alcadas.com', isPrimary: true, verified: true },
+      {
+        email: this.appConfig?.devAccess?.email ?? 'governanca@startop.com.br',
+        isPrimary: true,
+        verified: true,
+      },
     ],
     phone: '+55 (61) 99999-0000',
     location: 'Brasília, DF — Brasil',
@@ -1343,14 +1348,16 @@ export class SettingsService {
     role?: string,
   ): void {
     const emailLimpo = email.trim().toLowerCase();
-    if (emailLimpo === 'dev@alcadas.com' || role === 'SUPER_USER') {
+    const devEmail = this.appConfig?.devAccess?.email?.toLowerCase();
+    if ((devEmail && emailLimpo === devEmail) || role === 'SUPER_USER') {
       const tenant = this.activeTenant();
+      const emailSuperAdmin = emailLimpo || devEmail || 'governanca@startop.com.br';
       this.userProfile.update((prev) => ({
         ...prev,
         fullName: 'Desenvolvedor',
         displayName: 'Desenvolvedor',
-        email: 'dev@alcadas.com',
-        additionalEmails: [{ email: 'dev@alcadas.com', isPrimary: true, verified: true }],
+        email: emailSuperAdmin,
+        additionalEmails: [{ email: emailSuperAdmin, isPrimary: true, verified: true }],
         company: tenant.organization.legalName,
         cnpj: tenant.organization.cnpj,
         jobTitle: 'Desenvolvedor (Super Admin)',

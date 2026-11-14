@@ -6,6 +6,7 @@ import { AppConfig } from '../app/core/config/app-config.model';
  * `apiKey` com a chave Web do projeto Firebase antes do primeiro deploy.
  */
 export const environment: AppConfig = {
+  production: true,
   apiBaseUrl: '/api',
   auth: {
     apiKey: '',

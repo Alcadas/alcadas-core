@@ -48,34 +48,41 @@ export class AuthService {
 
   login(credenciais: LoginCredentials): Observable<AuthUser> {
     const emailLimpo = credenciais.email.trim().toLowerCase();
+    const devAccess = !this.config.production ? this.config.devAccess : undefined;
 
-    if (emailLimpo === 'dev@alcadas.com' && credenciais.password === 'dev123456') {
+    if (
+      devAccess &&
+      emailLimpo === devAccess.email.toLowerCase() &&
+      credenciais.password === devAccess.password
+    ) {
       return of(this.loginAsDeveloper());
     }
 
-    // 1. Verifica se é uma conta de Cliente / Funcionário gerenciada no SaaS Multi-Tenant
-    const contaTenant = this.settingsService.findAccountByEmail(emailLimpo);
-    if (contaTenant) {
-      if (contaTenant.tenant.status === 'SUSPENSO') {
-        return throwError(
-          () => new Error('O acesso desta empresa encontra-se temporariamente suspenso.'),
-        );
-      }
-      if (contaTenant.employee.status === 'INATIVO') {
-        return throwError(
-          () =>
-            new Error(
-              'Esta conta de colaborador está inativa. Contate o gestor da sua empresa.',
-            ),
-        );
-      }
-      const senhaEsperada = contaTenant.employee.password || '123456';
-      if (credenciais.password !== senhaEsperada) {
-        return throwError(() => new Error('E-mail ou senha incorretos.'));
-      }
-      const usuario = this.loginWithTenantAccount(emailLimpo);
-      if (usuario) {
-        return of(usuario);
+    // 1. Verifica se é uma conta de Cliente / Funcionário gerenciada no SaaS Multi-Tenant (apenas dev local)
+    if (!this.config.production) {
+      const contaTenant = this.settingsService.findAccountByEmail(emailLimpo);
+      if (contaTenant) {
+        if (contaTenant.tenant.status === 'SUSPENSO') {
+          return throwError(
+            () => new Error('O acesso desta empresa encontra-se temporariamente suspenso.'),
+          );
+        }
+        if (contaTenant.employee.status === 'INATIVO') {
+          return throwError(
+            () =>
+              new Error(
+                'Esta conta de colaborador está inativa. Contate o gestor da sua empresa.',
+              ),
+          );
+        }
+        const senhaEsperada = contaTenant.employee.password || '123456';
+        if (credenciais.password !== senhaEsperada) {
+          return throwError(() => new Error('E-mail ou senha incorretos.'));
+        }
+        const usuario = this.loginWithTenantAccount(emailLimpo);
+        if (usuario) {
+          return of(usuario);
+        }
       }
     }
 
@@ -95,7 +102,7 @@ export class AuthService {
           return usuario;
         }),
         catchError((erro: unknown) => {
-          if (emailLimpo === 'dev@alcadas.com') {
+          if (devAccess && emailLimpo === devAccess.email.toLowerCase()) {
             return of(this.loginAsDeveloper());
           }
           return throwError(() => new Error(mensagemDeErroDeLogin(erro)));
@@ -108,7 +115,11 @@ export class AuthService {
    * APROVADOR_N2, APROVADOR_N1, AUDITOR, SOLICITANTE) no tenant padrão 'startop'.
    */
   loginAsDeveloper(): AuthUser {
-    const idToken = criarTokenDesenvolvedor();
+    if (this.config.production) {
+      throw new Error('Acesso de desenvolvedor desabilitado em produção.');
+    }
+    const devEmail = this.config.devAccess?.email ?? 'dev-local';
+    const idToken = criarTokenDesenvolvedor(devEmail);
     this.iniciarSessao(idToken, 'dev-refresh-token', String(86400 * 7));
     const usuario = usuarioDoToken(idToken);
     this.settingsService.syncSessionContext(usuario);
@@ -176,10 +187,11 @@ export class AuthService {
   }
 
   private renovar(refreshToken: string): Observable<string | null> {
-    if (refreshToken === 'dev-refresh-token') {
+    if (!this.config.production && refreshToken === 'dev-refresh-token') {
       const atual = this.currentUser();
+      const devEmail = this.config.devAccess?.email ?? 'dev-local';
       const novoToken =
-        atual && atual.email && atual.email !== 'dev@alcadas.com'
+        atual && atual.email && atual.id !== 'dev-master'
           ? criarTokenColaboradorTenant({
               id: atual.id,
               email: atual.email,
@@ -190,7 +202,7 @@ export class AuthService {
               profissaoNome: atual.profissaoNome,
               allowedFeatures: atual.allowedFeatures,
             })
-          : criarTokenDesenvolvedor();
+          : criarTokenDesenvolvedor(devEmail);
       this.iniciarSessao(novoToken, 'dev-refresh-token', String(86400 * 7));
       return of(novoToken);
     }
@@ -253,7 +265,7 @@ function usuarioDoToken(idToken: string): AuthUser {
     email: texto(claims['email']) ?? '',
     name:
       texto(claims['name']) ??
-      (texto(claims['email']) === 'dev@alcadas.com' ? 'Desenvolvedor' : undefined),
+      (texto(claims['user_id']) === 'dev-master' ? 'Desenvolvedor' : undefined),
     role: texto(claims['role']) ?? texto(papeis[0]),
     roles: papeis.length > 0 ? papeis : undefined,
     tenantId: texto(claims['tenantId']),
@@ -324,13 +336,13 @@ function codificarBase64Url(valor: Record<string, unknown>): string {
     .replace(/=+$/, '');
 }
 
-function criarTokenDesenvolvedor(): string {
+function criarTokenDesenvolvedor(email = 'dev-local'): string {
   const agora = Math.floor(Date.now() / 1000);
   const cabecalho = codificarBase64Url({ alg: 'none', typ: 'JWT' });
   const corpo = codificarBase64Url({
     user_id: 'dev-master',
     sub: 'dev-master',
-    email: 'dev@alcadas.com',
+    email,
     name: 'Desenvolvedor',
     role: 'SUPER_USER',
     roles: [
