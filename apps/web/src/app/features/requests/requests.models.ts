@@ -80,6 +80,7 @@ export interface RequestItem {
   aprovadorEsperadoPapel?: string | null;
   aprovadorEsperadoNivel?: string | null;
   fluxoDestinado: WorkflowDestination;
+  alertaRisco?: string | null;
 }
 
 export interface RequestStats {

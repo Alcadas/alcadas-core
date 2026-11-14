@@ -22,6 +22,8 @@ export class SolicitacoesService {
     etapaAtual: number;
     aprovadorEsperadoPapel: string;
     aprovadorEsperadoNivel: 'N1' | 'N2' | 'N3';
+    violouTeto?: boolean;
+    tetoMaximo?: number;
   }> {
     // 1. Se o dto já trouxe fluxoId explícito do catálogo do frontend
     if (dto.fluxoId && dto.fluxoNome) {
@@ -45,8 +47,6 @@ export class SolicitacoesService {
         );
         const ativo = workflows.find((w) => {
           if (w['status'] !== 'ACTIVE') return false;
-          const ceiling = typeof w['ceilingAmount'] === 'number' ? w['ceilingAmount'] : Infinity;
-          if (dto.valor > ceiling) return false;
           const config = (w['config'] as Record<string, unknown>) ?? {};
           if (config['costCenter'] && config['costCenter'] === dto.centroCustoId) return true;
           if (config['category'] && config['category'] === dto.categoria) return true;
@@ -54,6 +54,8 @@ export class SolicitacoesService {
         });
 
         if (ativo) {
+          const ceiling = typeof ativo['ceilingAmount'] === 'number' ? ativo['ceilingAmount'] : Infinity;
+          const violouTeto = dto.valor > ceiling;
           const totalEtapas = Array.isArray(ativo['steps']) && ativo['steps'].length > 1
             ? ativo['steps'].length
             : dto.valor > 5000 ? 3 : dto.valor > 1000 ? 2 : 1;
@@ -64,6 +66,8 @@ export class SolicitacoesService {
             etapaAtual: 1,
             aprovadorEsperadoPapel: 'APROVADOR_N1',
             aprovadorEsperadoNivel: 'N1',
+            violouTeto,
+            tetoMaximo: Number.isFinite(ceiling) ? ceiling : undefined,
           };
         }
       } catch {
@@ -135,6 +139,10 @@ export class SolicitacoesService {
     const fluxo = await this.avaliarFluxoCompativel(tenantId, dto);
     const solicitacaoId = `sol-${uuidv4().substring(0, 8)}`;
     const agora = new Date().toISOString();
+    const status = fluxo.violouTeto ? 'EM_AJUSTE' : 'PENDENTE';
+    const alertaRisco = fluxo.violouTeto
+      ? `Teto de alçada excedido para o fluxo ${fluxo.fluxoNome}. Valor solicitado: ${dto.valor}, limite máximo: ${fluxo.tetoMaximo}.`
+      : null;
 
     const solicitacao = {
       id: solicitacaoId,
@@ -147,7 +155,8 @@ export class SolicitacoesService {
       categoria: dto.categoria,
       justificativa: dto.justificativa || '',
       fornecedor: dto.fornecedor || null,
-      status: 'PENDENTE',
+      status,
+      alertaRisco,
       versao: 1,
       fluxoId: fluxo.fluxoId,
       fluxoNome: fluxo.fluxoNome,

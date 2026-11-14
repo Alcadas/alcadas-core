@@ -264,92 +264,23 @@
                   </td>
 
                   <td class="td-actions" (click)="$event.stopPropagation()">
-                    <div class="menu-actions-container">
-                      <button
-                        type="button"
-                        class="btn-row-actions"
-                        [class.active]="openMenuId() === req.id"
-                        (click)="toggleActionsMenu(req.id, $event)"
-                        title="Ações da solicitação"
-                        aria-label="Abrir menu de ações para solicitação {{ req.codigo }}"
+                    <div class="action-select-wrapper">
+                      <select
+                        #actionSelect
+                        class="action-select-input"
+                        [attr.aria-label]="'Ações de deliberação para ' + req.codigo"
+                        (change)="onActionSelect(req, actionSelect)"
                       >
-                        <span class="material-symbols-rounded">more_vert</span>
-                      </button>
-
-                      @if (openMenuId() === req.id) {
-                        <div class="actions-dropdown-menu" role="menu">
-                          @if (req.status === 'PENDENTE') {
-                            <!-- Opção 1: Assinar Digitalmente (Principal) -->
-                            <button
-                              type="button"
-                              class="dropdown-action-item is-sign"
-                              (click)="openSignModal(req); closeActionsMenu()"
-                            >
-                              <span class="material-symbols-rounded">draw</span>
-                              <div class="action-item-text">
-                                <strong>Assinar Digitalmente</strong>
-                                <small>Aprovação com hash SHA-256</small>
-                              </div>
-                            </button>
-
-                            <!-- Opção 2: Validação Técnica -->
-                            <button
-                              type="button"
-                              class="dropdown-action-item"
-                              (click)="openValidateModal(req); closeActionsMenu()"
-                            >
-                              <span class="material-symbols-rounded">task_alt</span>
-                              <div class="action-item-text">
-                                <strong>Validar Tecnicamente</strong>
-                                <small>Parecer de conformidade</small>
-                              </div>
-                            </button>
-
-                            <!-- Opção 3: Solicitar Ajuste / Revisão -->
-                            <button
-                              type="button"
-                              class="dropdown-action-item"
-                              (click)="openAdjustmentModal(req); closeActionsMenu()"
-                            >
-                              <span class="material-symbols-rounded">edit_note</span>
-                              <div class="action-item-text">
-                                <strong>Solicitar Ajuste</strong>
-                                <small>Devolver ao solicitante</small>
-                              </div>
-                            </button>
-
-                            <hr class="menu-divider" />
-
-                            <!-- Opção 4: Rejeitar / Descartar -->
-                            <button
-                              type="button"
-                              class="dropdown-action-item is-danger"
-                              (click)="openRejectModal(req); closeActionsMenu()"
-                            >
-                              <span class="material-symbols-rounded">close</span>
-                              <div class="action-item-text">
-                                <strong>Rejeitar Solicitação</strong>
-                                <small>Declinar pedido formalmente</small>
-                              </div>
-                            </button>
-
-                            <hr class="menu-divider" />
-                          }
-
-                          <!-- Opção Geral: Trilha e Detalhes -->
-                          <button
-                            type="button"
-                            class="dropdown-action-item"
-                            (click)="openDetailDrawer(req); closeActionsMenu()"
-                          >
-                            <span class="material-symbols-rounded">timeline</span>
-                            <div class="action-item-text">
-                              <strong>Ver Trilha & Detalhes</strong>
-                              <small>Histórico e governança</small>
-                            </div>
-                          </button>
-                        </div>
-                      }
+                        <option value="" disabled selected>Ações...</option>
+                        @if (req.status === 'PENDENTE') {
+                          <option value="assinar">✍ Assinar (SHA-256)</option>
+                          <option value="validar">✓ Validar Tecnicamente</option>
+                          <option value="revisar">✎ Solicitar Ajuste</option>
+                          <option value="rejeitar">✕ Rejeitar</option>
+                        }
+                        <option value="trilha">👁 Ver Trilha & Detalhes</option>
+                      </select>
+                      <span class="material-symbols-rounded select-chevron" aria-hidden="true">expand_more</span>
                     </div>
                   </td>
                 </tr>
@@ -485,6 +416,16 @@
             </div>
           </div>
         </div>
+
+        @if (req.alertaRisco) {
+          <div class="governance-alert-card" role="alert">
+            <span class="material-symbols-rounded alert-icon">warning</span>
+            <div class="alert-body">
+              <strong class="alert-title">Alerta de Governança Orçamentária</strong>
+              <p class="alert-desc">{{ req.alertaRisco }}</p>
+            </div>
+          </div>
+        }
 
         <!-- Justificativa da Demanda -->
         <div class="detail-section">

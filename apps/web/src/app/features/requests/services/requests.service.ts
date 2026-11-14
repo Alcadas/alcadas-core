@@ -11,6 +11,8 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import { mensagemDeErroDaApi } from '../../../core/http/api-error';
 import { SettingsService } from '../../settings/services/settings.service';
+import { avaliarSolicitacaoNoFluxo } from '../../limits/services/limits-workflow.utils';
+import { LimitsService } from '../../limits/services/limits.service';
 import {
   CATEGORY_OPTIONS,
   ContextoDoMapeamento,
@@ -234,6 +236,7 @@ export class RequestsService {
   private readonly http = inject(HttpClient, { optional: true });
   private readonly authService = inject(AuthService, { optional: true });
   private readonly settingsService = inject(SettingsService, { optional: true });
+  private readonly limitsService = inject(LimitsService, { optional: true });
   private readonly apiBaseUrl = inject(APP_CONFIG, { optional: true })?.apiBaseUrl ?? '/api';
 
   readonly categories = CATEGORY_OPTIONS;
@@ -490,6 +493,22 @@ export class RequestsService {
       : payload.justificativa;
 
     const user = this.authService?.currentUser();
+    const rules = this.limitsService?.allRules?.() ?? [];
+    const centroInfo = this._costCenters().find((c) => c.id === payload.centroCustoId);
+
+    const avaliacao = avaliarSolicitacaoNoFluxo(
+      {
+        valor: payload.valor,
+        categoria: payload.categoria,
+        centroCustoId: payload.centroCustoId,
+        departamento: centroInfo?.departamento,
+        fluxoId: payload.fluxoId,
+        titulo: payload.titulo,
+        descricao: payload.justificativa,
+      },
+      rules,
+    );
+
     const dtoMock: SolicitacaoResponseDto = {
       id,
       tenantId: user?.tenantId ?? 'startop',
@@ -499,9 +518,13 @@ export class RequestsService {
       categoria: payload.categoria,
       justificativa: justificativaCompleta,
       fornecedor: payload.fornecedor,
-      status: 'PENDENTE',
+      status: avaliacao.status,
       versao: 1,
-      alertaRisco: null,
+      alertaRisco: avaliacao.alertaRisco,
+      fluxoId: avaliacao.fluxoId,
+      fluxoNome: avaliacao.fluxoNome,
+      totalEtapas: avaliacao.etapas.length,
+      etapaAtual: avaliacao.etapaAtualNumero,
       createdAt: agora,
       updatedAt: agora,
       ...({
@@ -514,6 +537,19 @@ export class RequestsService {
       ...paraRequestItem(dtoMock, this.contexto()),
       titulo: payload.titulo || paraRequestItem(dtoMock, this.contexto()).titulo,
       prioridade: payload.prioridade ?? inferirPrioridade(payload.valor),
+      status: avaliacao.status,
+      statusLabel: avaliacao.statusLabel,
+      statusIcon: avaliacao.statusIcon,
+      alertaRisco: avaliacao.alertaRisco,
+      fluxoId: avaliacao.fluxoId,
+      fluxoNome: avaliacao.fluxoNome,
+      fluxoDestinado: {
+        nome: avaliacao.fluxoNome,
+        totalEtapas: avaliacao.etapas.length,
+        etapaAtualNumero: avaliacao.etapaAtualNumero,
+        etapaAtualNome: avaliacao.etapaAtualNome,
+        etapas: avaliacao.etapas,
+      },
       solicitante: {
         id: user?.id ?? 'voce',
         nome: user?.name || 'Você',
@@ -575,7 +611,6 @@ export class RequestsService {
   ): RequestItem | null {
     let atualizado: RequestItem | null = null;
     const nowIso = new Date().toISOString();
-    const nowFormatted = new Date().toLocaleString('pt-BR');
 
     this._requests.update((lista) =>
       lista.map((req) => {
@@ -591,23 +626,20 @@ export class RequestsService {
           typeof patch.valor === 'number' && patch.valor > 0 ? patch.valor : req.valor;
         const novoTitulo = patch.titulo?.trim() || req.titulo;
         const novaDescricao = patch.descricao?.trim() || req.descricao;
-        const novoFluxo = this.calculateSuggestedWorkflow(
-          novoValor,
-          novoCentroId,
-          novaCategoria,
-        );
 
-        const etapasAtualizadas = req.fluxoDestinado.etapas.map((step) => {
-          if (step.status === 'AJUSTE') {
-            return {
-              ...step,
-              status: 'EM_ANALISE' as const,
-              dataHora: nowFormatted,
-              comentario: `Ajuste realizado pelo solicitante (${nowFormatted}): ${novaDescricao}`,
-            };
-          }
-          return step;
-        });
+        const rules = this.limitsService?.allRules?.() ?? [];
+        const avaliacao = avaliarSolicitacaoNoFluxo(
+          {
+            valor: novoValor,
+            categoria: novaCategoria,
+            centroCustoId: novoCentroId,
+            departamento: ccInfo?.departamento ?? req.departamento,
+            fluxoId: req.fluxoId ?? undefined,
+            titulo: novoTitulo,
+            descricao: novaDescricao,
+          },
+          rules,
+        );
 
         atualizado = {
           ...req,
@@ -622,14 +654,20 @@ export class RequestsService {
           departamento: ccInfo?.departamento ?? ccInfo?.nome ?? req.departamento,
           valor: novoValor,
           prioridade: inferirPrioridade(novoValor),
-          status: 'PENDENTE',
-          statusLabel: 'Em análise',
-          statusIcon: 'hourglass_top',
+          status: avaliacao.status,
+          statusLabel: avaliacao.statusLabel,
+          statusIcon: avaliacao.statusIcon,
+          alertaRisco: avaliacao.alertaRisco,
           versao: req.versao + 1,
           dataAtualizacao: nowIso,
+          fluxoId: avaliacao.fluxoId,
+          fluxoNome: avaliacao.fluxoNome,
           fluxoDestinado: {
-            ...novoFluxo,
-            etapas: etapasAtualizadas.length > 0 ? etapasAtualizadas : novoFluxo.etapas,
+            nome: avaliacao.fluxoNome,
+            totalEtapas: avaliacao.etapas.length,
+            etapaAtualNumero: avaliacao.etapaAtualNumero,
+            etapaAtualNome: avaliacao.etapaAtualNome,
+            etapas: avaliacao.etapas,
           },
         };
 

@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SolicitacaoResponseDto } from '@alcadas-core/models';
 import { AuthUser } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';

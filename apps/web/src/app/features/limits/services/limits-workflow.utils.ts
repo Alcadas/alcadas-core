@@ -298,3 +298,212 @@ export function mapModeloToLimitRule(
     category,
   };
 }
+
+export interface SolicitacaoAvaliacaoInput {
+  valor: number;
+  categoria?: string;
+  centroCustoId?: string;
+  departamento?: string;
+  fluxoId?: string;
+  titulo?: string;
+  descricao?: string;
+}
+
+export interface ResultadoAvaliacaoFluxo {
+  aprovado: boolean;
+  fluxoId: string;
+  fluxoNome: string;
+  status: 'PENDENTE' | 'EM_AJUSTE';
+  statusLabel: string;
+  statusIcon: string;
+  alertaRisco: string | null;
+  tetoMaximo?: number;
+  regraViolada?: string;
+  etapaAtualNumero: number;
+  etapaAtualNome: string;
+  etapas: {
+    numero: number;
+    nome: string;
+    papel: string;
+    responsavelNome?: string;
+    status: 'CONCLUIDA' | 'EM_ANALISE' | 'PENDENTE' | 'REJEITADA' | 'AJUSTE';
+    dataHora?: string;
+    comentario?: string;
+  }[];
+}
+
+/**
+ * Motor de Governança de Alçadas (#89 / Requisito de Negócio):
+ * Avalia automaticamente uma solicitação frente às regras e fluxos de alçada ativos.
+ *
+ * Se a solicitação violar uma regra de teto (ex: nó CONDITION_VALUE ou ceilingAmount):
+ * - A solicitação é reprovada na etapa de governança automática.
+ * - Recebe status 'EM_AJUSTE', com indicação clara do teto e regra violada.
+ * - NÃO é liberada para a caixa de entrada de aprovações do gerente.
+ *
+ * Se a solicitação estiver em conformidade:
+ * - A etapa de governança é aprovada automaticamente.
+ * - Recebe status 'PENDENTE' e é liberada para análise e deliberação humana do gestor.
+ */
+export function avaliarSolicitacaoNoFluxo(
+  input: SolicitacaoAvaliacaoInput,
+  regrasDisponiveis: readonly LimitRuleItem[],
+): ResultadoAvaliacaoFluxo {
+  const agoraFormatado = new Date().toLocaleString('pt-BR');
+  const valor = Number(input.valor) || 0;
+
+  // 1. Localiza o fluxo ativo compatível
+  const regrasAtivas = regrasDisponiveis.filter((r) => r.status === 'ACTIVE');
+  const pool = regrasAtivas.length > 0 ? regrasAtivas : regrasDisponiveis;
+
+  let fluxo = input.fluxoId ? pool.find((r) => r.id === input.fluxoId) : undefined;
+
+  if (!fluxo && input.centroCustoId) {
+    const ccNorm = input.centroCustoId.toLowerCase();
+    fluxo = pool.find((r) => {
+      const matchCenter =
+        r.locationOrCenter?.toLowerCase().includes(ccNorm) ||
+        r.department?.toLowerCase().includes(ccNorm);
+      const matchTrigger = r.nodes?.some(
+        (n) =>
+          n.type === 'TRIGGER' &&
+          typeof n.config?.costCenter === 'string' &&
+          n.config.costCenter.toLowerCase().includes(ccNorm),
+      );
+      return matchCenter || matchTrigger;
+    });
+  }
+
+  if (!fluxo && input.departamento) {
+    const deptNorm = input.departamento.toLowerCase();
+    fluxo = pool.find((r) => r.department?.toLowerCase().includes(deptNorm));
+  }
+
+  if (!fluxo && input.categoria) {
+    fluxo = pool.find((r) => r.category === input.categoria);
+  }
+
+  if (!fluxo && pool.length > 0) {
+    fluxo = pool[0];
+  }
+
+  const fluxoId = fluxo?.id || 'wf-auto';
+  const fluxoNome = fluxo?.title || 'Fluxo Corporativo de Alçadas';
+
+  // 2. Extrai o teto e regras de valor do fluxo
+  let tetoMaximo: number | undefined = undefined;
+  let regraNome = 'Teto de Governança Orçamentária';
+
+  if (fluxo?.nodes && fluxo.nodes.length > 0) {
+    const conditionNodes = fluxo.nodes.filter(
+      (n) =>
+        n.type === 'CONDITION_VALUE' &&
+        typeof n.config?.valueMax === 'number' &&
+        Number.isFinite(n.config.valueMax) &&
+        n.config.valueMax > 0,
+    );
+    if (conditionNodes.length > 0) {
+      const cond = conditionNodes[0];
+      tetoMaximo = cond.config.valueMax;
+      regraNome = cond.title || 'Teto de Valor';
+    }
+  }
+
+  if (tetoMaximo === undefined && typeof fluxo?.ceilingAmount === 'number' && fluxo.ceilingAmount > 0) {
+    tetoMaximo = fluxo.ceilingAmount;
+  }
+
+  // Identifica o papel do aprovador a partir dos nós APPROVER do fluxo
+  const approverNode = fluxo?.nodes?.find((n) => n.type === 'APPROVER');
+  const papelAprovador = approverNode
+    ? approverNode.title.replace('Aprovação: ', '').trim()
+    : fluxo?.assignedTo || 'Gerente Responsável';
+
+  // 3. Validação das Regras Automáticas
+  const violouTeto = typeof tetoMaximo === 'number' && valor > tetoMaximo;
+
+  if (violouTeto) {
+    const tetoFormatado = formatCurrencyBRL(tetoMaximo!);
+    const valorFormatado = formatCurrencyBRL(valor);
+    const alertaRisco = `⚠️ Teto de Alçada Excedido: O valor solicitado de ${valorFormatado} excede o limite máximo permitido de ${tetoFormatado} configurado na regra "${regraNome}" do fluxo "${fluxoNome}". Ajuste o valor ou divida a solicitação para prosseguir.`;
+
+    return {
+      aprovado: false,
+      fluxoId,
+      fluxoNome,
+      status: 'EM_AJUSTE',
+      statusLabel: 'Ajuste solicitado',
+      statusIcon: 'edit_note',
+      alertaRisco,
+      tetoMaximo,
+      regraViolada: regraNome,
+      etapaAtualNumero: 2,
+      etapaAtualNome: 'Aguardando ajuste do solicitante',
+      etapas: [
+        {
+          numero: 1,
+          nome: 'Submissão da Solicitação',
+          papel: 'Solicitante',
+          status: 'CONCLUIDA',
+          dataHora: agoraFormatado,
+          comentario: input.descricao ? `Proposta submetida: ${input.descricao}` : undefined,
+        },
+        {
+          numero: 2,
+          nome: `Validação Automática: ${regraNome}`,
+          papel: 'Motor de Governança',
+          status: 'AJUSTE',
+          dataHora: agoraFormatado,
+          comentario: `Reprovado automaticamente pelo motor de governança: o valor (${valorFormatado}) excede o teto permitido de ${tetoFormatado}.`,
+        },
+        {
+          numero: 3,
+          nome: `Deliberação: ${papelAprovador}`,
+          papel: papelAprovador,
+          status: 'PENDENTE',
+          comentario: 'Bloqueado: aguardando regularização pelo solicitante para liberação da esteira.',
+        },
+      ],
+    };
+  }
+
+  // Aprovado no motor de regras
+  const tetoInfo = tetoMaximo ? ` (limite de ${formatCurrencyBRL(tetoMaximo)})` : '';
+  return {
+    aprovado: true,
+    fluxoId,
+    fluxoNome,
+    status: 'PENDENTE',
+    statusLabel: 'Em análise',
+    statusIcon: 'hourglass_top',
+    alertaRisco: null,
+    tetoMaximo,
+    etapaAtualNumero: 3,
+    etapaAtualNome: 'Aguardando aprovador',
+    etapas: [
+      {
+        numero: 1,
+        nome: 'Submissão da Solicitação',
+        papel: 'Solicitante',
+        status: 'CONCLUIDA',
+        dataHora: agoraFormatado,
+        comentario: input.descricao ? `Proposta submetida: ${input.descricao}` : undefined,
+      },
+      {
+        numero: 2,
+        nome: `Validação Automática: ${regraNome}`,
+        papel: 'Motor de Governança',
+        status: 'CONCLUIDA',
+        dataHora: agoraFormatado,
+        comentario: `✓ Aprovado automaticamente pelo motor de governança de alçadas${tetoInfo}.`,
+      },
+      {
+        numero: 3,
+        nome: `Deliberação: ${papelAprovador}`,
+        papel: papelAprovador,
+        status: 'EM_ANALISE',
+        comentario: 'Aguardando parecer e assinatura digital do gestor responsável.',
+      },
+    ],
+  };
+}

@@ -202,8 +202,8 @@ export class LimitsService {
     this.ruleTemplatesState.update((list) => list.filter((t) => t.title !== title));
   }
 
-  // Lista central de regras de alçada (inicia vazia e carrega do Firestore via API)
-  private readonly rulesState = signal<LimitRuleItem[]>([]);
+  // Lista central de regras de alçada (inicia com fluxos ativos padrão e sincroniza do Firestore via API)
+  private readonly rulesState = signal<LimitRuleItem[]>(this.getInitialSeedRules());
 
   readonly allRules = this.rulesState.asReadonly();
 
@@ -214,6 +214,59 @@ export class LimitsService {
   readonly departments = computed(
     () => this.settingsService?.organization().departments ?? [],
   );
+
+  private getInitialSeedRules(): LimitRuleItem[] {
+    const tiModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'aquisicao-equipamentos-ti');
+    const opsModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'reembolso-despesas-operacionais');
+    const finModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'fornecedores-servicos-recorrentes');
+
+    const seeds: LimitRuleItem[] = [];
+
+    if (tiModel) {
+      seeds.push(
+        mapModeloToLimitRule(tiModel, {
+          id: 'ALC-104',
+          nome: 'Aquisição de Equipamentos de TI & Hardware',
+          centroCusto: 'CC-TI-01 · Tecnologia & Infraestrutura',
+          department: 'TI & Engenharia',
+          status: 'ACTIVE',
+          category: 'EQUIPAMENTOS',
+          faixas: [
+            { id: 'f1', valorMinimo: 0, valorMaximo: 15000, papelAprovador: 'GERENTE', aprovacaoTecnica: true },
+            { id: 'f2', valorMinimo: 15000.01, valorMaximo: null, papelAprovador: 'DIRETOR', aprovacaoTecnica: true },
+          ],
+        }),
+      );
+    }
+
+    if (opsModel) {
+      seeds.push(
+        mapModeloToLimitRule(opsModel, {
+          id: 'ALC-102',
+          nome: 'Despesas e Insumos Operacionais',
+          centroCusto: 'CC-CENTRO · Clínica Centro',
+          department: 'Operações',
+          status: 'ACTIVE',
+          category: 'SERVICOS_TERCEIROS',
+        }),
+      );
+    }
+
+    if (finModel) {
+      seeds.push(
+        mapModeloToLimitRule(finModel, {
+          id: 'ALC-103',
+          nome: 'Suprimentos e Material Administrativo',
+          centroCusto: 'CC-FIN-02 · Controladoria & Finanças',
+          department: 'Financeiro',
+          status: 'ACTIVE',
+          category: 'MATERIAL_ESCRITORIO',
+        }),
+      );
+    }
+
+    return seeds;
+  }
 
   constructor() {
     this.loadFromBackend();
@@ -231,7 +284,9 @@ export class LimitsService {
       .subscribe({
         next: (res) => {
           const remotos = Array.isArray(res?.workflows) ? res.workflows : [];
-          this.rulesState.set(remotos);
+          if (remotos.length > 0) {
+            this.rulesState.set(remotos);
+          }
           if (onRulesCatalogLoaded && Array.isArray(res?.rulesCatalog)) {
             onRulesCatalogLoaded(res.rulesCatalog);
           }

@@ -448,6 +448,16 @@
           </div>
         </div>
 
+        @if (req.alertaRisco) {
+          <div class="governance-alert-card" role="alert">
+            <span class="material-symbols-rounded alert-icon">warning</span>
+            <div class="alert-body">
+              <strong class="alert-title">Retornado para Ajuste pelo Motor de Regras</strong>
+              <p class="alert-desc">{{ req.alertaRisco }}</p>
+            </div>
+          </div>
+        }
+
         <!-- Trilha de Aprovação das Etapas do Fluxo -->
         <div class="workflow-timeline-section">
           <div class="timeline-header">

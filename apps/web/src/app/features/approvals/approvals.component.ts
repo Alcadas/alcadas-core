@@ -70,6 +70,30 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
     this.openMenuId.set(null);
   }
 
+  onActionSelect(req: RequestItem, selectEl: HTMLSelectElement): void {
+    const action = selectEl.value;
+    selectEl.value = '';
+    if (!action) return;
+
+    switch (action) {
+      case 'assinar':
+        this.openSignModal(req);
+        break;
+      case 'validar':
+        this.openValidateModal(req);
+        break;
+      case 'revisar':
+        this.openAdjustmentModal(req);
+        break;
+      case 'rejeitar':
+        this.openRejectModal(req);
+        break;
+      case 'trilha':
+        this.openDetailDrawer(req);
+        break;
+    }
+  }
+
   // Modal de Assinatura Digital
   readonly signingRequest = signal<RequestItem | null>(null);
   readonly isSignModalOpen = signal<boolean>(false);

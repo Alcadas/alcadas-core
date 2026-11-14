@@ -225,6 +225,38 @@ describe('ApprovalsComponent', () => {
     expect(component.isDetailDrawerOpen()).toBe(false);
   });
 
+  it('should trigger actions from onActionSelect dropdown input', () => {
+    const pendingReq = requestsService.requests().find((r) => r.status === 'PENDENTE');
+    expect(pendingReq).toBeDefined();
+    if (pendingReq) {
+      const mockSelect = { value: 'assinar' } as HTMLSelectElement;
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.isSignModalOpen()).toBe(true);
+      expect(mockSelect.value).toBe('');
+      component.closeSignModal();
+
+      mockSelect.value = 'validar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.validatingRequest()?.id).toBe(pendingReq.id);
+      component.closeValidateModal();
+
+      mockSelect.value = 'revisar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.adjustingRequest()?.id).toBe(pendingReq.id);
+      component.closeAdjustmentModal();
+
+      mockSelect.value = 'rejeitar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.rejectingRequest()?.id).toBe(pendingReq.id);
+      component.closeRejectModal();
+
+      mockSelect.value = 'trilha';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.isDetailDrawerOpen()).toBe(true);
+      component.closeDetailDrawer();
+    }
+  });
+
   describe('Isolamento de Departamento (Cenário 2)', () => {
     it('deve filtrar e exibir apenas solicitações do próprio departamento para aprovador setorial', () => {
       const authService = TestBed.inject(AuthService);
