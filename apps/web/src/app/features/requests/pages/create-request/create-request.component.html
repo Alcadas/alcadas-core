@@ -31,7 +31,7 @@
 
         <div class="card-body">
           <!-- Campo: Título -->
-          <div class="form-group">
+          <div class="form-group" data-tour="solicitacao-titulo">
             <label for="tituloInput" class="form-label">
               Título da Solicitação <span class="required">*</span>
             </label>
@@ -53,7 +53,7 @@
           </div>
 
           <!-- Linha Dupla: Centro de Custo + Categoria -->
-          <div class="form-row-2">
+          <div class="form-row-2" data-tour="solicitacao-classificacao">
             <div class="form-group">
               <label for="centroCustoSelect" class="form-label">
                 Centro de Custo <span class="required">*</span>
@@ -162,7 +162,7 @@
         </header>
 
         <div class="card-body">
-          <div class="form-group">
+          <div class="form-group" data-tour="solicitacao-justificativa">
             <div class="label-with-counter">
               <label for="justificativaInput" class="form-label">
                 Motivo e Benefícios da Despesa <span class="required">*</span>
@@ -267,6 +267,7 @@
           <button
             type="button"
             class="btn-submit"
+            data-tour="solicitacao-submeter"
             (click)="submitNewRequest()"
             [disabled]="isSubmitting()"
           >
@@ -287,7 +288,7 @@
     <aside class="form-sidebar-column">
 
       <!-- Card Lateral 1: Valor da Despesa -->
-      <section class="sidebar-card value-card">
+      <section class="sidebar-card value-card" data-tour="solicitacao-valor">
         <div class="sidebar-card-header">
           <span class="material-symbols-rounded">payments</span>
           <h3>Valor Estimado</h3>
@@ -325,7 +326,7 @@
       </section>
 
       <!-- Card Lateral 2: Esteira Calculada Dinamicamente -->
-      <section class="sidebar-card workflow-preview-card">
+      <section class="sidebar-card workflow-preview-card" data-tour="solicitacao-esteira">
         <div class="sidebar-card-header">
           <span class="material-symbols-rounded">account_tree</span>
           <h3>Esteira de Alçada</h3>

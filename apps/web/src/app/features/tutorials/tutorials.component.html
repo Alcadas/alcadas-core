@@ -1,99 +1,49 @@
-<div class="tutorials-page-wrapper">
-  <!-- 1. Header do Módulo de Tutoriais -->
-  <header class="tutorials-identity-header">
-    <div class="identity-left">
-      <div class="identity-icon-box" aria-hidden="true">
-        <span class="material-symbols-rounded">school</span>
-      </div>
-      <div class="identity-titles">
-        <h1>Central de Tutoriais & Guias de Uso</h1>
-        <p>
-          Aprenda o funcionamento completo do sistema Alçadas: como submeter pedidos, deliberar aprovações, parametrizar esteiras e gerenciar a organização.
-        </p>
-      </div>
-    </div>
+<!-- ========================================================================= -->
+<!-- 1. HEADER COMPONENTIZADO DA CENTRAL DE TUTORIAIS                          -->
+<!-- ========================================================================= -->
+<app-page-header
+  breadcrumbRoot="Ajuda & Suporte"
+  breadcrumbCurrent="Central de Tutoriais"
+  searchPlaceholder="Buscar guias, termos SoD, alçadas, esteiras..."
+  [searchQuery]="searchQuery()"
+  (searchQueryChange)="searchQuery.set($event)"
+  contextIcon="school"
+  contextTitle="Central de Tutoriais & Guias de Uso"
+  contextSubtitle="Aprenda o funcionamento completo: compras, aprovações, esteiras e governança"
+  [tabs]="headerTabs()"
+  [activeTab]="activeTab()"
+  (tabChange)="selectTab($any($event))"
+>
+  <div tier2-actions class="tier2-actions-group">
+    <button
+      type="button"
+      class="btn-start-tour"
+      (click)="iniciarTourContextual('onboarding')"
+      title="Iniciar tour interativo passo a passo"
+    >
+      <span class="material-symbols-rounded">play_circle</span>
+      <span>Apresentação Geral</span>
+    </button>
 
-    <div class="identity-actions">
-      <button
-        type="button"
-        class="btn-start-tour"
-        (click)="iniciarTourContextual('onboarding')"
-        title="Iniciar tour interativo passo a passo"
-      >
-        <span class="material-symbols-rounded">play_circle</span>
-        <span>Iniciar Tour Interativo</span>
-      </button>
-
-      <button
-        type="button"
-        class="btn-welcome-reset"
-        (click)="tourService.openWelcomeModal()"
-        title="Ver tela de boas-vindas novamente"
-      >
-        <span class="material-symbols-rounded">waving_hand</span>
-        <span>Boas-vindas</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- 2. Barra de Busca e Atalhos Rápidos -->
-  <div class="tutorials-toolbar">
-    <div class="search-box">
-      <span class="material-symbols-rounded">search</span>
-      <input
-        type="text"
-        placeholder="Buscar guias por termo, ex: cotações, SoD, aprovação em lote, alçada..."
-        [ngModel]="searchQuery()"
-        (ngModelChange)="searchQuery.set($event)"
-      />
-    </div>
-
-    <!-- Navegação por Abas Temáticas -->
-    <nav class="tutorial-tabs" aria-label="Abas de tópicos de tutoriais">
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="activeTab() === 'solicitacoes'"
-        (click)="selectTab('solicitacoes')"
-      >
-        <span class="material-symbols-rounded">receipt_long</span>
-        <span>1. Solicitações de Compra</span>
-      </button>
-
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="activeTab() === 'aprovacoes'"
-        (click)="selectTab('aprovacoes')"
-      >
-        <span class="material-symbols-rounded">check_circle</span>
-        <span>2. Aprovações & Deliberação</span>
-      </button>
-
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="activeTab() === 'alcadas'"
-        (click)="selectTab('alcadas')"
-      >
-        <span class="material-symbols-rounded">account_tree</span>
-        <span>3. Alçadas & Esteiras</span>
-      </button>
-
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="activeTab() === 'organizacao'"
-        (click)="selectTab('organizacao')"
-      >
-        <span class="material-symbols-rounded">domain</span>
-        <span>4. Organização & Acessos</span>
-      </button>
-    </nav>
+    <button
+      type="button"
+      class="btn-welcome-reset"
+      (click)="tourService.openWelcomeModal()"
+      title="Ver tela de boas-vindas novamente"
+    >
+      <span class="material-symbols-rounded">waving_hand</span>
+      <span>Boas-vindas</span>
+    </button>
   </div>
+</app-page-header>
 
-  <!-- 3. Conteúdo das Abas -->
-  <main class="tutorial-main-card">
+<!-- ========================================================================= -->
+<!-- 2. CONTAINER DE CONTEÚDO COM ROLAGEM VERTICAL COMPLETA                    -->
+<!-- ========================================================================= -->
+<div class="tutorials-scroll-wrapper">
+  <div class="tutorials-page-wrapper">
+    <!-- 3. Conteúdo das Abas -->
+    <main class="tutorial-main-card">
     <!-- ==================== ABA 1: SOLICITAÇÕES ==================== -->
     @if (activeTab() === 'solicitacoes') {
       <section class="tutorial-topic-section">
@@ -455,4 +405,5 @@
       }
     </div>
   </section>
+  </div>
 </div>

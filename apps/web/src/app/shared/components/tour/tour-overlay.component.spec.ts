@@ -90,5 +90,9 @@ describe('TourOverlayComponent', () => {
 
     tourService.startTour('minhas-regras');
     expect(tourService.currentContext()).toBe('minhas-regras');
+
+    tourService.startTour('criar-solicitacao');
+    expect(tourService.currentContext()).toBe('criar-solicitacao');
+    expect(tourService.tourSteps().length).toBeGreaterThanOrEqual(5);
   });
 });

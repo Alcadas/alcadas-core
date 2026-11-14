@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TourService } from '../../core/services/tour.service';
+import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
 
 export type TutorialTabType = 'solicitacoes' | 'aprovacoes' | 'alcadas' | 'organizacao';
 
@@ -16,7 +17,7 @@ export interface FaqItem {
 @Component({
   selector: 'app-tutorials',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PageHeaderComponent],
   templateUrl: './tutorials.component.html',
   styleUrl: './tutorials.component.scss',
 })
@@ -26,6 +27,13 @@ export class TutorialsComponent {
 
   readonly activeTab = signal<TutorialTabType>('solicitacoes');
   readonly searchQuery = signal<string>('');
+
+  readonly headerTabs = signal<PageHeaderTab[]>([
+    { id: 'solicitacoes', label: '1. Solicitações de Compra', icon: 'receipt_long' },
+    { id: 'aprovacoes', label: '2. Aprovações & Deliberação', icon: 'check_circle' },
+    { id: 'alcadas', label: '3. Alçadas & Limites', icon: 'rule' },
+    { id: 'organizacao', label: '4. Organização & Governança', icon: 'domain' },
+  ]);
 
   // Simulador de Esteira de Alçada
   readonly simValue = signal<number>(15000);

@@ -45,4 +45,39 @@ describe('PageHeaderComponent', () => {
     component.onQuickActionClick('tour');
     expect(component.quickAction.emit).toHaveBeenCalledWith('tour');
   });
+
+  it('should toggle and close tutorial dropdown', () => {
+    expect(component.isTutorialDropdownOpen()).toBe(false);
+    component.toggleTutorialDropdown();
+    expect(component.isTutorialDropdownOpen()).toBe(true);
+    component.closeTutorialDropdown();
+    expect(component.isTutorialDropdownOpen()).toBe(false);
+  });
+
+  it('should trigger assisted request creation tour', () => {
+    jest.spyOn(component.quickAction, 'emit');
+    component.startCreateRequestTour();
+    expect(component.isTutorialDropdownOpen()).toBe(false);
+    expect(component.quickAction.emit).toHaveBeenCalledWith('tour-create-request');
+  });
+
+  it('should trigger general onboarding tour', () => {
+    jest.spyOn(component.quickAction, 'emit');
+    component.startGeneralTour();
+    expect(component.isTutorialDropdownOpen()).toBe(false);
+    expect(component.quickAction.emit).toHaveBeenCalledWith('tour-general');
+  });
+
+  it('should close tutorial dropdown on document click outside', () => {
+    component.isTutorialDropdownOpen.set(true);
+    const outsideElement = document.createElement('div');
+    document.body.appendChild(outsideElement);
+
+    component.onDocumentClick({
+      target: outsideElement,
+    } as unknown as MouseEvent);
+
+    expect(component.isTutorialDropdownOpen()).toBe(false);
+    document.body.removeChild(outsideElement);
+  });
 });

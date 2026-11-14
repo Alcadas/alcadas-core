@@ -1,4 +1,4 @@
-import { Component, HostListener, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TourService } from '../../../core/services/tour.service';
 
@@ -207,7 +207,7 @@ export interface TargetBox {
       border-radius: 10px;
       border: 2.5px solid #644ef3;
       box-shadow: 0 0 0 4px rgba(100, 78, 243, 0.35), 0 0 24px rgba(100, 78, 243, 0.5);
-      pointer-events: auto;
+      pointer-events: none;
       cursor: default;
       z-index: 10001;
       transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -459,11 +459,21 @@ export interface TargetBox {
     }
   `],
 })
-export class TourOverlayComponent {
+export class TourOverlayComponent implements OnDestroy {
   readonly tourService = inject(TourService);
 
   readonly targetBox = signal<TargetBox | null>(null);
   readonly cardStyle = signal<Record<string, string>>({});
+  private activeTargetElement: HTMLElement | null = null;
+
+  private readonly onTargetClick = (): void => {
+    // Avança o tour interativamente quando o usuário interage diretamente com o elemento destacado
+    setTimeout(() => {
+      if (this.tourService.isTourActive()) {
+        this.proximo();
+      }
+    }, 180);
+  };
 
   constructor() {
     effect(() => {
@@ -476,9 +486,28 @@ export class TourOverlayComponent {
         setTimeout(() => this.refreshSpotlight(), 100);
         setTimeout(() => this.refreshSpotlight(), 280);
       } else {
+        this.detachTargetClickListener();
         this.targetBox.set(null);
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.detachTargetClickListener();
+  }
+
+  private attachTargetClickListener(el: HTMLElement): void {
+    if (this.activeTargetElement === el) return;
+    this.detachTargetClickListener();
+    this.activeTargetElement = el;
+    el.addEventListener('click', this.onTargetClick, { once: true });
+  }
+
+  private detachTargetClickListener(): void {
+    if (this.activeTargetElement) {
+      this.activeTargetElement.removeEventListener('click', this.onTargetClick);
+      this.activeTargetElement = null;
+    }
   }
 
   @HostListener('window:resize')
@@ -520,16 +549,18 @@ export class TourOverlayComponent {
     if (typeof window === 'undefined') return;
     const step = this.tourService.currentStep();
     if (!step || !step.targetSelector) {
+      this.detachTargetClickListener();
       this.targetBox.set(null);
       this.calculateCardPosition(null);
       return;
     }
 
     try {
-      const el = document.querySelector(step.targetSelector);
+      const el = document.querySelector(step.targetSelector) as HTMLElement | null;
       if (el) {
         const r = el.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) {
+          this.detachTargetClickListener();
           this.targetBox.set(null);
           this.calculateCardPosition(null);
           return;
@@ -544,11 +575,14 @@ export class TourOverlayComponent {
         const box: TargetBox = { top, left, width, height };
         this.targetBox.set(box);
         this.calculateCardPosition(box);
+        this.attachTargetClickListener(el);
       } else {
+        this.detachTargetClickListener();
         this.targetBox.set(null);
         this.calculateCardPosition(null);
       }
     } catch {
+      this.detachTargetClickListener();
       this.targetBox.set(null);
       this.calculateCardPosition(null);
     }
