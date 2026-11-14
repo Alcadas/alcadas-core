@@ -1,0 +1,458 @@
+<div class="tutorials-page-wrapper">
+  <!-- 1. Header do Módulo de Tutoriais -->
+  <header class="tutorials-identity-header">
+    <div class="identity-left">
+      <div class="identity-icon-box" aria-hidden="true">
+        <span class="material-symbols-rounded">school</span>
+      </div>
+      <div class="identity-titles">
+        <h1>Central de Tutoriais & Guias de Uso</h1>
+        <p>
+          Aprenda o funcionamento completo do sistema Alçadas: como submeter pedidos, deliberar aprovações, parametrizar esteiras e gerenciar a organização.
+        </p>
+      </div>
+    </div>
+
+    <div class="identity-actions">
+      <button
+        type="button"
+        class="btn-start-tour"
+        (click)="iniciarTourContextual('onboarding')"
+        title="Iniciar tour interativo passo a passo"
+      >
+        <span class="material-symbols-rounded">play_circle</span>
+        <span>Iniciar Tour Interativo</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn-welcome-reset"
+        (click)="tourService.openWelcomeModal()"
+        title="Ver tela de boas-vindas novamente"
+      >
+        <span class="material-symbols-rounded">waving_hand</span>
+        <span>Boas-vindas</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Barra de Busca e Atalhos Rápidos -->
+  <div class="tutorials-toolbar">
+    <div class="search-box">
+      <span class="material-symbols-rounded">search</span>
+      <input
+        type="text"
+        placeholder="Buscar guias por termo, ex: cotações, SoD, aprovação em lote, alçada..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
+    </div>
+
+    <!-- Navegação por Abas Temáticas -->
+    <nav class="tutorial-tabs" aria-label="Abas de tópicos de tutoriais">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'solicitacoes'"
+        (click)="selectTab('solicitacoes')"
+      >
+        <span class="material-symbols-rounded">receipt_long</span>
+        <span>1. Solicitações de Compra</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'aprovacoes'"
+        (click)="selectTab('aprovacoes')"
+      >
+        <span class="material-symbols-rounded">check_circle</span>
+        <span>2. Aprovações & Deliberação</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'alcadas'"
+        (click)="selectTab('alcadas')"
+      >
+        <span class="material-symbols-rounded">account_tree</span>
+        <span>3. Alçadas & Esteiras</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab() === 'organizacao'"
+        (click)="selectTab('organizacao')"
+      >
+        <span class="material-symbols-rounded">domain</span>
+        <span>4. Organização & Acessos</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- 3. Conteúdo das Abas -->
+  <main class="tutorial-main-card">
+    <!-- ==================== ABA 1: SOLICITAÇÕES ==================== -->
+    @if (activeTab() === 'solicitacoes') {
+      <section class="tutorial-topic-section">
+        <div class="topic-header">
+          <div class="topic-title-group">
+            <span class="topic-pill">Guia do Solicitante</span>
+            <h2>Como Criar e Acompanhar Solicitações de Despesa</h2>
+            <p>
+              Qualquer colaborador autorizado pode iniciar solicitações de compra, contratação de serviços ou reembolso de despesas corporativas.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="btn-trigger-tour"
+            (click)="iniciarTourContextual('solicitacoes')"
+          >
+            <span class="material-symbols-rounded">touch_app</span>
+            <span>Tour desta tela</span>
+          </button>
+        </div>
+
+        <div class="steps-flow-grid">
+          <div class="flow-card">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h3>Acessar "Nova Solicitação"</h3>
+              <p>Navegue até a Central de Solicitações e clique no botão <strong>Nova Solicitação</strong> no topo da tabela.</p>
+              <div class="step-tip">
+                <span class="material-symbols-rounded">info</span>
+                <span>Atalho direto disponível na barra de ações da tabela.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-card">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h3>Preencher Dados & Centro de Custo</h3>
+              <p>Informe o título claro da despesa, selecione a categoria (TI, Suprimentos, etc.), o valor em R$ e o Centro de Custo debitado.</p>
+              <div class="step-tip">
+                <span class="material-symbols-rounded">check</span>
+                <span>O sistema valida se o centro possui saldo orçamentário.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-card">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h3>Anexar Cotações & Justificativa</h3>
+              <p>Para despesas acima da política da empresa (ex: R$ 5.000), anexe 3 orçamentos comparativos ou a proposta do fornecedor.</p>
+              <div class="step-tip warning">
+                <span class="material-symbols-rounded">attachment</span>
+                <span>Aceita PDF, PNG, JPG de notas e propostas comerciais.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-card">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <h3>Envio para a Esteira Criptográfica</h3>
+              <p>Ao confirmar, o sistema gera o hash de integridade e o pedido entra na fila de análise do seu gestor direto.</p>
+              <div class="step-tip success">
+                <span class="material-symbols-rounded">verified</span>
+                <span>Status muda para "Pendente" com SLA de 24h a 48h.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Atalho para Praticar -->
+        <div class="action-banner">
+          <div class="banner-info">
+            <strong>Pronto para abrir uma solicitação?</strong>
+            <p>Vá até a Central de Solicitações e crie seu primeiro pedido.</p>
+          </div>
+          <button type="button" class="btn-action-primary" (click)="irParaTela('/solicitacoes/nova')">
+            <span>Criar Solicitação Agora</span>
+            <span class="material-symbols-rounded">arrow_forward</span>
+          </button>
+        </div>
+      </section>
+    }
+
+    <!-- ==================== ABA 2: APROVAÇÕES ==================== -->
+    @if (activeTab() === 'aprovacoes') {
+      <section class="tutorial-topic-section">
+        <div class="topic-header">
+          <div class="topic-title-group">
+            <span class="topic-pill">Guia do Aprovador & Gestor</span>
+            <h2>Fila de Deliberação, Alçadas & Assinatura Digital</h2>
+            <p>
+              Como avaliar despesas, verificar teto orçamentário e assinar digitalmente com validade jurídica e conformidade SoD.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="btn-trigger-tour"
+            (click)="iniciarTourContextual('aprovacoes')"
+          >
+            <span class="material-symbols-rounded">touch_app</span>
+            <span>Tour desta tela</span>
+          </button>
+        </div>
+
+        <div class="features-highlight-grid">
+          <div class="highlight-item">
+            <div class="item-icon-box purple">
+              <span class="material-symbols-rounded">rule</span>
+            </div>
+            <div class="item-details">
+              <h4>Verificação de Teto de Alçada</h4>
+              <p>O sistema só exibe pedidos que estão dentro do seu limite de aprovação (ex: até R$ 25.000 para Gerente). Acima disso, o pedido sobe para a Diretoria.</p>
+            </div>
+          </div>
+
+          <div class="highlight-item">
+            <div class="item-icon-box green">
+              <span class="material-symbols-rounded">lock</span>
+            </div>
+            <div class="item-details">
+              <h4>Assinatura Digital SHA-256</h4>
+              <p>Ao aprovar, você insere sua senha de aprovação. O sistema gera um hash criptográfico imutável gravado no histórico para compliance.</p>
+            </div>
+          </div>
+
+          <div class="highlight-item">
+            <div class="item-icon-box blue">
+              <span class="material-symbols-rounded">done_all</span>
+            </div>
+            <div class="item-details">
+              <h4>Aprovação em Lote</h4>
+              <p>Para despesas recorrentes ou rotineiras, marque os checkboxes na tabela e utilize "Aprovar em Lote" para assinar todos os itens de uma vez.</p>
+            </div>
+          </div>
+
+          <div class="highlight-item">
+            <div class="item-icon-box orange">
+              <span class="material-symbols-rounded">security</span>
+            </div>
+            <div class="item-details">
+              <h4>Segregação de Funções (SoD)</h4>
+              <p>Nenhum colaborador pode aprovar um pedido de sua própria autoria. O sistema bloqueia automaticamente essa ação para evitar conflitos.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Opções de Deliberação -->
+        <div class="deliberation-options-card">
+          <h3>As 3 Ações de um Aprovador</h3>
+          <div class="options-row">
+            <div class="opt-card approve">
+              <span class="material-symbols-rounded opt-icon">check_circle</span>
+              <strong>Aprovar</strong>
+              <p>Assina e encaminha para o próximo nível ou libera para pagamento financeiro.</p>
+            </div>
+
+            <div class="opt-card adjust">
+              <span class="material-symbols-rounded opt-icon">edit_note</span>
+              <strong>Solicitar Ajuste</strong>
+              <p>Devolve ao solicitante com observação para correção de cotação ou valores.</p>
+            </div>
+
+            <div class="opt-card reject">
+              <span class="material-symbols-rounded opt-icon">cancel</span>
+              <strong>Rejeitar</strong>
+              <p>Encerra o pedido com justificativa obrigatória registrada na trilha.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+
+    <!-- ==================== ABA 3: ALÇADAS & SIMULADOR ==================== -->
+    @if (activeTab() === 'alcadas') {
+      <section class="tutorial-topic-section">
+        <div class="topic-header">
+          <div class="topic-title-group">
+            <span class="topic-pill">Motor de Governança</span>
+            <h2>Como Funcionam as Esteiras e Limites de Alçada</h2>
+            <p>
+              Compreenda as regras de escalonamento por faixas de valor e teste com o simulador interativo abaixo.
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center">
+            <button
+              type="button"
+              class="btn-trigger-tour"
+              (click)="iniciarTourContextual('meus-fluxos')"
+              title="Fazer tour das esteiras de fluxo"
+            >
+              <span class="material-symbols-rounded">account_tree</span>
+              <span>Tour dos Fluxos</span>
+            </button>
+            <button
+              type="button"
+              class="btn-trigger-tour"
+              (click)="iniciarTourContextual('minhas-regras')"
+              title="Fazer tour do catálogo de regras"
+            >
+              <span class="material-symbols-rounded">rule</span>
+              <span>Tour das Regras</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Simulador Interativo de Alçada -->
+        <div class="interactive-simulator-card">
+          <div class="sim-header">
+            <span class="material-symbols-rounded sim-icon">tune</span>
+            <div>
+              <h3>Simulador Interativo de Esteira de Alçada</h3>
+              <p>Arraste o valor da solicitação para ver quais níveis de aprovação serão exigidos:</p>
+            </div>
+          </div>
+
+          <div class="sim-controls">
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span>Valor Simulado:</span>
+                <strong class="sim-val-display">R$ {{ simValue() | number:'1.0-0' }}</strong>
+              </div>
+              <input
+                type="range"
+                min="1000"
+                max="200000"
+                step="1000"
+                [ngModel]="simValue()"
+                (ngModelChange)="simValue.set($event)"
+                class="sim-range-input"
+              />
+              <div class="slider-ticks">
+                <span>R$ 1.000 (Operacional)</span>
+                <span>R$ 50.000 (Diretoria)</span>
+                <span>R$ 200.000+ (Comitê/CFO)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resultado da Esteira Simulada -->
+          <div class="sim-path-result">
+            <div class="path-description">
+              <span class="material-symbols-rounded" [style.color]="simulatedPath().color">route</span>
+              <span>{{ simulatedPath().description }}</span>
+            </div>
+
+            <div class="pipeline-track">
+              @for (level of simulatedPath().levels; track level; let idx = $index; let last = $last) {
+                <div class="track-node">
+                  <div class="node-badge" [style.background-color]="simulatedPath().color">
+                    {{ idx + 1 }}
+                  </div>
+                  <span class="node-label">{{ level }}</span>
+                </div>
+                @if (!last) {
+                  <div class="track-connector">
+                    <span class="material-symbols-rounded">chevron_right</span>
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+
+    <!-- ==================== ABA 4: ORGANIZAÇÃO & ACESSOS ==================== -->
+    @if (activeTab() === 'organizacao') {
+      <section class="tutorial-topic-section">
+        <div class="topic-header">
+          <div class="topic-title-group">
+            <span class="topic-pill">Administração & RBAC</span>
+            <h2>Gestão da Organização, Departamentos e Permissões</h2>
+            <p>
+              Aprenda a estruturar a empresa, orçamentos departamentais e definir quem acessa cada funcionalidade.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="btn-trigger-tour"
+            (click)="iniciarTourContextual('organizacao')"
+          >
+            <span class="material-symbols-rounded">touch_app</span>
+            <span>Tour desta tela</span>
+          </button>
+        </div>
+
+        <div class="steps-flow-grid">
+          <div class="flow-card">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h3>Departamentos & Centros de Custo</h3>
+              <p>Cadastre cada área (FIN, TI, MKT) com sua sigla, centro de custo e teto orçamentário mensal para controle.</p>
+              <div class="step-tip">
+                <span class="material-symbols-rounded">apartment</span>
+                <span>Clique em qualquer departamento para ver seus membros.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-card">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h3>Quadro de Colaboradores</h3>
+              <p>Adicione funcionários com e-mail corporativo, senha inicial, departamento e alçada financeira individual.</p>
+              <div class="step-tip">
+                <span class="material-symbols-rounded">group</span>
+                <span>Centralizado em Configurações > Organização.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-card">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h3>Matriz de Delegações & RBAC</h3>
+              <p>Em Delegações, defina quais menus e ferramentas cada profissão pode ver. A edição é protegida por botão para evitar toques acidentais.</p>
+              <div class="step-tip success">
+                <span class="material-symbols-rounded">admin_panel_settings</span>
+                <span>Reflete imediatamente nas rotas do usuário.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+  </main>
+
+  <!-- 4. Perguntas Frequentes (FAQ) Interativas -->
+  <section class="faq-section">
+    <div class="faq-header">
+      <span class="material-symbols-rounded">quiz</span>
+      <h2>Perguntas Frequentes (FAQ)</h2>
+    </div>
+
+    <div class="faq-list">
+      @for (faq of filteredFaqs(); track faq.question; let idx = $index) {
+        <div class="faq-item" [class.open]="faq.isOpen">
+          <button
+            type="button"
+            class="faq-question-btn"
+            (click)="toggleFaq(idx)"
+            [attr.aria-expanded]="faq.isOpen"
+          >
+            <span class="question-text">{{ faq.question }}</span>
+            <span class="faq-cat-tag">{{ faq.category }}</span>
+            <span class="material-symbols-rounded chevron-icon">
+              {{ faq.isOpen ? 'expand_less' : 'expand_more' }}
+            </span>
+          </button>
+
+          @if (faq.isOpen) {
+            <div class="faq-answer-panel">
+              <p>{{ faq.answer }}</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </section>
+</div>

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { PageHeaderComponent } from './page-header.component';
 
 describe('PageHeaderComponent', () => {
@@ -8,6 +9,7 @@ describe('PageHeaderComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PageHeaderComponent],
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PageHeaderComponent);
@@ -36,5 +38,11 @@ describe('PageHeaderComponent', () => {
     jest.spyOn(component.tabChange, 'emit');
     component.selectTab('aprovadas');
     expect(component.tabChange.emit).toHaveBeenCalledWith('aprovadas');
+  });
+
+  it('should emit quick action on quick action click and trigger contextual tour', () => {
+    jest.spyOn(component.quickAction, 'emit');
+    component.onQuickActionClick('tour');
+    expect(component.quickAction.emit).toHaveBeenCalledWith('tour');
   });
 });

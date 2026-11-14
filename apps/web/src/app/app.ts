@@ -5,11 +5,19 @@ import { filter, map } from 'rxjs';
 import { AuthService } from './core/auth/auth.service';
 import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
 import { NotificacoesComponent } from './shared/components/notificacao/notificacao.component';
+import { WelcomeModalComponent } from './shared/components/tour/welcome-modal.component';
+import { TourOverlayComponent } from './shared/components/tour/tour-overlay.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterModule, SidebarComponent, NotificacoesComponent],
+  imports: [
+    RouterModule,
+    SidebarComponent,
+    NotificacoesComponent,
+    WelcomeModalComponent,
+    TourOverlayComponent,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
