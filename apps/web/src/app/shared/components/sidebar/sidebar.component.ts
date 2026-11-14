@@ -127,6 +127,13 @@ export class SidebarComponent {
       icon: 'rule',
       hasSubmenu: false,
     },
+    {
+      id: 'tutoriais',
+      route: '/tutoriais',
+      label: 'Tutoriais & Guia',
+      icon: 'school',
+      hasSubmenu: false,
+    },
   ];
 
   /**

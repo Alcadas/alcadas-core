@@ -1,6 +1,7 @@
-import { Component, input, output } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 
 export interface PageHeaderTab {
   id: string;
@@ -18,6 +19,8 @@ export interface PageHeaderTab {
   styleUrl: './page-header.component.scss',
 })
 export class PageHeaderComponent {
+  private readonly router = inject(Router);
+
   // Tier 1: Breadcrumb & Busca
   readonly breadcrumbRoot = input<string>('Alçadas');
   readonly breadcrumbCurrent = input.required<string>();
@@ -53,6 +56,9 @@ export class PageHeaderComponent {
   }
 
   onQuickActionClick(action: string): void {
+    if (action === 'tutorials') {
+      void this.router.navigate(['/tutoriais']);
+    }
     this.quickAction.emit(action);
   }
 }

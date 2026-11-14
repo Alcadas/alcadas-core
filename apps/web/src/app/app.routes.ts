@@ -128,6 +128,14 @@ export const appRoutes: Route[] = [
         redirectTo: 'configuracoes/delegacoes',
       },
       {
+        path: 'tutoriais',
+        title: 'Tutoriais & Guia de Uso · Alçadas',
+        loadComponent: () =>
+          import('./features/tutorials/tutorials.component').then(
+            (m) => m.TutorialsComponent,
+          ),
+      },
+      {
         path: 'configuracoes',
         loadChildren: () =>
           import('./features/settings/settings.routes').then(
