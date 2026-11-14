@@ -45,7 +45,7 @@ export function resolverOrigensCors(env: Ambiente = process.env): Array<string |
   const fixas = (env['WEB_URL'] ?? (producao ? '' : ORIGEM_LOCAL_PADRAO))
     .split(',')
     .map((origem) => origem.trim().replace(/\/+$/, ''))
-    .filter((origem) => origem.length > 0);
+    .filter((origem) => origem.length > 0 && origem !== '*');
 
   const preview = padraoCanaisDePreview(env['FIREBASE_HOSTING_SITE'] ?? env['FIREBASE_PROJECT_ID']);
   return preview ? [...fixas, preview] : fixas;
