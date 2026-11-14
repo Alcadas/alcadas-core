@@ -9,6 +9,7 @@ versionado: os segredos ficam no painel do Render (ver [`render.yaml`](../../ren
 | #35 | Logs JSON com `requestId`, sem dados pessoais | `apps/api/src/app/common/log-requisicoes.ts` |
 | #29 | Firestore real via Admin SDK, sem fallback em memória, `/readyz` | `apps/api/src/app/database/firestore.service.ts` |
 | #32 | Provisionamento no Firebase Auth e seed de produção | `apps/api/src/app/alcadas/provisionamento-colaboradores.service.ts`, `scripts/seed-producao.ts` |
+| #28 | RBAC e isolamento em `saas/tenants` | `apps/api/src/app/alcadas/saas.controller.ts` |
 
 ---
 
@@ -120,3 +121,24 @@ Saída da segunda execução:
 
 Ensaio local, sem credencial: defina `FIRESTORE_EMULATOR_HOST` e `FIREBASE_AUTH_EMULATOR_HOST`
 (o `SEED_CONFIRMAR` só é exigido contra o Firebase real).
+
+---
+
+## Rotas administrativas `saas/tenants` (#28)
+
+| Rota | Sem token | Colaborador comum | `ADMIN` da empresa | `SUPER_USER` |
+| :--- | :---: | :---: | :---: | :---: |
+| `GET /api/saas/tenants` | 401 | 403 | 403 | 200 |
+| `POST /api/saas/tenants/sync` | 401 | 403 | 403 | 200 |
+| `PUT /api/saas/tenants/:tenantId` (própria empresa) | 401 | 403 | 200¹ | 200 |
+| `PUT /api/saas/tenants/:tenantId` (outra empresa) | 401 | 403 | **403** | 200 |
+
+¹ O `ADMIN` mantém departamentos e colaboradores da própria empresa, mas `plan`, `status`, `maxUsers`
+e `createdAt` são sempre os já gravados pela plataforma.
+
+O papel vem exclusivamente das claims do token verificado; cabeçalhos como `x-user-role` são ignorados.
+
+```bash
+curl -i https://<api>.onrender.com/api/saas/tenants                                   # 401
+curl -i -H "Authorization: Bearer <token de colaborador>" https://<api>.onrender.com/api/saas/tenants   # 403
+```
