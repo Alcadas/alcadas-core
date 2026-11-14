@@ -11,7 +11,7 @@ describe('WelcomeModalComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [WelcomeModalComponent],
-      providers: [provideRouter([])],
+      providers: [provideRouter([{ path: '**', component: WelcomeModalComponent }])],
     }).compileComponents();
 
     tourService = TestBed.inject(TourService);

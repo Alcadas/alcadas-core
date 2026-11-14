@@ -1,6 +1,13 @@
-import { Component, HostListener, inject } from '@angular/core';
+import { Component, HostListener, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TourService } from '../../../core/services/tour.service';
+
+export interface TargetBox {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
 
 @Component({
   selector: 'app-tour-overlay',
@@ -9,13 +16,60 @@ import { TourService } from '../../../core/services/tour.service';
   template: `
     @if (tourService.isTourActive() && tourService.currentStep(); as step) {
       <div
-        class="tour-overlay-backdrop"
+        class="tour-overlay-wrapper"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-step-title"
       >
-        <!-- Card do Passo Interativo -->
-        <div class="tour-card" [class]="'pos-' + (step.position || 'center')">
+        @if (targetBox(); as box) {
+          <!-- 4 Painéis Escuros e em Blur cercando o elemento em foco -->
+          <!-- Painel Superior (de 0 até box.top) -->
+          <div
+            class="tour-backdrop-panel panel-top"
+            [style.height.px]="box.top"
+          ></div>
+
+          <!-- Painel Inferior (de box.top + box.height até o fim da tela) -->
+          <div
+            class="tour-backdrop-panel panel-bottom"
+            [style.top.px]="box.top + box.height"
+          ></div>
+
+          <!-- Painel Esquerdo (entre box.top e box.bottom, de 0 até box.left) -->
+          <div
+            class="tour-backdrop-panel panel-left"
+            [style.top.px]="box.top"
+            [style.height.px]="box.height"
+            [style.width.px]="box.left"
+          ></div>
+
+          <!-- Painel Direito (entre box.top e box.bottom, de box.left + box.width até a borda direita) -->
+          <div
+            class="tour-backdrop-panel panel-right"
+            [style.top.px]="box.top"
+            [style.height.px]="box.height"
+            [style.left.px]="box.left + box.width"
+          ></div>
+
+          <!-- Moldura iluminada e pulsante do elemento focado -->
+          <div
+            class="tour-spotlight-frame"
+            [style.top.px]="box.top"
+            [style.left.px]="box.left"
+            [style.width.px]="box.width"
+            [style.height.px]="box.height"
+          ></div>
+        } @else {
+          <!-- Se não houver elemento no passo, fundo inteiro escuro com blur -->
+          <div class="tour-backdrop-panel panel-fullscreen"></div>
+        }
+
+        <!-- Card Flutuante de Instrução -->
+        <div
+          class="tour-card"
+          [class.has-target]="!!targetBox()"
+          [ngStyle]="cardStyle()"
+        >
           <!-- Barra de Progresso Superior -->
           <div class="tour-progress-bar">
             <div
@@ -106,34 +160,80 @@ import { TourService } from '../../../core/services/tour.service';
     }
   `,
   styles: [`
-    .tour-overlay-backdrop {
+    .tour-overlay-wrapper {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      backdrop-filter: blur(2px);
       z-index: 10000;
       pointer-events: auto;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding: 1.5rem;
-      animation: fadeIn 0.15s ease-out;
+      animation: fadeIn 0.18s ease-out;
+    }
 
-      @media (min-width: 768px) {
-        align-items: center;
+    .tour-backdrop-panel {
+      position: fixed;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 10000;
+      pointer-events: auto;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .panel-top {
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+
+    .panel-bottom {
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+    .panel-left {
+      left: 0;
+    }
+
+    .panel-right {
+      right: 0;
+    }
+
+    .panel-fullscreen {
+      inset: 0;
+    }
+
+    .tour-spotlight-frame {
+      position: fixed;
+      border-radius: 10px;
+      border: 2.5px solid #644ef3;
+      box-shadow: 0 0 0 4px rgba(100, 78, 243, 0.35), 0 0 24px rgba(100, 78, 243, 0.5);
+      pointer-events: auto;
+      cursor: default;
+      z-index: 10001;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: pulseGlow 2.5s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% {
+        box-shadow: 0 0 0 3px rgba(100, 78, 243, 0.3), 0 0 16px rgba(100, 78, 243, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 0 6px rgba(100, 78, 243, 0.5), 0 0 28px rgba(100, 78, 243, 0.7);
       }
     }
 
     .tour-card {
       width: 100%;
-      max-width: 480px;
+      max-width: 460px;
       background: #ffffff;
       border-radius: 16px;
-      box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(15, 23, 42, 0.2), 0 0 0 1px #e2e8f0;
+      box-shadow: 0 20px 35px -5px rgba(15, 23, 42, 0.3), 0 10px 15px -6px rgba(15, 23, 42, 0.2), 0 0 0 1px #e2e8f0;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       animation: slideInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: top 0.2s ease, left 0.2s ease;
     }
 
     .tour-progress-bar {
@@ -362,6 +462,39 @@ import { TourService } from '../../../core/services/tour.service';
 export class TourOverlayComponent {
   readonly tourService = inject(TourService);
 
+  readonly targetBox = signal<TargetBox | null>(null);
+  readonly cardStyle = signal<Record<string, string>>({});
+
+  constructor() {
+    effect(() => {
+      const active = this.tourService.isTourActive();
+      // Track index so effect re-runs when step changes
+      this.tourService.currentStepIndex();
+
+      if (active) {
+        this.refreshSpotlight();
+        setTimeout(() => this.refreshSpotlight(), 100);
+        setTimeout(() => this.refreshSpotlight(), 280);
+      } else {
+        this.targetBox.set(null);
+      }
+    });
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    if (this.tourService.isTourActive()) {
+      this.refreshSpotlight();
+    }
+  }
+
+  @HostListener('window:scroll')
+  onScroll(): void {
+    if (this.tourService.isTourActive()) {
+      this.refreshSpotlight();
+    }
+  }
+
   @HostListener('window:keydown.escape')
   onEscape(): void {
     if (this.tourService.isTourActive()) {
@@ -383,12 +516,119 @@ export class TourOverlayComponent {
     }
   }
 
+  refreshSpotlight(): void {
+    if (typeof window === 'undefined') return;
+    const step = this.tourService.currentStep();
+    if (!step || !step.targetSelector) {
+      this.targetBox.set(null);
+      this.calculateCardPosition(null);
+      return;
+    }
+
+    try {
+      const el = document.querySelector(step.targetSelector);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) {
+          this.targetBox.set(null);
+          this.calculateCardPosition(null);
+          return;
+        }
+
+        const pad = 6;
+        const top = Math.max(0, Math.floor(r.top - pad));
+        const left = Math.max(0, Math.floor(r.left - pad));
+        const width = Math.min(window.innerWidth - left, Math.ceil(r.width + pad * 2));
+        const height = Math.min(window.innerHeight - top, Math.ceil(r.height + pad * 2));
+
+        const box: TargetBox = { top, left, width, height };
+        this.targetBox.set(box);
+        this.calculateCardPosition(box);
+      } else {
+        this.targetBox.set(null);
+        this.calculateCardPosition(null);
+      }
+    } catch {
+      this.targetBox.set(null);
+      this.calculateCardPosition(null);
+    }
+  }
+
+  calculateCardPosition(box: TargetBox | null): void {
+    if (typeof window === 'undefined') return;
+
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      this.cardStyle.set({
+        position: 'fixed',
+        bottom: '16px',
+        left: '16px',
+        right: '16px',
+        maxWidth: 'calc(100vw - 32px)',
+        zIndex: '10002',
+      });
+      return;
+    }
+
+    if (!box) {
+      this.cardStyle.set({
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '460px',
+        maxWidth: '90vw',
+        zIndex: '10002',
+      });
+      return;
+    }
+
+    const step = this.tourService.currentStep();
+    const pref = step?.position || 'bottom';
+    const cardWidth = 440;
+    const cardHeight = 260;
+    const gap = 16;
+
+    let top = 0;
+    let left = 0;
+
+    if (pref === 'right' || (box.left < window.innerWidth / 3 && pref !== 'left')) {
+      left = box.left + box.width + gap;
+      top = Math.max(16, Math.min(window.innerHeight - cardHeight - 16, box.top));
+      if (left + cardWidth > window.innerWidth - 16) {
+        left = Math.max(16, window.innerWidth - cardWidth - 16);
+        top = Math.min(window.innerHeight - cardHeight - 16, box.top + box.height + gap);
+      }
+    } else if (pref === 'left' || box.left > (window.innerWidth * 2) / 3) {
+      left = Math.max(16, box.left - cardWidth - gap);
+      top = Math.max(16, Math.min(window.innerHeight - cardHeight - 16, box.top));
+    } else if (pref === 'bottom' || box.top < 220) {
+      top = box.top + box.height + gap;
+      left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, box.left));
+      if (top + cardHeight > window.innerHeight - 16) {
+        top = Math.max(16, box.top - cardHeight - gap);
+      }
+    } else {
+      top = Math.max(16, box.top - cardHeight - gap);
+      left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, box.left));
+    }
+
+    this.cardStyle.set({
+      position: 'fixed',
+      top: `${top}px`,
+      left: `${left}px`,
+      width: `${cardWidth}px`,
+      maxWidth: 'calc(100vw - 32px)',
+      zIndex: '10002',
+    });
+  }
+
   proximo(): void {
-    this.tourService.nextStep();
+    void this.tourService.nextStep();
   }
 
   anterior(): void {
-    this.tourService.prevStep();
+    void this.tourService.prevStep();
   }
 
   fecharTour(): void {

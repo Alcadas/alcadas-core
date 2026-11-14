@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 
 export interface TourStep {
   targetSelector?: string;
+  route?: string;
   title: string;
   description: string;
   badge?: string;
@@ -65,6 +66,118 @@ export class TourService {
 
   // Catálogo completo de passos interativos por tela / aba
   private readonly toursCatalog: Record<string, TourStep[]> = {
+    onboarding: [
+      {
+        targetSelector: 'aside.sidebar',
+        route: '/dashboard',
+        title: 'Menu Lateral de Operações',
+        description: 'Aqui fica o menu principal de navegação do Alçadas. A partir dele você transita entre todas as áreas operacionais, governança e configurações da sua empresa.',
+        badge: 'Menu Lateral',
+        icon: 'dock_to_left',
+        position: 'right',
+        actionHint: 'A barra lateral fica sempre acessível para facilitar o seu trabalho diário.',
+      },
+      {
+        targetSelector: '[data-tour="sidebar-workspace"]',
+        route: '/dashboard',
+        title: 'Empresa & Tenant Ativo',
+        description: 'Mostra a organização em que você está operando. Usuários com perfil Desenvolvedor ou Admin multi-empresa podem alternar entre tenants aqui.',
+        badge: 'Ambiente',
+        icon: 'domain',
+        position: 'right',
+        actionHint: 'Clique na empresa para ver detalhes cadastrais ou trocar de workspace.',
+      },
+      {
+        targetSelector: '[data-tour="sidebar-aprovacoes"]',
+        route: '/dashboard',
+        title: 'Minhas Aprovações',
+        description: 'Sua esteira de deliberações. Aqui você revisa solicitações pendentes, assina digitalmente com hash SHA-256 e aprova em lote com validação de Segregação de Funções (SoD).',
+        badge: 'Esteira Executiva',
+        icon: 'check_circle',
+        position: 'right',
+        actionHint: 'O badge numérico exibe quantas deliberações aguardam sua assinatura.',
+      },
+      {
+        targetSelector: '[data-tour="sidebar-solicitacoes"]',
+        route: '/dashboard',
+        title: 'Minhas Solicitações',
+        description: 'Central onde você cria e acompanha requisições de compras, serviços ou reembolsos de despesas, anexando cotações e justificativas orçamentárias.',
+        badge: 'Compras & Despesas',
+        icon: 'receipt_long',
+        position: 'right',
+        actionHint: 'Acompanhe o status de cada pedido em tempo real pela esteira.',
+      },
+      {
+        targetSelector: '[data-tour="sidebar-meus-fluxos"]',
+        route: '/dashboard',
+        title: 'Meus Fluxos e Regras de Alçadas',
+        description: 'Governança financeira automatizada: configure os limites de alçadas por faixa de valor (ex: até R$ 10.000 gerente; acima, CFO) e esteiras condicionais.',
+        badge: 'Governança',
+        icon: 'account_tree',
+        position: 'right',
+        actionHint: 'Defina aprovações paralelas ou sequenciais conforme o montante.',
+      },
+      {
+        targetSelector: '[data-tour="sidebar-departments"]',
+        route: '/dashboard',
+        title: 'Departamentos & Centros de Custo',
+        description: 'Visualize os departamentos da empresa (TI, Marketing, RH, etc.) e fixe seus centros de custo preferidos para acompanhar o consumo com facilidade.',
+        badge: 'Organização',
+        icon: 'group',
+        position: 'right',
+        actionHint: 'Clique no ícone de alfinete para fixar ou desafixar.',
+      },
+      {
+        targetSelector: 'app-page-header',
+        route: '/dashboard',
+        title: 'Centro de Operações (Dashboard)',
+        description: 'Agora estamos no Dashboard! Esta é a sua tela de entrada com o resumo executivo, alertas do sistema, notificações de auditoria e atalhos rápidos.',
+        badge: 'Visão Geral',
+        icon: 'dashboard',
+        position: 'bottom',
+        actionHint: 'O cabeçalho superior contém atalhos para alertas, notificações e tutoriais.',
+      },
+      {
+        targetSelector: '.dashboard-kpis-grid',
+        route: '/dashboard',
+        title: 'Indicadores Financeiros (KPIs)',
+        description: 'Acompanhe em 4 cards: total orçamentário comprometido, solicitações aguardando deliberação na fila, pedidos finalizados e conformidade com hashes SHA-256.',
+        badge: 'Métricas Rápidas',
+        icon: 'payments',
+        position: 'bottom',
+        actionHint: 'Clique no card de pendências para abrir direto a fila de deliberação.',
+      },
+      {
+        targetSelector: '.chart-main-column',
+        route: '/dashboard',
+        title: 'Tendência Financeira de Solicitações',
+        description: 'Gráfico interativo comparando o fluxo histórico de gastos e pedidos com a linha de média orçamentária autorizada pela governança corporativa.',
+        badge: 'Gráfico Analítico',
+        icon: 'bar_chart',
+        position: 'right',
+        actionHint: 'Passe o cursor sobre as barras para ver a volumetria detalhada.',
+      },
+      {
+        targetSelector: '.usage-card',
+        route: '/dashboard',
+        title: 'Consumo por Centro de Custo',
+        description: 'Detalhamento do orçamento consumido por departamento. Identifique rapidamente quais setores estão próximos do limite estabelecido.',
+        badge: 'Dotação Orçamentária',
+        icon: 'pie_chart',
+        position: 'left',
+        actionHint: 'Alterne a periodicidade entre Dia, Semana e Mês.',
+      },
+      {
+        targetSelector: '.btn-tutorials-help',
+        route: '/dashboard',
+        title: 'Central de Tutoriais & Apoio Permanente',
+        description: 'Parabéns, você conheceu os principais pontos da plataforma! Sempre que tiver dúvidas, clique neste ícone ou acesse Tutoriais no menu para rever guias e simular alçadas.',
+        badge: 'Ajuda Sempre Disponível',
+        icon: 'school',
+        position: 'bottom',
+        actionHint: 'Você pode refazer este tour a qualquer momento pela Central de Tutoriais.',
+      },
+    ],
     dashboard: [
       {
         targetSelector: '.page-header-tier1',
@@ -243,30 +356,40 @@ export class TourService {
 
   startTourFromWelcome(): void {
     this.dismissWelcomeModal(true);
-    // Inicia o tour para a tela atual ou dashboard
-    const currentUrl = this.router.url;
-    let context = 'dashboard';
-    if (currentUrl.includes('/solicitacoes')) context = 'solicitacoes';
-    else if (currentUrl.includes('/aprovacoes')) context = 'aprovacoes';
-    else if (currentUrl.includes('/alcadas')) context = 'meus-fluxos';
-    else if (currentUrl.includes('/organizacao')) context = 'organizacao';
-
-    this.startTour(context);
+    void this.startTour('onboarding');
   }
 
-  startTour(contextKey = 'dashboard'): void {
-    const steps = this.toursCatalog[contextKey] || this.toursCatalog['dashboard'];
+  private async safeNavigate(route?: string): Promise<void> {
+    if (!route || typeof window === 'undefined') return;
+    try {
+      if (!this.router.url.startsWith(route)) {
+        await this.router.navigateByUrl(route);
+      }
+    } catch {
+      // Ignora erro de rota não registrada em testes ou restrições de navegação
+    }
+  }
+
+  startTour(contextKey = 'onboarding'): void {
+    const steps = this.toursCatalog[contextKey] || this.toursCatalog['onboarding'] || this.toursCatalog['dashboard'];
     this.currentContext.set(contextKey);
     this.tourSteps.set(steps);
     this.currentStepIndex.set(0);
     this.isTourActive.set(true);
+
+    const firstStep = steps[0];
+    void this.safeNavigate(firstStep?.route);
+
     this.scrollToActiveTarget();
   }
 
   nextStep(): void {
     const nextIdx = this.currentStepIndex() + 1;
-    if (nextIdx < this.tourSteps().length) {
+    const steps = this.tourSteps();
+    if (nextIdx < steps.length) {
+      const nextStep = steps[nextIdx];
       this.currentStepIndex.set(nextIdx);
+      void this.safeNavigate(nextStep?.route);
       this.scrollToActiveTarget();
     } else {
       this.endTour();
@@ -275,8 +398,11 @@ export class TourService {
 
   prevStep(): void {
     const prevIdx = this.currentStepIndex() - 1;
+    const steps = this.tourSteps();
     if (prevIdx >= 0) {
+      const prevStep = steps[prevIdx];
       this.currentStepIndex.set(prevIdx);
+      void this.safeNavigate(prevStep?.route);
       this.scrollToActiveTarget();
     }
   }
