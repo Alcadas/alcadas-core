@@ -6,6 +6,7 @@ versionado: os segredos ficam no painel do Render (ver [`render.yaml`](../../ren
 | Issue | Entrega | Onde está |
 | :--- | :--- | :--- |
 | #34 | CORS restrito aos domínios da equipe | `apps/api/src/app/common/cors.ts` |
+| #35 | Logs JSON com `requestId`, sem dados pessoais | `apps/api/src/app/common/log-requisicoes.ts` |
 
 ---
 
@@ -31,3 +32,22 @@ curl -i -H "Origin: https://site-qualquer.com" https://<api>.onrender.com/api/he
 curl -i -H "Origin: https://alcadas-app--pr12-abc123.web.app" https://<api>.onrender.com/api/healthz
 # Access-Control-Allow-Origin: https://alcadas-app--pr12-abc123.web.app
 ```
+
+---
+
+## Logs estruturados com `requestId` (#35 / RNF09)
+
+Cada requisição gera **uma** linha JSON no stdout e a resposta leva o cabeçalho `X-Request-Id`:
+
+```json
+{"timestamp":"2026-11-13T12:00:00.000Z","severity":"INFO","requestId":"0b0e6f0c-…","metodo":"POST","rota":"/api/solicitacoes","status":201,"duracaoMs":85}
+```
+
+- `severity`: `INFO` (<400), `WARNING` (4xx), `ERROR` (5xx — acrescenta `erro` com o tipo da exceção, nunca a mensagem).
+- A linha tem uma lista fechada de campos. Corpo, query string e cabeçalhos nunca são lidos; segmentos
+  de rota com e-mail ou token viram `:email` / `:oculto`. Nomes, e-mails, tokens, senhas e
+  justificativas não chegam ao log.
+- Um `X-Request-Id` enviado pelo cliente é reaproveitado quando tem formato seguro
+  (`[A-Za-z0-9._-]{8,64}`); caso contrário a API gera um UUID.
+- Para investigar um erro, peça o `X-Request-Id` da resposta e filtre os logs do Render por ele.
+- Em produção as mensagens do próprio NestJS também saem em JSON.
