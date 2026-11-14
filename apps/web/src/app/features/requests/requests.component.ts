@@ -62,7 +62,6 @@ export class RequestsComponent implements OnInit, OnDestroy {
 
   goToCreatePage(): void {
     this.openCreateModal();
-    void this.router.navigate(['/solicitacoes/nova']);
   }
 
   constructor() {

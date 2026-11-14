@@ -632,7 +632,7 @@ export class TourService {
 
   startTourForCurrentRoute(): void {
     const url = this.router.url;
-    if (url.includes('/solicitacoes/nova')) this.startTour('criar-solicitacao');
+    if (url.includes('/solicitacoes/nova') || (url.includes('/solicitacoes') && url.includes('nova=true'))) this.startTour('criar-solicitacao');
     else if (url.includes('/aprovacoes')) this.startTour('aprovacoes');
     else if (url.includes('/solicitacoes')) this.startTour('solicitacoes');
     else if (url.includes('/alcadas/regras')) this.startTour('minhas-regras');

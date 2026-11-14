@@ -174,7 +174,7 @@ export interface TargetBox {
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
       z-index: 10000;
-      pointer-events: auto;
+      pointer-events: none;
       transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
@@ -234,6 +234,7 @@ export interface TargetBox {
       flex-direction: column;
       animation: slideInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       transition: top 0.2s ease, left 0.2s ease;
+      pointer-events: auto;
     }
 
     .tour-progress-bar {

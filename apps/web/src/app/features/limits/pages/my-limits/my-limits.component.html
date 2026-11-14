@@ -5,8 +5,6 @@
   searchPlaceholder="Buscar por título, ID (#ALC) ou departamento..."
   [searchQuery]="limitsService.searchQuery()"
   (searchQueryChange)="onSearchChange($event)"
-  contextIcon="account_tree"
-  contextTitle="Gestão de Alçadas & Tetos"
   [contextSubtitle]="limitsService.filteredRules().length + ' esteiras de aprovação configuradas na organização'"
   [tabs]="pageHeaderTabs()"
   [activeTab]="limitsService.activeTab()"

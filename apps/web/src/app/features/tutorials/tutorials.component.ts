@@ -124,6 +124,6 @@ export class TutorialsComponent {
   }
 
   irParaTela(rota: string): void {
-    void this.router.navigate([rota]);
+    void this.router.navigateByUrl(rota);
   }
 }

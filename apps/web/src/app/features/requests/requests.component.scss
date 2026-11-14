@@ -1724,7 +1724,7 @@ $bg-page: #f8fafc;
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1050;
+  z-index: 10005;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1743,11 +1743,14 @@ $bg-page: #f8fafc;
   height: 100%;
   padding: 0;
   margin: 0;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .modal-card-edit {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: auto;
   background: #ffffff;
   border-radius: 14px;
   width: 100%;
@@ -2086,11 +2089,13 @@ $bg-page: #f8fafc;
 /* ========================================================================= */
 .modal-card-create {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: auto;
   background: #ffffff;
   border-radius: 16px;
   width: 100%;
   max-width: 820px;
+  max-height: 90vh;
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.35);
   display: flex;
   flex-direction: column;
@@ -2159,7 +2164,7 @@ $bg-page: #f8fafc;
 
   .modal-create-body {
     padding: 1.25rem 1.5rem;
-    max-height: 72vh;
+    max-height: calc(90vh - 140px);
     overflow-y: auto;
   }
 
@@ -2459,6 +2464,9 @@ $bg-page: #f8fafc;
     padding: 1rem 1.5rem;
     border-top: 1px solid #f1f5f9;
     background: #f8fafc;
+    position: relative;
+    z-index: 3;
+    pointer-events: auto;
 
     .btn-cancel {
       background: transparent;
@@ -2469,6 +2477,7 @@ $bg-page: #f8fafc;
       font-weight: 600;
       color: #475569;
       cursor: pointer;
+      pointer-events: auto;
 
       &:hover {
         background: #ffffff;
@@ -2485,6 +2494,7 @@ $bg-page: #f8fafc;
       font-size: 0.8rem;
       font-weight: 700;
       cursor: pointer;
+      pointer-events: auto;
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;

@@ -118,8 +118,9 @@ import { SettingsService } from '../../../features/settings/services/settings.se
     .welcome-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(6px);
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       z-index: 9999;
       display: flex;
       align-items: center;
@@ -129,6 +130,9 @@ import { SettingsService } from '../../../features/settings/services/settings.se
     }
 
     .welcome-modal-container {
+      position: relative;
+      z-index: 2;
+      pointer-events: auto;
       width: 100%;
       max-width: 640px;
       background: #ffffff;

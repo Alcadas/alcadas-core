@@ -65,10 +65,8 @@ export const appRoutes: Route[] = [
       },
       {
         path: 'solicitacoes/nova',
-        loadComponent: () =>
-          import(
-            './features/requests/pages/create-request/create-request.component'
-          ).then((m) => m.CreateRequestComponent),
+        redirectTo: 'solicitacoes',
+        pathMatch: 'full',
       },
       {
         path: 'alcadas',

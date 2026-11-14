@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { SolicitacaoResponseDto } from '@alcadas-core/models';
 import { AuthUser } from '../../core/auth/auth.models';
 import { AuthService } from '../../core/auth/auth.service';
@@ -18,7 +18,6 @@ describe('RequestsComponent', () => {
   let component: RequestsComponent;
   let http: HttpTestingController;
   let usuario: AuthUser;
-  let router: Router;
 
   const solicitacoes: SolicitacaoResponseDto[] = [
     solicitacaoDaApi({ id: 'sol-001', solicitanteId: 'ana', valor: 3200 }),
@@ -33,7 +32,6 @@ describe('RequestsComponent', () => {
   function iniciar(): void {
     fixture = TestBed.createComponent(RequestsComponent);
     component = fixture.componentInstance;
-    router = TestBed.inject(Router);
     fixture.detectChanges();
   }
 
@@ -112,9 +110,9 @@ describe('RequestsComponent', () => {
       responderCarga();
     });
 
-    it('should navigate to create page on goToCreatePage', () => {
+    it('should open create modal on goToCreatePage', () => {
       component.goToCreatePage();
-      expect(router.navigate).toHaveBeenCalledWith(['/solicitacoes/nova']);
+      expect(component.isCreateModalOpen()).toBe(true);
     });
 
     it('calcula os indicadores a partir dos dados da API', () => {

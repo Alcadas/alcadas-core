@@ -15,6 +15,7 @@ import {
   validarFaixasRegra,
 } from '@alcadas-core/models';
 import { PageHeaderComponent, PageHeaderTab } from '../../../../shared/components/page-header/page-header.component';
+import { SidebarService } from '../../../../core/services/sidebar.service';
 import { LimitsService } from '../../services/limits.service';
 import { formatCurrencyBRL } from '../../services/limits-workflow.utils';
 
@@ -30,6 +31,7 @@ export type FlowWizardStep = 'choose' | 'template' | 'configure' | 'scratch';
 export class MyLimitsComponent {
   private readonly router = inject(Router);
   protected readonly limitsService = inject(LimitsService);
+  private readonly sidebarService = inject(SidebarService);
 
   // Estado de Carregamento da Lista
   readonly isLoading = signal(true);
@@ -147,6 +149,7 @@ export class MyLimitsComponent {
   }
 
   navigateToEditor(ruleId: string): void {
+    this.sidebarService.collapse();
     this.router.navigate(['/alcadas/editor', ruleId]);
   }
 
@@ -155,6 +158,7 @@ export class MyLimitsComponent {
   }
 
   openCreateModal(): void {
+    this.sidebarService.collapse();
     this.wizardStep.set('choose');
     this.selectedModelo.set(null);
     this.activateImmediately.set(true);

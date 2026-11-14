@@ -17,7 +17,7 @@ import {
   validarFaixasRegra,
 } from '@alcadas-core/models';
 import { mensagemDeErroDaApi } from '../../../../core/http/api-error';
-import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { PageHeaderComponent, PageHeaderTab } from '../../../../shared/components/page-header/page-header.component';
 import { RuleTemplateItem } from '../../limits.models';
 import { LimitsService } from '../../services/limits.service';
 import { modeloExemploDaRegra } from './rule-template-examples';
@@ -73,6 +73,23 @@ export class RulesCatalogComponent {
 
   // Sub-abas principais: Lista de Regras (Imagem 2), Modelos Predefinidos, Editor da Regra Selecionada
   readonly activeCatalogTab = signal<CatalogSubTab>('rules');
+
+  readonly headerTabs = computed<PageHeaderTab[]>(() => [
+    {
+      id: 'rules',
+      label: 'Regras Cadastradas',
+      icon: 'rule',
+      badge: this.filteredRulesList().length,
+      badgeVariant: 'primary',
+    },
+    {
+      id: 'templates',
+      label: 'Modelos Predefinidos',
+      icon: 'auto_awesome',
+      badge: this.limitsService.ruleTemplatesState().length,
+      badgeVariant: 'neutral',
+    },
+  ]);
 
   // Filtros da barra de ferramentas (Imagem 2)
   readonly seeOnlyActive = signal<boolean>(false);

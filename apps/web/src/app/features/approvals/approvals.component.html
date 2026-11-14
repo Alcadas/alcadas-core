@@ -7,8 +7,6 @@
   searchPlaceholder="Search..."
   [searchQuery]="searchQuery()"
   (searchQueryChange)="setSearchQuery($event)"
-  contextIcon="how_to_reg"
-  contextTitle="Central de Deliberação e Alçadas"
   [contextSubtitle]="pendingCount() + ' para deliberar · ' + (pendingTotalValue() | currency:'BRL':'symbol':'1.2-2') + ' retido'"
   [tabs]="headerTabs()"
   [activeTab]="currentTab()"
@@ -27,7 +25,12 @@
 <!-- ========================================================================= -->
 <!-- 2. CONTAINER DE CONTEÚDO (Abaixo do Header, onde o drawer lateral fica)    -->
 <!-- ========================================================================= -->
-<div class="requests-body-container">
+<div
+  class="requests-body-container"
+  (click)="closeActionsMenu()"
+  (keydown.escape)="closeActionsMenu()"
+  tabindex="-1"
+>
   <!-- Conteúdo Rolável da Página -->
   <main class="page-scrollable-content">
 
@@ -261,63 +264,92 @@
                   </td>
 
                   <td class="td-actions" (click)="$event.stopPropagation()">
-                    <div class="action-buttons-group">
-                      @if (req.status === 'PENDENTE') {
-                        <!-- Botão Assinar Digitalmente (Principal) -->
-                        <button
-                          type="button"
-                          class="btn-act-sign"
-                          (click)="openSignModal(req)"
-                          title="Assinar digitalmente e aprovar solicitação"
-                        >
-                          <span class="material-symbols-rounded">draw</span>
-                          <span>Assinar</span>
-                        </button>
-
-                        <!-- Botão Validar Tecnicamente -->
-                        <button
-                          type="button"
-                          class="btn-act-validate"
-                          (click)="openValidateModal(req)"
-                          title="Registrar parecer ou validação técnica"
-                        >
-                          <span class="material-symbols-rounded">task_alt</span>
-                          <span>Validar</span>
-                        </button>
-
-                        <!-- Botão Solicitar Revisão / Ajuste -->
-                        <button
-                          type="button"
-                          class="btn-act-adjust"
-                          (click)="openAdjustmentModal(req)"
-                          title="Solicitar revisão ao solicitante"
-                        >
-                          <span class="material-symbols-rounded">edit_note</span>
-                          <span>Revisar</span>
-                        </button>
-
-                        <!-- Botão Recusar / Negar -->
-                        <button
-                          type="button"
-                          class="btn-act-reject"
-                          (click)="openRejectModal(req)"
-                          title="Recusar solicitação"
-                        >
-                          <span class="material-symbols-rounded">close</span>
-                        </button>
-                      }
-
-                      <!-- Botão Detalhes / Trilha (Padrão de Requests) -->
+                    <div class="menu-actions-container">
                       <button
                         type="button"
-                        class="btn-view-trilha"
-                        title="Ver detalhes da solicitação e trilha de aprovação"
-                        (click)="openDetailDrawer(req)"
-                        aria-label="Ver detalhes da solicitação {{ req.codigo }}"
+                        class="btn-row-actions"
+                        [class.active]="openMenuId() === req.id"
+                        (click)="toggleActionsMenu(req.id, $event)"
+                        title="Ações da solicitação"
+                        aria-label="Abrir menu de ações para solicitação {{ req.codigo }}"
                       >
-                        <span>Trilha</span>
-                        <span class="material-symbols-rounded">chevron_right</span>
+                        <span class="material-symbols-rounded">more_vert</span>
                       </button>
+
+                      @if (openMenuId() === req.id) {
+                        <div class="actions-dropdown-menu" role="menu">
+                          @if (req.status === 'PENDENTE') {
+                            <!-- Opção 1: Assinar Digitalmente (Principal) -->
+                            <button
+                              type="button"
+                              class="dropdown-action-item is-sign"
+                              (click)="openSignModal(req); closeActionsMenu()"
+                            >
+                              <span class="material-symbols-rounded">draw</span>
+                              <div class="action-item-text">
+                                <strong>Assinar Digitalmente</strong>
+                                <small>Aprovação com hash SHA-256</small>
+                              </div>
+                            </button>
+
+                            <!-- Opção 2: Validação Técnica -->
+                            <button
+                              type="button"
+                              class="dropdown-action-item"
+                              (click)="openValidateModal(req); closeActionsMenu()"
+                            >
+                              <span class="material-symbols-rounded">task_alt</span>
+                              <div class="action-item-text">
+                                <strong>Validar Tecnicamente</strong>
+                                <small>Parecer de conformidade</small>
+                              </div>
+                            </button>
+
+                            <!-- Opção 3: Solicitar Ajuste / Revisão -->
+                            <button
+                              type="button"
+                              class="dropdown-action-item"
+                              (click)="openAdjustmentModal(req); closeActionsMenu()"
+                            >
+                              <span class="material-symbols-rounded">edit_note</span>
+                              <div class="action-item-text">
+                                <strong>Solicitar Ajuste</strong>
+                                <small>Devolver ao solicitante</small>
+                              </div>
+                            </button>
+
+                            <hr class="menu-divider" />
+
+                            <!-- Opção 4: Rejeitar / Descartar -->
+                            <button
+                              type="button"
+                              class="dropdown-action-item is-danger"
+                              (click)="openRejectModal(req); closeActionsMenu()"
+                            >
+                              <span class="material-symbols-rounded">close</span>
+                              <div class="action-item-text">
+                                <strong>Rejeitar Solicitação</strong>
+                                <small>Declinar pedido formalmente</small>
+                              </div>
+                            </button>
+
+                            <hr class="menu-divider" />
+                          }
+
+                          <!-- Opção Geral: Trilha e Detalhes -->
+                          <button
+                            type="button"
+                            class="dropdown-action-item"
+                            (click)="openDetailDrawer(req); closeActionsMenu()"
+                          >
+                            <span class="material-symbols-rounded">timeline</span>
+                            <div class="action-item-text">
+                              <strong>Ver Trilha & Detalhes</strong>
+                              <small>Histórico e governança</small>
+                            </div>
+                          </button>
+                        </div>
+                      }
                     </div>
                   </td>
                 </tr>

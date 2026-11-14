@@ -58,6 +58,18 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
   readonly selectedRequest = signal<RequestItem | null>(null);
   readonly isDetailDrawerOpen = signal<boolean>(false);
 
+  // Menu de Ações por Linha
+  readonly openMenuId = signal<string | null>(null);
+
+  toggleActionsMenu(id: string, event: Event): void {
+    event.stopPropagation();
+    this.openMenuId.update((current) => (current === id ? null : id));
+  }
+
+  closeActionsMenu(): void {
+    this.openMenuId.set(null);
+  }
+
   // Modal de Assinatura Digital
   readonly signingRequest = signal<RequestItem | null>(null);
   readonly isSignModalOpen = signal<boolean>(false);

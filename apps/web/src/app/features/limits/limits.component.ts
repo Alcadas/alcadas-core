@@ -16,6 +16,7 @@ import {
 } from './services/limits-workflow.utils';
 import { LimitsService } from './services/limits.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SidebarService } from '../../core/services/sidebar.service';
 
 @Component({
   selector: 'app-limits',
@@ -28,6 +29,7 @@ export class LimitsComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly limitsService = inject(LimitsService);
+  private readonly sidebarService = inject(SidebarService);
 
   // Identificação e Metadados de Edição do Fluxo
   readonly currentRuleId = signal<string | null>(null);
@@ -436,6 +438,7 @@ export class LimitsComponent {
   }
 
   constructor() {
+    this.sidebarService.collapse();
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.currentRuleId.set(id);
