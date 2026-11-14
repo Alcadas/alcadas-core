@@ -1,20 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import axios, { AxiosInstance } from 'axios';
-
-interface FirestoreValue {
-  stringValue?: string;
-  integerValue?: string;
-  doubleValue?: number;
-  booleanValue?: boolean;
-  nullValue?: null;
-  mapValue?: { fields?: Record<string, FirestoreValue> };
-  arrayValue?: { values?: FirestoreValue[] };
-}
-
-interface FirestoreDocument {
-  name?: string;
-  fields?: Record<string, FirestoreValue>;
-}
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Firestore, getFirestore } from 'firebase-admin/firestore';
+import { connect } from 'node:net';
+import { getFirebaseApp } from '../firebase/firebase-app';
 
 /** O documento mudou entre a leitura e a escrita (concorrência otimista). */
 export class ConflitoDeVersaoError extends Error {
@@ -32,40 +19,136 @@ export class DocumentoJaExisteError extends Error {
   }
 }
 
+/** A operação não terminou dentro do prazo configurado. */
+class PrazoEsgotadoError extends Error {
+  readonly code = 'prazo-esgotado';
+  constructor(ms: number) {
+    super(`Operação no Firestore excedeu ${ms} ms`);
+    this.name = 'PrazoEsgotadoError';
+  }
+}
+
+/** Resultado de uma operação: `remoto: false` significa "emulador fora, use o store local". */
+type Resultado<T> = { remoto: true; valor: T } | { remoto: false };
+
+/** Código gRPC devolvido pelo Firestore quando `create()` encontra o documento já gravado. */
+const GRPC_ALREADY_EXISTS = 6;
+
+/** Documento lido por `/readyz` em produção. Fica fora de `/tenants` e não precisa existir. */
+const DOCUMENTO_DE_SONDA = '_health/readyz';
+
+const PRAZO_PRODUCAO_MS = 10_000;
+const PRAZO_EMULADOR_MS = 5_000;
+const PRAZO_SONDA_EMULADOR_MS = 1_000;
+/** Por quanto tempo o resultado da sonda do emulador é reaproveitado. */
+const VALIDADE_SONDA_EMULADOR_MS = 10_000;
+/** Por quanto tempo um `/readyz` saudável é reaproveitado em produção (economia de cota — FinOps). */
+const VALIDADE_READYZ_PADRAO_MS = 60_000;
+
+/** Sondas de conectividade do emulador, por endereço, compartilhadas entre instâncias do serviço. */
+const sondasDoEmulador = new Map<string, { expiraEm: number; resultado: Promise<boolean> }>();
+
+function enderecoDoEmulador(): string {
+  return (process.env['FIRESTORE_EMULATOR_HOST'] || 'localhost:8080').replace(/^https?:\/\//, '');
+}
+
 /**
- * Serviço de persistência conectado ao Emulador do Google Cloud Firestore (ADR-004 / RNF07 / RNF10).
- * Grava e lê documentos sempre dentro do caminho isolado do tenant: /tenants/{tenantId}/{subcollectionPath}/{docId}.
+ * Testa, com uma conexão TCP curta, se o emulador do Firestore está escutando.
+ * Evita que o Admin SDK fique tentando reconectar (e travando a requisição) quando o emulador não
+ * está rodando — caso comum nos testes unitários e ao subir só a API.
+ */
+function emuladorAcessivel(ignorarCache = false): Promise<boolean> {
+  const endereco = enderecoDoEmulador();
+  const emCache = sondasDoEmulador.get(endereco);
+  if (!ignorarCache && emCache && emCache.expiraEm > Date.now()) {
+    return emCache.resultado;
+  }
+
+  const separador = endereco.lastIndexOf(':');
+  const host = separador > 0 ? endereco.slice(0, separador).replace(/^\[|\]$/g, '') : endereco;
+  const porta = separador > 0 ? Number(endereco.slice(separador + 1)) : 8080;
+
+  const resultado = new Promise<boolean>((resolver) => {
+    const socket = connect({ host, port: porta });
+    const encerrar = (acessivel: boolean): void => {
+      socket.destroy();
+      resolver(acessivel);
+    };
+    socket.setTimeout(PRAZO_SONDA_EMULADOR_MS);
+    socket.once('connect', () => encerrar(true));
+    socket.once('timeout', () => encerrar(false));
+    socket.once('error', () => encerrar(false));
+  });
+  sondasDoEmulador.set(endereco, { expiraEm: Date.now() + VALIDADE_SONDA_EMULADOR_MS, resultado });
+  return resultado;
+}
+
+function marcarEmuladorIndisponivel(): void {
+  sondasDoEmulador.set(enderecoDoEmulador(), {
+    expiraEm: Date.now() + VALIDADE_SONDA_EMULADOR_MS,
+    resultado: Promise.resolve(false),
+  });
+}
+
+/** Rejeita com `PrazoEsgotadoError` se a promessa não resolver em `ms`. */
+function comPrazo<T>(promessa: Promise<T>, ms: number): Promise<T> {
+  let temporizador: NodeJS.Timeout | undefined;
+  const prazo = new Promise<never>((_resolver, rejeitar) => {
+    temporizador = setTimeout(() => rejeitar(new PrazoEsgotadoError(ms)), ms);
+  });
+  return Promise.race([promessa, prazo]).finally(() => clearTimeout(temporizador));
+}
+
+/**
+ * Converte o registro em dados aceitos pelo Firestore: remove campos `undefined` (o Admin SDK os
+ * recusa), transforma datas em texto ISO e descarta qualquer coisa que não seja JSON.
+ */
+function paraFirestore(registro: object): FirebaseFirestore.DocumentData {
+  return JSON.parse(JSON.stringify(registro)) as FirebaseFirestore.DocumentData;
+}
+
+function codigoDoErro(erro: unknown): string {
+  const codigo = (erro as { code?: unknown } | null)?.code;
+  if (typeof codigo === 'string' || typeof codigo === 'number') {
+    return String(codigo);
+  }
+  return erro instanceof Error ? erro.name : 'erro-desconhecido';
+}
+
+/**
+ * Persistência no Cloud Firestore via Firebase Admin SDK (ADR-004 / ADR-011 / RNF07 / RNF10 — Issue #29).
+ *
+ * Todo documento é lido e gravado dentro do caminho isolado do tenant:
+ * `/tenants/{tenantId}/{subcoleção}/{docId}`.
+ *
+ * Comportamento por ambiente:
+ *
+ * | Ambiente              | Banco                         | Banco indisponível                        |
+ * | --------------------- | ----------------------------- | ----------------------------------------- |
+ * | `NODE_ENV=production` | Firestore real (Admin SDK)    | HTTP 503 — nada é guardado em memória     |
+ * | demais                | Emulador (`FIRESTORE_EMULATOR_HOST`) | store em memória, só para desenvolver/testar |
+ *
+ * Em produção o fallback em memória não existe de propósito: o serviço hiberna e reinicia, então
+ * "salvar" em memória esconderia a falha e perderia o dado em silêncio. Falhou, responde 5xx.
+ *
+ * @example
+ * await firestore.setTenantDocument('startop', 'cost_centers', 'cc-101', { code: 'CC-101', name: 'Finanças' });
+ * const centro = await firestore.getTenantDocument<CostCenter>('startop', 'cost_centers', 'cc-101');
+ * const todos = await firestore.listTenantCollection<CostCenter>('startop', 'cost_centers');
  */
 @Injectable()
 export class FirestoreService {
   private readonly logger = new Logger(FirestoreService.name);
-  private readonly http: AxiosInstance;
-  private readonly baseUrl: string;
 
-  // Store em memória sincronizado que atua como fallback caso o emulador não esteja rodando no host local
+  /** Store local usado SOMENTE fora de produção, quando o emulador não está rodando. */
   private readonly memoryStore = new Map<string, Record<string, unknown>>();
 
-  constructor() {
-    const emulatorHost = process.env['FIRESTORE_EMULATOR_HOST'] || 'localhost:8080';
-    const projectId = process.env['FIREBASE_PROJECT_ID'] || 'demo-alcadas';
-    const hostWithProtocol = emulatorHost.startsWith('http')
-      ? emulatorHost
-      : `http://${emulatorHost}`;
-
-    this.baseUrl = `${hostWithProtocol}/v1/projects/${projectId}/databases/(default)/documents`;
-    this.http = axios.create({
-      baseURL: this.baseUrl,
-      timeout: 2500,
-      headers: {
-        Authorization: 'Bearer owner',
-        'Content-Type': 'application/json',
-      },
-    });
-  }
+  /** Momento do último `/readyz` saudável em produção (0 = precisa consultar o banco de novo). */
+  private ultimoPingSaudavel = 0;
 
   /**
-   * Salva ou atualiza um documento dentro do escopo estrito do tenant:
-   * /tenants/{tenantId}/{subcollection}/{docId}
+   * Salva (substituindo) um documento no escopo estrito do tenant:
+   * `/tenants/{tenantId}/{subcollection}/{docId}`. O campo `tenantId` é sempre gravado junto.
    */
   async setTenantDocument<T extends object>(
     tenantId: string,
@@ -73,93 +156,81 @@ export class FirestoreService {
     docId: string,
     data: T,
   ): Promise<T> {
-    this.assertValidTenant(tenantId);
-    const cleanSubPath = subcollection.replace(/^\/+|\/+$/g, '');
-    const relativePath = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
+    const relativePath = this.buildPath(tenantId, subcollection, docId);
     const record = { ...(data as Record<string, unknown>), tenantId };
 
-    this.memoryStore.set(relativePath, record);
+    if (!this.emProducao()) {
+      this.memoryStore.set(relativePath, record);
+    }
 
-    try {
-      const firestoreFields = this.toFirestoreFields(record);
-      await this.http.patch(`/${relativePath}`, { fields: firestoreFields });
-    } catch {
-      this.logger.debug(
-        `Firestore Emulator indisponível em ${this.baseUrl}; documento persistido no store local (${relativePath}).`,
-      );
+    const resultado = await this.noBanco(`set ${relativePath}`, (db) =>
+      db.doc(relativePath).set(paraFirestore(record)),
+    );
+    if (!resultado.remoto) {
+      this.logger.debug(`Emulador do Firestore indisponível; documento mantido no store local (${relativePath}).`);
     }
 
     return record as T;
   }
 
   /**
-   * Obtém um documento específico dentro do escopo do tenant:
-   * /tenants/{tenantId}/{subcollectionPath}/{docId}
+   * Obtém um documento do tenant: `/tenants/{tenantId}/{subcollectionPath}/{docId}`.
+   * Devolve `null` quando o documento não existe.
    */
   async getTenantDocument<T>(
     tenantId: string,
     subcollectionPath: string,
     docId: string,
   ): Promise<T | null> {
-    this.assertValidTenant(tenantId);
-    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
-    const relativePath = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
+    const relativePath = this.buildPath(tenantId, subcollectionPath, docId);
 
-    try {
-      const response = await this.http.get<FirestoreDocument>(`/${relativePath}`);
-      if (response.data && response.data.fields) {
-        const parsed = this.fromFirestoreFields(response.data.fields);
-        this.memoryStore.set(relativePath, parsed);
-        return parsed as T;
-      }
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        return (this.memoryStore.get(relativePath) as T) ?? null;
-      }
+    const resultado = await this.noBanco(`get ${relativePath}`, async (db) => {
+      const snapshot = await db.doc(relativePath).get();
+      return snapshot.exists ? (snapshot.data() as Record<string, unknown>) : null;
+    });
+
+    if (this.emProducao()) {
+      return resultado.remoto ? (resultado.valor as T | null) : null;
     }
-
-    const fallback = this.memoryStore.get(relativePath);
-    return (fallback as T) ?? null;
+    if (resultado.remoto && resultado.valor) {
+      this.memoryStore.set(relativePath, resultado.valor);
+      return resultado.valor as T;
+    }
+    return (this.memoryStore.get(relativePath) as T) ?? null;
   }
 
   /**
-   * Lista todos os documentos de uma coleção ou subcoleção pertencentes ao tenant informado:
-   * /tenants/{tenantId}/{subcollectionPath}
+   * Lista os documentos de uma (sub)coleção do tenant: `/tenants/{tenantId}/{subcollectionPath}`.
+   * Documentos gravados com `tenantId` diferente do solicitado são descartados (RNF07).
    */
   async listTenantCollection<T>(
     tenantId: string,
     subcollectionPath: string,
   ): Promise<T[]> {
     this.assertValidTenant(tenantId);
-    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
-    const collectionPrefix = `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}`;
+    const collectionPrefix = `tenants/${tenantId}/${this.limparCaminho(subcollectionPath)}`;
 
-    try {
-      const response = await this.http.get<{ documents?: FirestoreDocument[] }>(
-        `/${collectionPrefix}`,
+    const resultado = await this.noBanco(`list ${collectionPrefix}`, async (db) => {
+      const snapshot = await db.collection(collectionPrefix).get();
+      return snapshot.docs.map((doc) => ({ id: doc.id, dados: doc.data() as Record<string, unknown> }));
+    });
+
+    if (resultado.remoto) {
+      const doTenant = resultado.valor.filter(
+        ({ dados }) => !dados['tenantId'] || dados['tenantId'] === tenantId,
       );
-      const docs = response.data?.documents ?? [];
-      const results: T[] = [];
-
-      for (const doc of docs) {
-        if (doc.fields) {
-          const parsed = this.fromFirestoreFields(doc.fields);
-          if (!parsed['tenantId'] || parsed['tenantId'] === tenantId) {
-            const docId = doc.name?.split('/').pop();
-            if (docId) {
-              this.memoryStore.set(`${collectionPrefix}/${docId}`, parsed);
-            }
-            results.push(parsed as T);
-          }
-        }
+      if (this.emProducao()) {
+        return doTenant.map(({ dados }) => dados as T);
       }
-      if (results.length > 0) {
-        return results;
+      for (const { id, dados } of doTenant) {
+        this.memoryStore.set(`${collectionPrefix}/${id}`, dados);
       }
-    } catch {
-      // Fallback para o store em memória quando o emulador não estiver rodando
+      if (doTenant.length > 0) {
+        return doTenant.map(({ dados }) => dados as T);
+      }
     }
 
+    // Só fora de produção: emulador fora do ar (ou coleção ainda vazia nele) → store local.
     const results: T[] = [];
     const prefixWithSlash = `${collectionPrefix}/`;
     for (const [key, value] of this.memoryStore.entries()) {
@@ -176,9 +247,9 @@ export class FirestoreService {
   /**
    * Atualiza um documento somente se ele não mudou desde a leitura (concorrência otimista — ADR-005).
    *
-   * A condição é dupla: o campo `versao` gravado precisa ser igual a `versaoEsperada` e, no emulador,
-   * o PATCH usa a precondição nativa `currentDocument.updateTime`. Se outra decisão gravou antes,
-   * o Firestore responde FAILED_PRECONDITION e lançamos `ConflitoDeVersaoError` (→ HTTP 409).
+   * Leitura e escrita acontecem na mesma transação do Firestore: se o campo `versao` gravado for
+   * diferente de `versaoEsperada` (outra decisão chegou antes), lança `ConflitoDeVersaoError`
+   * (→ HTTP 409) e nada é gravado.
    */
   async updateTenantDocumentIfVersion<T extends { versao: number }>(
     tenantId: string,
@@ -187,37 +258,29 @@ export class FirestoreService {
     versaoEsperada: number,
     data: T,
   ): Promise<T> {
-    this.assertValidTenant(tenantId);
     const relativePath = this.buildPath(tenantId, subcollectionPath, docId);
     const record = { ...(data as Record<string, unknown>), tenantId } as T & { tenantId: string };
+    const producao = this.emProducao();
 
-    let remote: { updateTime?: string; fields?: Record<string, FirestoreValue> } | null = null;
-    try {
-      const response = await this.http.get<FirestoreDocument & { updateTime?: string }>(
-        `/${relativePath}`,
-      );
-      remote = response.data;
-    } catch (error: unknown) {
-      if (!(axios.isAxiosError(error) && error.response?.status === 404)) {
-        remote = null; // emulador indisponível → segue apenas com o store em memória
-      }
-    }
-
-    if (remote?.fields) {
-      const atual = this.fromFirestoreFields(remote.fields);
-      if (Number(atual['versao'] ?? 1) !== versaoEsperada) {
-        throw new ConflitoDeVersaoError(relativePath);
-      }
-      try {
-        await this.http.patch(`/${relativePath}`, { fields: this.toFirestoreFields(record) }, {
-          params: { 'currentDocument.exists': true },
-        });
-      } catch (error: unknown) {
-        if (axios.isAxiosError(error) && [400, 409, 412].includes(error.response?.status ?? 0)) {
+    const resultado = await this.noBanco(`update ${relativePath}`, (db) =>
+      db.runTransaction(async (transacao) => {
+        const referencia = db.doc(relativePath);
+        const atual = await transacao.get(referencia);
+        if (!atual.exists) {
+          // No emulador o documento pode existir só no store local: quem decide é o fallback abaixo.
+          if (!producao) return false;
+        } else if (Number(atual.get('versao') ?? 1) !== versaoEsperada) {
           throw new ConflitoDeVersaoError(relativePath);
         }
-        throw error;
-      }
+        transacao.set(referencia, paraFirestore(record));
+        return true;
+      }),
+    );
+
+    if (producao) {
+      return record;
+    }
+    if (resultado.remoto && resultado.valor) {
       this.memoryStore.set(relativePath, record);
       return record;
     }
@@ -232,8 +295,9 @@ export class FirestoreService {
   }
 
   /**
-   * Cria um documento apenas se ele ainda não existir (precondição `currentDocument.exists=false`).
+   * Cria um documento apenas se ele ainda não existir (`create()` do Firestore).
    * Usado pela trilha de auditoria para que nenhum elo seja sobrescrito (imutabilidade — ADR-006).
+   * Lança `DocumentoJaExisteError` quando o caminho já está ocupado.
    */
   async createTenantDocumentIfAbsent<T extends object>(
     tenantId: string,
@@ -241,121 +305,157 @@ export class FirestoreService {
     docId: string,
     data: T,
   ): Promise<T> {
-    this.assertValidTenant(tenantId);
     const relativePath = this.buildPath(tenantId, subcollectionPath, docId);
     const record = { ...(data as Record<string, unknown>), tenantId } as T;
-
-    if (this.memoryStore.has(relativePath)) {
-      throw new DocumentoJaExisteError(relativePath);
-    }
-    // Reserva síncrona antes de qualquer await: duas criações simultâneas no mesmo processo
-    // não conseguem ocupar o mesmo caminho.
     const reserva = record as Record<string, unknown>;
-    this.memoryStore.set(relativePath, reserva);
+    const producao = this.emProducao();
 
-    try {
-      await this.http.patch(`/${relativePath}`, { fields: this.toFirestoreFields(reserva) }, {
-        params: { 'currentDocument.exists': false },
-      });
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error) && error.response && [400, 409, 412].includes(error.response.status)) {
-        if (this.memoryStore.get(relativePath) === reserva) {
-          this.memoryStore.delete(relativePath);
-        }
+    if (!producao) {
+      if (this.memoryStore.has(relativePath)) {
         throw new DocumentoJaExisteError(relativePath);
       }
-      this.logger.debug(`Firestore Emulator indisponível; elo mantido no store local (${relativePath}).`);
+      // Reserva síncrona antes de qualquer await: duas criações simultâneas no mesmo processo
+      // não conseguem ocupar o mesmo caminho.
+      this.memoryStore.set(relativePath, reserva);
+    }
+
+    try {
+      const resultado = await this.noBanco(`create ${relativePath}`, async (db) => {
+        try {
+          await db.doc(relativePath).create(paraFirestore(reserva));
+        } catch (erro) {
+          if ((erro as { code?: unknown } | null)?.code === GRPC_ALREADY_EXISTS) {
+            throw new DocumentoJaExisteError(relativePath);
+          }
+          throw erro;
+        }
+      });
+      if (!resultado.remoto) {
+        this.logger.debug(`Emulador do Firestore indisponível; elo mantido no store local (${relativePath}).`);
+      }
+    } catch (erro) {
+      if (erro instanceof DocumentoJaExisteError && this.memoryStore.get(relativePath) === reserva) {
+        this.memoryStore.delete(relativePath);
+      }
+      throw erro;
     }
 
     return record;
   }
 
   /**
-   * Verifica se o Firestore (emulador) responde. Usado por `/readyz`.
+   * Verifica se o banco responde. Usado por `/api/readyz`.
+   *
+   * - Produção: lê um único documento do Firestore real (1 leitura). O resultado saudável é
+   *   reaproveitado por `READYZ_CACHE_TTL_MS` (padrão 60 s), então monitores batendo em `/readyz`
+   *   custam no máximo ~1.440 leituras/dia das 50.000 do plano Spark. Falhas não são cacheadas, e
+   *   qualquer operação que falhe invalida o cache — a volta e a queda do banco aparecem na hora.
+   * - Fora de produção: testa a porta do emulador, sem leitura alguma.
    */
   async ping(): Promise<boolean> {
-    try {
-      await this.http.get('/', { timeout: 1000, validateStatus: (s) => s < 500 });
+    if (!this.emProducao()) {
+      return emuladorAcessivel(true);
+    }
+
+    const validade = Number(process.env['READYZ_CACHE_TTL_MS'] ?? VALIDADE_READYZ_PADRAO_MS);
+    if (this.ultimoPingSaudavel > 0 && Date.now() - this.ultimoPingSaudavel < validade) {
       return true;
-    } catch {
+    }
+
+    try {
+      await comPrazo(this.db().doc(DOCUMENTO_DE_SONDA).get(), PRAZO_PRODUCAO_MS);
+      this.ultimoPingSaudavel = Date.now();
+      return true;
+    } catch (erro) {
+      this.ultimoPingSaudavel = 0;
+      this.logger.error(`Firestore indisponível no /readyz (${codigoDoErro(erro)}).`);
       return false;
     }
   }
 
+  /**
+   * Executa uma operação no Firestore aplicando a política de falha do ambiente:
+   * produção → HTTP 503; demais → sinaliza `remoto: false` para o chamador usar o store local.
+   * Erros de domínio (`ConflitoDeVersaoError`, `DocumentoJaExisteError`) sempre passam direto.
+   */
+  private async noBanco<T>(
+    descricao: string,
+    operacao: (db: Firestore) => Promise<T>,
+  ): Promise<Resultado<T>> {
+    if (this.emProducao()) {
+      try {
+        return { remoto: true, valor: await comPrazo(operacao(this.db()), PRAZO_PRODUCAO_MS) };
+      } catch (erro) {
+        if (erro instanceof ConflitoDeVersaoError || erro instanceof DocumentoJaExisteError) {
+          throw erro;
+        }
+        this.ultimoPingSaudavel = 0;
+        // Registra só a operação, o caminho e o código do erro — nunca o conteúdo do documento.
+        this.logger.error(`Firestore indisponível em "${descricao}" (${codigoDoErro(erro)}).`);
+        throw new ServiceUnavailableException({
+          error: 'FIRESTORE_INDISPONIVEL',
+          message: 'Firestore indisponível.',
+        });
+      }
+    }
+
+    if (!(await emuladorAcessivel())) {
+      return { remoto: false };
+    }
+    try {
+      return { remoto: true, valor: await comPrazo(operacao(this.db()), PRAZO_EMULADOR_MS) };
+    } catch (erro) {
+      if (erro instanceof ConflitoDeVersaoError || erro instanceof DocumentoJaExisteError) {
+        throw erro;
+      }
+      marcarEmuladorIndisponivel();
+      this.logger.debug(`Emulador do Firestore falhou em "${descricao}" (${codigoDoErro(erro)}); usando store local.`);
+      return { remoto: false };
+    }
+  }
+
+  /** Instância do Firestore do Admin SDK. Obtida sob demanda para o boot não depender do banco. */
+  private db(): Firestore {
+    return getFirestore(getFirebaseApp());
+  }
+
+  private emProducao(): boolean {
+    return process.env['NODE_ENV'] === 'production';
+  }
+
+  private limparCaminho(subcollectionPath: string): string {
+    return subcollectionPath.replace(/^\/+|\/+$/g, '');
+  }
+
   private buildPath(tenantId: string, subcollectionPath: string, docId: string): string {
-    const cleanSubPath = subcollectionPath.replace(/^\/+|\/+$/g, '');
-    return `tenants/${encodeURIComponent(tenantId)}/${cleanSubPath}/${encodeURIComponent(docId)}`;
+    this.assertValidTenant(tenantId);
+    this.assertValidDocId(docId);
+    return `tenants/${tenantId}/${this.limparCaminho(subcollectionPath)}/${docId}`;
   }
 
   private assertValidTenant(tenantId: string): void {
     if (!tenantId || typeof tenantId !== 'string' || tenantId.trim().length === 0) {
       throw new Error('Violação Multi-tenant (RNF07): tenantId é obrigatório em toda operação.');
     }
+    if (tenantId.includes('/') || tenantId === '.' || tenantId === '..') {
+      throw new Error('Violação Multi-tenant (RNF07): tenantId não pode conter separador de caminho.');
+    }
   }
 
-  private toFirestoreFields(obj: Record<string, unknown>): Record<string, FirestoreValue> {
-    const fields: Record<string, FirestoreValue> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== undefined) {
-        fields[key] = this.toFirestoreValue(value);
-      }
+  /**
+   * O id vira um segmento do caminho do documento: se contivesse `/`, apontaria para outra
+   * coleção. Ids vindos do cliente passam por aqui, por isso a recusa é um 400.
+   */
+  private assertValidDocId(docId: string): void {
+    const invalido =
+      typeof docId !== 'string' ||
+      docId.length === 0 ||
+      docId.includes('/') ||
+      docId === '.' ||
+      docId === '..' ||
+      /^__.*__$/.test(docId);
+    if (invalido) {
+      throw new BadRequestException('Identificador de documento inválido.');
     }
-    return fields;
-  }
-
-  private toFirestoreValue(value: unknown): FirestoreValue {
-    if (value === null || value === undefined) {
-      return { nullValue: null };
-    }
-    if (typeof value === 'string') {
-      return { stringValue: value };
-    }
-    if (typeof value === 'boolean') {
-      return { booleanValue: value };
-    }
-    if (typeof value === 'number') {
-      if (Number.isInteger(value)) {
-        return { doubleValue: value };
-      }
-      return { doubleValue: value };
-    }
-    if (Array.isArray(value)) {
-      return {
-        arrayValue: {
-          values: value.map((item) => this.toFirestoreValue(item)),
-        },
-      };
-    }
-    if (typeof value === 'object') {
-      return {
-        mapValue: {
-          fields: this.toFirestoreFields(value as Record<string, unknown>),
-        },
-      };
-    }
-    return { stringValue: String(value) };
-  }
-
-  private fromFirestoreFields(fields: Record<string, FirestoreValue>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(fields)) {
-      result[key] = this.fromFirestoreValue(val);
-    }
-    return result;
-  }
-
-  private fromFirestoreValue(val: FirestoreValue): unknown {
-    if ('nullValue' in val) return null;
-    if (val.stringValue !== undefined) return val.stringValue;
-    if (val.booleanValue !== undefined) return val.booleanValue;
-    if (val.doubleValue !== undefined) return Number(val.doubleValue);
-    if (val.integerValue !== undefined) return Number(val.integerValue);
-    if (val.arrayValue) {
-      return (val.arrayValue.values ?? []).map((item) => this.fromFirestoreValue(item));
-    }
-    if (val.mapValue) {
-      return this.fromFirestoreFields(val.mapValue.fields ?? {});
-    }
-    return null;
   }
 }

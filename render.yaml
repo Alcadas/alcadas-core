@@ -17,5 +17,10 @@ services:
         value: https://alcadas-app.web.app
       - key: FIREBASE_HOSTING_SITE
         value: alcadas-app
+      # Firebase real via Admin SDK (#29). Valores definidos no painel do Render, fora do Git.
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
     healthCheckPath: /api/healthz
     autoDeploy: true
