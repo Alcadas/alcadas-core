@@ -172,7 +172,7 @@ O arquivo [`render.yaml`](render.yaml) na raiz do repositório configura o Web S
 - **Runtime:** Docker (`apps/api/Dockerfile`)
 - **Docker Build Context:** `.` (raiz do monorepo Nx)
 - **Health Check:** `/api/healthz`
-- **Variáveis de Ambiente:** `NODE_ENV=production`, `PORT=3000`, `WEB_URL`
+- **Variáveis de Ambiente:** `NODE_ENV=production`, `PORT=3000`, `WEB_URL` e as demais descritas em [API em Produção (CP3)](docs/cloud/api-producao-cp3.md) — segredos são definidos no painel, fora do Git.
 - **Rastreabilidade:** O Render injeta automaticamente a variável `RENDER_GIT_COMMIT`, cujo SHA é exibido nos logs de inicialização da API e no painel de deploy do Render.
 
 ### Publicação no Firebase Hosting & Security Rules (Plano Spark — Custo Zero)
