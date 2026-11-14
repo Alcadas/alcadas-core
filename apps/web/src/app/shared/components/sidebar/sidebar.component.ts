@@ -157,11 +157,13 @@ export class SidebarComponent {
   });
 
   readonly isDev = computed(() => {
-    const email = (
-      this.authService.currentUser()?.email || this.settingsService.activeUserEmail()
-    ).toLowerCase();
-    const id = this.authService.currentUser()?.id;
-    return email === 'dev@alcadas.com' || id === 'dev-master';
+    const user = this.authService.currentUser();
+    const role = user?.role || this.settingsService.activeUserRole();
+    return (
+      role === 'SUPER_USER' ||
+      Boolean(user?.roles?.includes('SUPER_USER')) ||
+      user?.id === 'dev-master'
+    );
   });
 
   toggleCollapse(): void {

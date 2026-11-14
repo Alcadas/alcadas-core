@@ -58,6 +58,10 @@ describe('CORS restrito aos domínios da equipe (Issue #34)', () => {
       expect(resolverOrigensCors({ NODE_ENV: 'production' })).toEqual([]);
     });
 
+    it('ignora curinga (*) em WEB_URL para impedir liberação irrestrita de origens', () => {
+      expect(resolverOrigensCors({ NODE_ENV: 'production', WEB_URL: '*' })).toEqual([]);
+    });
+
     it('em desenvolvimento libera o frontend local quando WEB_URL não está definida', () => {
       expect(resolverOrigensCors({ NODE_ENV: 'development' })).toEqual(['http://localhost:4200']);
     });

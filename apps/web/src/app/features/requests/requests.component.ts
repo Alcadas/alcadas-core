@@ -115,7 +115,7 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly isGlobalRequester = computed<boolean>(() => {
     const user = this.authService?.currentUser();
     if (!user) return true;
-    if (user.email && user.email.toLowerCase() === 'dev@alcadas.com') return true;
+    if (user.id === 'dev-master') return true;
     const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
     if (user.role && globalRoles.includes(user.role)) return true;
     if (user.roles?.some((r: string) => globalRoles.includes(r))) return true;

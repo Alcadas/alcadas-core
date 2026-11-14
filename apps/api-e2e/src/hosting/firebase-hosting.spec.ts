@@ -41,6 +41,20 @@ describe('Firebase Hosting & Security Rules (CP3 - Issue #43)', () => {
     }
   });
 
+  it('pacote compilado de producao do apps/web nao contem credenciais estaticas de desenvolvedor (Issue #39)', () => {
+    const browserDir = path.resolve(process.cwd(), 'dist/apps/web/browser');
+    if (fs.existsSync(browserDir)) {
+      const files = fs
+        .readdirSync(browserDir)
+        .filter((f) => f.endsWith('.js') || f.endsWith('.html'));
+      for (const file of files) {
+        const content = fs.readFileSync(path.join(browserDir, file), 'utf8');
+        expect(content).not.toContain('dev@alcadas.com');
+        expect(content).not.toContain('dev123456');
+      }
+    }
+  });
+
   it('quando o emulador de Hosting estiver ativo, rota profunda (/solicitacoes) responde 200 sem 404', async () => {
     const hostingPort = process.env['FIREBASE_HOSTING_PORT'] || '5000';
     try {
