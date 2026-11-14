@@ -222,27 +222,43 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
     const userCostCenter = (deptObj?.costCenter || deptObj?.id || user?.costCenterId || '').toLowerCase();
 
     // Papéis de escopo corporativo transversal
-    const isGlobalApprover =
-      user?.role === 'DIRETOR_CFO' ||
-      user?.role === 'ADMIN' ||
-      user?.role === 'SUPER_USER' ||
+    const userRole = (user?.role || '').toUpperCase();
+    const userRoles = (user?.roles || []).map((r: string) => r.toUpperCase());
+    const isDirectorOrAbove =
+      userRole === 'DIRETOR' ||
+      userRole === 'DIRETOR_CFO' ||
+      userRole === 'DIRETORIA' ||
+      userRole === 'CFO' ||
+      userRole === 'ADMIN' ||
+      userRole === 'ADMINISTRADOR' ||
+      userRole === 'SUPER_USER' ||
+      userRoles.includes('DIRETOR') ||
+      userRoles.includes('DIRETOR_CFO') ||
+      userRoles.includes('ADMIN') ||
+      userRoles.includes('SUPER_USER') ||
+      Boolean(userAccount?.employee?.isCompanyAdmin) ||
       this.settingsService.isPlatformSuperAdmin();
 
-    return all.filter((r) => {
-      // 1. SoD Incondicional: Bloqueia solicitações de autoria do próprio usuário (Segregação de Funções)
-      if (myId && r.solicitante.id === myId) return false;
-      if (myEmail && r.solicitante.id?.toLowerCase() === myEmail) return false;
-      if (myName && r.solicitante.nome?.trim().toLowerCase() === myName) return false;
-      if (r.solicitante.nome === 'Você') return false;
+    const isGlobalApprover = isDirectorOrAbove;
 
-      // 2. Isolamento de Departamento / Centro de Custo (Cenário 2):
+    return all.filter((r) => {
+      // 1. SoD: Bloqueia solicitações de autoria do próprio usuário logado (Segregação de Funções)
+      const isAuthor =
+        (myId && r.solicitante.id === myId) ||
+        (myEmail && (r.solicitante.id?.toLowerCase() === myEmail || r.solicitante.nome?.toLowerCase() === myEmail)) ||
+        (myName && myName !== 'desenvolvedor' && myName !== 'você' && r.solicitante.nome?.trim().toLowerCase() === myName) ||
+        (myName === 'você' && r.solicitante.nome === 'Você' && myId === r.solicitante.id);
+      if (isAuthor) return false;
+
+      // 2. Isolamento de Departamento / Centro de Custo:
       // Aprovadores setoriais só deliberam sobre solicitações do seu próprio departamento/centro de custo.
+      // Diretores, CFO e Admins têm competência executiva transversal em toda a empresa.
       if (!isGlobalApprover && (userDeptName || userCostCenter || userDeptId)) {
         const reqDept = (r.departamento || '').toLowerCase();
         const reqCc = (r.centroCustoId || '').toLowerCase();
 
         const bateDepartamento =
-          (userDeptName && reqDept === userDeptName) ||
+          (userDeptName && (reqDept === userDeptName || reqDept.includes(userDeptName) || userDeptName.includes(reqDept))) ||
           (userDeptId && reqDept === userDeptId);
         const bateCentroCusto =
           userCostCenter && (reqCc === userCostCenter || reqDept === userCostCenter);
@@ -252,19 +268,19 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
         }
       }
 
-      // 3. Checagem de alçada: a solicitação só chega para aprovar se o valor estiver dentro do limite de alçada do gestor
-      // e se ele tiver papel aprovador (ex: Gerente, Diretor, CFO ou Admin)
-      if (approvalLimit > 0 && r.valor > approvalLimit && user?.role !== 'DIRETOR_CFO' && user?.role !== 'ADMIN') {
+      // 3. Checagem de alçada: limite de valor para aprovadores com teto fixo
+      if (!isGlobalApprover && approvalLimit > 0 && r.valor > approvalLimit) {
         return false;
       }
 
-      // 4. Regra de Etapa Corrente (Issue #66):
-      // Apenas o aprovador da etapa corrente visualiza a solicitação em /aprovacoes
+      // 4. Regra de Etapa Corrente:
+      // Diretores e Admins possuem competência executiva para deliberar.
+      // Para aprovadores setoriais, confere se o papel bate com a etapa esperada.
       if (
-        user?.role !== 'ADMIN' &&
-        user?.role !== 'SUPER_USER' &&
+        !isDirectorOrAbove &&
         r.aprovadorEsperadoPapel &&
-        user?.role !== r.aprovadorEsperadoPapel
+        userRole !== r.aprovadorEsperadoPapel &&
+        !userRoles.includes(r.aprovadorEsperadoPapel)
       ) {
         return false;
       }
@@ -275,9 +291,13 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
 
   // Departamentos disponíveis para filtro
   readonly departments = computed(() => {
-    const list = this.approvalEligibleRequests();
     const depts = new Set<string>();
-    list.forEach((req) => depts.add(req.departamento));
+    this.requestsService.requests().forEach((req) => {
+      if (req.departamento) depts.add(req.departamento);
+    });
+    this.settingsService.organization().departments.forEach((d) => {
+      if (d.name) depts.add(d.name);
+    });
     return Array.from(depts).sort();
   });
 
@@ -319,8 +339,13 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
 
   // Lista filtrada e ordenada de aprovações
   readonly filteredRequests = computed<RequestItem[]>(() => {
-    let list = [...this.approvalEligibleRequests()];
     const tab = this.currentTab();
+    let list: RequestItem[];
+    if (tab === 'todas') {
+      list = [...this.requestsService.requests()];
+    } else {
+      list = [...this.approvalEligibleRequests()];
+    }
     const query = this.searchQuery().trim().toLowerCase();
     const dept = this.selectedDepartment();
     const cat = this.selectedCategory();

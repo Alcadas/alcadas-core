@@ -122,7 +122,15 @@ export class RequestsComponent implements OnInit, OnDestroy {
     const user = this.authService?.currentUser();
     if (!user) return true;
     if (user.email && user.email.toLowerCase() === 'dev@alcadas.com') return true;
-    const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
+    const globalRoles = [
+      'DIRETOR',
+      'DIRETOR_CFO',
+      'DIRETORIA',
+      'CFO',
+      'ADMIN',
+      'ADMINISTRADOR',
+      'SUPER_USER',
+    ];
     if (user.role && globalRoles.includes(user.role)) return true;
     if (user.roles?.some((r: string) => globalRoles.includes(r))) return true;
     return false;
@@ -246,12 +254,21 @@ export class RequestsComponent implements OnInit, OnDestroy {
     const user = this.authService.currentUser();
     if (!user) return true;
     // Administradores, Diretores e Gerentes Aprovadores da empresa podem ver as solicitações da organização
+    const roleNormalized = (user.role || '').toUpperCase();
+    const globalAdminRoles = [
+      'ADMIN',
+      'ADMINISTRADOR',
+      'DIRETOR',
+      'DIRETOR_CFO',
+      'DIRETORIA',
+      'CFO',
+      'SUPER_USER',
+      'APROVADOR_N2',
+      'APROVADOR_N1',
+    ];
     if (
-      user.role === 'ADMIN' ||
-      user.role === 'DIRETOR_CFO' ||
-      user.role === 'SUPER_USER' ||
-      user.role === 'APROVADOR_N2' ||
-      user.role === 'APROVADOR_N1'
+      globalAdminRoles.includes(roleNormalized) ||
+      user.roles?.some((r: string) => globalAdminRoles.includes(r.toUpperCase()))
     ) {
       return true;
     }

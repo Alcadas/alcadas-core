@@ -39,6 +39,29 @@ import {
 /** Quantidade lida por vez (máximo do contrato OpenAPI v0.2 — FinOps). */
 export const TAMANHO_DA_PAGINA_DA_API = 50;
 
+export const STORAGE_KEY_REQUESTS = 'alcadas.requests.v1';
+
+export function lerRequestsDoStorage(): RequestItem[] | null {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_REQUESTS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salvarRequestsNoStorage(requests: RequestItem[]): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(requests));
+  } catch {
+    // Ignora se localStorage estiver bloqueado ou excedido
+  }
+}
+
 const INITIAL_COST_CENTERS: CostCenterOption[] = [
   { id: 'cc-ti', code: 'CC-TI-01', nome: 'Tecnologia & Infraestrutura', departamento: 'TI & Engenharia' },
   { id: 'cc-clinica-centro', code: 'CC-CENTRO', nome: 'Clínica Centro', departamento: 'Operações' },
@@ -241,7 +264,7 @@ export class RequestsService {
 
   readonly categories = CATEGORY_OPTIONS;
 
-  private readonly _requests = signal<RequestItem[]>([]);
+  private readonly _requests = signal<RequestItem[]>(lerRequestsDoStorage() ?? []);
   private readonly _costCenters = signal<CostCenterOption[]>([]);
   private readonly _tiers = signal<ApprovalTier[]>([]);
   private readonly _loadState = signal<LoadState>('carregando');
@@ -256,10 +279,54 @@ export class RequestsService {
     return this.pollingSubscription !== null;
   }
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === STORAGE_KEY_REQUESTS && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (Array.isArray(parsed)) {
+              const antigas = this._requests();
+              const antigasMap = new Map<string, RequestItem>(antigas.map((r) => [r.id, r]));
+              this._requests.set(parsed);
+
+              for (const nova of parsed) {
+                const antiga = antigasMap.get(nova.id);
+                if (!antiga) {
+                  if (nova.status === 'PENDENTE') {
+                    this._statusEvents.next({
+                      type: 'NOVA',
+                      request: nova,
+                    });
+                  }
+                } else if (antiga.status !== nova.status) {
+                  let type: RequestStatusChangeType = 'NOVA';
+                  if (nova.status === 'APROVADA') type = 'APROVADA';
+                  else if (nova.status === 'REJEITADA') type = 'REJEITADA';
+                  else if (nova.status === 'EM_AJUSTE') type = 'EM_AJUSTE';
+                  else if (nova.status === 'PENDENTE') type = 'AVANCO_ETAPA';
+
+                  this._statusEvents.next({
+                    type,
+                    request: nova,
+                    statusAnterior: antiga.status,
+                  });
+                }
+              }
+            }
+          } catch {
+            // ignora erro de parse
+          }
+        }
+      });
+    }
+  }
+
   /** Popula dados de exemplo apenas para testes unitários isolados de componentes. */
   seedForTesting(): void {
     this._requests.set(INITIAL_SEED_REQUESTS);
     this._costCenters.set(INITIAL_COST_CENTERS);
+    salvarRequestsNoStorage(INITIAL_SEED_REQUESTS);
   }
 
   readonly requests = this._requests.asReadonly();
@@ -276,6 +343,15 @@ export class RequestsService {
    */
   ensureLoaded(): void {
     this.syncCostCentersFromOrganization();
+    if (this._requests().length === 0) {
+      const stored = lerRequestsDoStorage();
+      if (stored && stored.length > 0) {
+        this._requests.set(stored);
+      } else {
+        this._requests.set(INITIAL_SEED_REQUESTS);
+        salvarRequestsNoStorage(INITIAL_SEED_REQUESTS);
+      }
+    }
     if (this.http && this.authService?.isAuthenticated?.()) {
       this.load();
     }
@@ -323,6 +399,7 @@ export class RequestsService {
         }
         this._tiers.set(tetos);
         this._requests.set(solicitacoes.map((dto) => paraRequestItem(dto, this.contexto())));
+        salvarRequestsNoStorage(this._requests());
         this._loadState.set('pronto');
       },
       error: (erro: unknown) => {
@@ -372,6 +449,10 @@ export class RequestsService {
    */
   loadSilent(): Observable<RequestItem[]> {
     if (!this.http) {
+      const stored = lerRequestsDoStorage();
+      if (stored && stored.length > 0) {
+        this._requests.set(stored);
+      }
       return of(this._requests());
     }
 
@@ -421,11 +502,18 @@ export class RequestsService {
           }
 
           this._requests.set(novas);
+          salvarRequestsNoStorage(novas);
           if (this._loadState() !== 'pronto') {
             this._loadState.set('pronto');
           }
         }),
-        catchError(() => of(this._requests())),
+        catchError(() => {
+          const stored = lerRequestsDoStorage();
+          if (stored && stored.length > 0) {
+            this._requests.set(stored);
+          }
+          return of(this._requests());
+        }),
       );
   }
 
@@ -437,7 +525,10 @@ export class RequestsService {
     }
     return this.http.post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes`, dto).pipe(
       map((resposta) => paraRequestItem(resposta, this.contexto())),
-      tap((criada) => this._requests.update((lista) => [criada, ...lista])),
+      tap((criada) => {
+        this._requests.update((lista) => [criada, ...lista]);
+        salvarRequestsNoStorage(this._requests());
+      }),
     );
   }
 
@@ -454,9 +545,10 @@ export class RequestsService {
       .post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes/${encodeURIComponent(request.id)}/${acao}`, corpo)
       .pipe(
         map((resposta) => paraRequestItem(resposta, this.contexto())),
-        tap((atualizada) =>
-          this._requests.update((lista) => lista.map((item) => (item.id === atualizada.id ? atualizada : item))),
-        ),
+        tap((atualizada) => {
+          this._requests.update((lista) => lista.map((item) => (item.id === atualizada.id ? atualizada : item)));
+          salvarRequestsNoStorage(this._requests());
+        }),
       );
   }
 
@@ -565,6 +657,7 @@ export class RequestsService {
     };
 
     this._requests.update((lista) => [novoItem, ...lista]);
+    salvarRequestsNoStorage(this._requests());
 
     // Se houver sessão autenticada na API, envia de forma assíncrona ao backend
     if (this.http && this.authService?.isAuthenticated?.()) {
@@ -587,6 +680,7 @@ export class RequestsService {
             this._requests.update((lista) =>
               lista.map((item) => (item.id === id ? { ...novoItem, ...mapeada } : item)),
             );
+            salvarRequestsNoStorage(this._requests());
           }
         });
     }
@@ -674,6 +768,7 @@ export class RequestsService {
         return atualizado;
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (atualizado && this.http && this.authService?.isAuthenticated?.()) {
       const reqSnapshot = atualizado as RequestItem;
@@ -709,6 +804,7 @@ export class RequestsService {
                   : item,
               ),
             );
+            salvarRequestsNoStorage(this._requests());
           }
         });
     }
@@ -811,6 +907,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (target && this.http && this.authService?.isAuthenticated?.()) {
       this.decide(target, 'aprovar').pipe(catchError(() => of(null))).subscribe();
@@ -857,6 +954,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
     return updated;
   }
 
@@ -898,6 +996,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (target && this.http && this.authService?.isAuthenticated?.()) {
       this.decide(target, 'ajuste', motivo).pipe(catchError(() => of(null))).subscribe();
@@ -944,6 +1043,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (target && this.http && this.authService?.isAuthenticated?.()) {
       this.decide(target, 'rejeitar', motivo).pipe(catchError(() => of(null))).subscribe();
