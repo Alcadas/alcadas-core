@@ -539,6 +539,30 @@
             <p>{{ req.descricao }}</p>
           </div>
         </div>
+
+        <!-- Documentos Comprobatórios Anexados -->
+        @if (req.anexos && req.anexos.length > 0) {
+          <div class="detail-section">
+            <h4 class="detail-section-title">
+              <span class="material-symbols-rounded">attach_file</span>
+              <span>Documentos Comprobatórios ({{ req.anexos.length }})</span>
+            </h4>
+            <div class="attachments-list">
+              @for (att of req.anexos; track att.id) {
+                <div class="attachment-item">
+                  <span class="material-symbols-rounded att-icon">{{ att.icone }}</span>
+                  <div class="att-info">
+                    <span class="att-name">{{ att.nome }}</span>
+                    <span class="att-size">{{ att.tamanho }}</span>
+                  </div>
+                  <button type="button" class="btn-att-download" title="Visualizar anexo">
+                    <span class="material-symbols-rounded">visibility</span>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
       </div>
     }
 
@@ -608,12 +632,11 @@
             <label for="editValorInput" class="form-label">Valor Estimado (R$) <span class="required">*</span></label>
             <input
               id="editValorInput"
-              type="number"
-              step="0.01"
-              min="0.01"
+              type="text"
+              inputmode="numeric"
               class="form-input"
-              [ngModel]="editFormValor()"
-              (ngModelChange)="editFormValor.set($event)"
+              [value]="editFormValorDisplay()"
+              (input)="onEditValorInput($event)"
               placeholder="0,00"
             />
             @if (editFormErrors()['valor']) {
@@ -879,17 +902,79 @@
                 <span class="currency-tag">R$</span>
                 <input
                   id="createValorInput"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
+                  type="text"
+                  inputmode="numeric"
                   class="input-valor"
-                  [ngModel]="formValor()"
-                  (ngModelChange)="formValor.set($event)"
+                  [value]="formValorDisplay()"
+                  (input)="onValorInput($event)"
                   placeholder="0,00"
                 />
               </div>
               @if (formErrors()['valor']) {
                 <span class="error-msg">{{ formErrors()['valor'] }}</span>
+              }
+            </div>
+
+            <!-- Painel de Envio de Documentos Comprobatórios (Abaixo do Preço) -->
+            <div class="documents-upload-card" data-tour="solicitacao-documentos">
+              <div class="card-header-row">
+                <span class="card-caption">Documentos Comprobatórios</span>
+                <span class="files-count-badge">{{ formAnexos().length }} anexo(s)</span>
+              </div>
+              <p class="documents-hint">Anexe orçamentos comparativos, cotações, notas ou fotos de materiais.</p>
+
+              <!-- Painel de Drag and Drop -->
+              <div
+                class="drag-drop-zone"
+                [class.is-dragging]="isDraggingFiles()"
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave($event)"
+                (drop)="onFileDrop($event)"
+                (click)="fileInput.click()"
+                tabindex="0"
+                role="button"
+                aria-label="Arrastar e soltar arquivos ou clicar para selecionar"
+              >
+                <input
+                  #fileInput
+                  type="file"
+                  class="hidden-file-input"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
+                  (change)="onFilesSelected($event)"
+                />
+                <div class="drag-icon-circle">
+                  <span class="material-symbols-rounded">cloud_upload</span>
+                </div>
+                <div class="drag-texts">
+                  <span class="drag-title">Arraste seus arquivos aqui</span>
+                  <span class="drag-sub">ou clique para procurar no computador</span>
+                </div>
+                <span class="drag-formats">PDF, PNG, JPG, DOCX ou XLSX até 15MB</span>
+              </div>
+
+              <!-- Lista de Arquivos Anexados -->
+              @if (formAnexos().length > 0) {
+                <div class="attached-files-list">
+                  @for (anexo of formAnexos(); track $index) {
+                    <div class="attached-file-pill">
+                      <span class="material-symbols-rounded file-icon">{{ anexo.icone }}</span>
+                      <div class="file-details">
+                        <span class="file-name" [title]="anexo.nome">{{ anexo.nome }}</span>
+                        <span class="file-size">{{ anexo.tamanho }}</span>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn-remove-file"
+                        (click)="removeAnexo($index); $event.stopPropagation()"
+                        title="Remover anexo"
+                        aria-label="Remover anexo"
+                      >
+                        <span class="material-symbols-rounded">close</span>
+                      </button>
+                    </div>
+                  }
+                </div>
               }
             </div>
 

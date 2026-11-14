@@ -273,10 +273,9 @@
                       >
                         <option value="" disabled selected>Ações...</option>
                         @if (req.status === 'PENDENTE') {
-                          <option value="assinar">✍ Assinar (SHA-256)</option>
-                          <option value="validar">✓ Validar Tecnicamente</option>
+                          <option value="aprovar">✓ Aprovar Compra</option>
                           <option value="revisar">✎ Solicitar Ajuste</option>
-                          <option value="rejeitar">✕ Rejeitar</option>
+                          <option value="rejeitar">✕ Recusar / Rejeitar</option>
                         }
                         <option value="trilha">👁 Ver Trilha & Detalhes</option>
                       </select>
@@ -565,21 +564,12 @@
             </button>
             <button
               type="button"
-              class="btn-drawer-validate"
-              (click)="closeDetailDrawer(); openValidateModal(req)"
-              title="Registrar parecer técnico"
-            >
-              <span class="material-symbols-rounded">task_alt</span>
-              <span>Validar</span>
-            </button>
-            <button
-              type="button"
               class="btn-drawer-sign"
               (click)="closeDetailDrawer(); openSignModal(req)"
-              title="Assinar e aprovar"
+              title="Aprovar e assinar digitalmente a compra"
             >
-              <span class="material-symbols-rounded">draw</span>
-              <span>Assinar & Aprovar</span>
+              <span class="material-symbols-rounded">verified</span>
+              <span>Aprovar Compra</span>
             </button>
           </div>
         }

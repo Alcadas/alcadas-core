@@ -76,6 +76,7 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
     if (!action) return;
 
     switch (action) {
+      case 'aprovar':
       case 'assinar':
         this.openSignModal(req);
         break;

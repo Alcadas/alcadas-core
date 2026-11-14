@@ -229,7 +229,13 @@ describe('ApprovalsComponent', () => {
     const pendingReq = requestsService.requests().find((r) => r.status === 'PENDENTE');
     expect(pendingReq).toBeDefined();
     if (pendingReq) {
-      const mockSelect = { value: 'assinar' } as HTMLSelectElement;
+      const mockSelect = { value: 'aprovar' } as HTMLSelectElement;
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.isSignModalOpen()).toBe(true);
+      expect(mockSelect.value).toBe('');
+      component.closeSignModal();
+
+      mockSelect.value = 'assinar';
       component.onActionSelect(pendingReq, mockSelect);
       expect(component.isSignModalOpen()).toBe(true);
       expect(mockSelect.value).toBe('');

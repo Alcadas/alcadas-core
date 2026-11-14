@@ -111,6 +111,14 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly editingRequest = signal<RequestItem | null>(null);
   readonly editFormTitulo = signal<string>('');
   readonly editFormValor = signal<number | null>(null);
+  readonly editFormValorDisplay = computed<string>(() => {
+    const v = this.editFormValor();
+    if (v === null || v === undefined || isNaN(v) || v <= 0) return '';
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(v);
+  });
   readonly editFormCategoria = signal<string>('');
   readonly editFormCentroCustoId = signal<string>('');
   readonly editFormJustificativa = signal<string>('');
@@ -209,6 +217,23 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly formCategoria = signal<string>(this.requestsService.categories[0]?.id ?? '');
   readonly formCentroCustoId = signal<string>('');
   readonly formValor = signal<number | null>(null);
+  readonly formValorDisplay = computed<string>(() => {
+    const v = this.formValor();
+    if (v === null || v === undefined || isNaN(v) || v <= 0) return '';
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(v);
+  });
+  readonly formAnexos = signal<Array<{ nome: string; tamanho: string; tipo: string; icone: string }>>([
+    {
+      nome: 'Cotacao_Orcamento_Fornecedor.pdf',
+      tamanho: '1.2 MB',
+      tipo: 'application/pdf',
+      icone: 'picture_as_pdf',
+    },
+  ]);
+  readonly isDraggingFiles = signal<boolean>(false);
   readonly formPrioridade = signal<'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA'>('MEDIA');
   readonly formJustificativa = signal<string>('');
   readonly formErrors = signal<Record<string, string>>({});
@@ -475,6 +500,106 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.tourService.startTour('criar-solicitacao');
   }
 
+  onValorInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const cleanDigits = input.value.replace(/\D/g, '');
+    if (!cleanDigits) {
+      this.formValor.set(null);
+      input.value = '';
+      return;
+    }
+    const numericValue = parseInt(cleanDigits, 10) / 100;
+    this.formValor.set(numericValue);
+    input.value = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericValue);
+  }
+
+  onEditValorInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const cleanDigits = input.value.replace(/\D/g, '');
+    if (!cleanDigits) {
+      this.editFormValor.set(null);
+      input.value = '';
+      return;
+    }
+    const numericValue = parseInt(cleanDigits, 10) / 100;
+    this.editFormValor.set(numericValue);
+    input.value = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericValue);
+  }
+
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.addFiles(Array.from(input.files));
+      input.value = '';
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingFiles.set(true);
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingFiles.set(false);
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingFiles.set(false);
+    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      this.addFiles(Array.from(event.dataTransfer.files));
+    }
+  }
+
+  addFiles(files: File[]): void {
+    const newItems = files.map((file) => {
+      const sizeInMB = file.size / (1024 * 1024);
+      const sizeFormatted =
+        sizeInMB >= 1
+          ? `${sizeInMB.toFixed(1)} MB`
+          : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+      let icone = 'description';
+      const lowerName = file.name.toLowerCase();
+      if (file.type.includes('pdf') || lowerName.endsWith('.pdf')) {
+        icone = 'picture_as_pdf';
+      } else if (
+        file.type.includes('image') ||
+        /\.(png|jpe?g|webp|gif|svg)$/i.test(lowerName)
+      ) {
+        icone = 'image';
+      } else if (
+        file.type.includes('sheet') ||
+        /\.(xlsx?|csv)$/i.test(lowerName)
+      ) {
+        icone = 'table_chart';
+      }
+
+      return {
+        nome: file.name,
+        tamanho: sizeFormatted,
+        tipo: file.type || 'application/octet-stream',
+        icone,
+      };
+    });
+
+    this.formAnexos.update((curr) => [...curr, ...newItems]);
+  }
+
+  removeAnexo(index: number): void {
+    this.formAnexos.update((curr) => curr.filter((_, i) => i !== index));
+  }
+
   submitNewRequest(): void {
     const erros = this.validarFormulario();
     this.formErrors.set(erros);
@@ -485,10 +610,13 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.requestsService
       .create({
+        titulo: this.formTitulo().trim() || undefined,
+        prioridade: this.formPrioridade(),
         centroCustoId: this.formCentroCustoId(),
         categoria: this.formCategoria(),
         valor: this.formValor() ?? 0,
         justificativa: this.formJustificativa().trim(),
+        anexos: this.formAnexos(),
       })
       .subscribe({
         next: (criada) => {
@@ -676,6 +804,15 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.formValor.set(null);
     this.formPrioridade.set('MEDIA');
     this.formJustificativa.set('');
+    this.formAnexos.set([
+      {
+        nome: 'Cotacao_Orcamento_Fornecedor.pdf',
+        tamanho: '1.2 MB',
+        tipo: 'application/pdf',
+        icone: 'picture_as_pdf',
+      },
+    ]);
+    this.isDraggingFiles.set(false);
     this.formErrors.set({});
   }
 

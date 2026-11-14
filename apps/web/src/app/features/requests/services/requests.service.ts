@@ -523,8 +523,35 @@ export class RequestsService {
       const item = this.createRequest(dto);
       return of(item);
     }
-    return this.http.post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes`, dto).pipe(
-      map((resposta) => paraRequestItem(resposta, this.contexto())),
+    const corpo = {
+      centroCustoId: dto.centroCustoId,
+      categoria: dto.categoria,
+      valor: dto.valor,
+      justificativa: dto.titulo ? `${dto.titulo} — ${dto.justificativa}` : dto.justificativa,
+      fornecedor: dto.fornecedor,
+    };
+    return this.http.post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes`, corpo).pipe(
+      map((resposta) => {
+        const item = paraRequestItem(resposta, this.contexto());
+        if (dto.titulo) item.titulo = dto.titulo;
+        if (dto.prioridade) item.prioridade = dto.prioridade;
+        if (dto.anexos && dto.anexos.length > 0) {
+          item.anexos = dto.anexos.map((att, idx) => ({
+            id: `att-${item.id}-${idx}`,
+            nome: att.nome,
+            tamanho: att.tamanho,
+            tipo: att.tipo,
+            icone:
+              att.icone ||
+              (att.tipo.includes('pdf')
+                ? 'picture_as_pdf'
+                : att.tipo.includes('image')
+                  ? 'image'
+                  : 'description'),
+          }));
+        }
+        return item;
+      }),
       tap((criada) => {
         this._requests.update((lista) => [criada, ...lista]);
         salvarRequestsNoStorage(this._requests());
@@ -652,7 +679,13 @@ export class RequestsService {
         nome: att.nome,
         tamanho: att.tamanho,
         tipo: att.tipo,
-        icone: 'picture_as_pdf',
+        icone:
+          (att as { icone?: string }).icone ||
+          (att.tipo.includes('pdf')
+            ? 'picture_as_pdf'
+            : att.tipo.includes('image')
+              ? 'image'
+              : 'description'),
       })),
     };
 

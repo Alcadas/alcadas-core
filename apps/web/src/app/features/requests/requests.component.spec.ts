@@ -327,4 +327,77 @@ describe('RequestsComponent', () => {
       expect(component.toastType()).toBe('info');
     });
   });
+
+  describe('Formatação Monetária e Upload de Documentos Comprobatórios', () => {
+    it('formata valor monetário com vírgula e pontos ao digitar', () => {
+      iniciar();
+      responderCarga();
+
+      const mockInput = { value: '150000' } as HTMLInputElement;
+      component.onValorInput({ target: mockInput } as unknown as Event);
+
+      expect(component.formValor()).toBe(1500);
+      expect(component.formValorDisplay()).toBe('1.500,00');
+      expect(mockInput.value).toBe('1.500,00');
+
+      // Limpa valor
+      mockInput.value = '';
+      component.onValorInput({ target: mockInput } as unknown as Event);
+      expect(component.formValor()).toBeNull();
+      expect(component.formValorDisplay()).toBe('');
+    });
+
+    it('permite anexar e remover arquivos comprobatórios', () => {
+      iniciar();
+      responderCarga();
+
+      component.formAnexos.set([]);
+      const filePdf = new File(['dummy content'], 'Orcamento_Dell.pdf', { type: 'application/pdf' });
+      const fileImg = new File(['dummy content'], 'Foto_Material.png', { type: 'image/png' });
+
+      component.addFiles([filePdf, fileImg]);
+
+      expect(component.formAnexos()).toHaveLength(2);
+      expect(component.formAnexos()[0].nome).toBe('Orcamento_Dell.pdf');
+      expect(component.formAnexos()[0].icone).toBe('picture_as_pdf');
+      expect(component.formAnexos()[1].nome).toBe('Foto_Material.png');
+      expect(component.formAnexos()[1].icone).toBe('image');
+
+      // Remove o primeiro anexo
+      component.removeAnexo(0);
+      expect(component.formAnexos()).toHaveLength(1);
+      expect(component.formAnexos()[0].nome).toBe('Foto_Material.png');
+    });
+
+    it('submete nova solicitação incluindo documentos comprobatórios anexados', () => {
+      iniciar();
+      responderCarga();
+
+      component.openCreateModal();
+      component.formTitulo.set('Compra de Monitores 4K');
+      component.formCentroCustoId.set('cc-clinica-centro');
+      component.formCategoria.set('EQUIPAMENTOS');
+      component.formValor.set(2500);
+      component.formJustificativa.set('Necessário para equipe de arquitetura e design com alta precisão.');
+      component.formAnexos.set([
+        { nome: 'Cotacao_Monitores.pdf', tamanho: '1.5 MB', tipo: 'application/pdf', icone: 'picture_as_pdf' },
+      ]);
+
+      component.submitNewRequest();
+
+      const req = http.expectOne('/api/solicitacoes');
+      expect(req.request.body).toEqual(
+        expect.objectContaining({
+          centroCustoId: 'cc-clinica-centro',
+          categoria: 'EQUIPAMENTOS',
+          valor: 2500,
+        }),
+      );
+      req.flush(solicitacaoDaApi({ id: 'sol-nova-01', codigo: '#SOL-NOVA-01', valor: 2500, status: 'PENDENTE' }));
+      http.expectOne('/api/solicitacoes/sol-nova-01/trilha').flush([]);
+
+      expect(component.toastMessage()).toContain('#SOL-NOVA-01 criada e enviada');
+      expect(component.isCreateModalOpen()).toBe(false);
+    });
+  });
 });
