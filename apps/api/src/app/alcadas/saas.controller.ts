@@ -10,7 +10,6 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { getAuth } from 'firebase-admin/auth';
 import {
   AuthenticatedUser,
   FaixaRegraAlcada,
@@ -19,8 +18,8 @@ import {
 import { CurrentUser } from '../auth/auth.decorators';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FirestoreService } from '../database/firestore.service';
-import { getFirebaseApp } from '../firebase/firebase-app';
 import { AlcadasService } from './alcadas.service';
+import { ProvisionamentoColaboradoresService } from './provisionamento-colaboradores.service';
 
 const PLATFORM_TENANT_ID = 'platform-saas';
 const SAAS_TENANTS_COLLECTION = 'saas_tenants';
@@ -86,30 +85,13 @@ interface SaasTenantPayload {
   }>;
 }
 
-function mapRoleToClaim(role: string): string {
-  switch (role) {
-    case 'DIRETOR':
-    case 'CFO':
-      return 'DIRETOR_CFO';
-    case 'ADMINISTRADOR':
-      return 'ADMIN';
-    case 'GERENTE':
-      return 'APROVADOR_N2';
-    case 'ANALISTA':
-      return 'APROVADOR_N1';
-    case 'AUDITOR':
-      return 'AUDITOR';
-    default:
-      return 'SOLICITANTE';
-  }
-}
-
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class SaasController {
   constructor(
     private readonly firestore: FirestoreService,
     private readonly alcadasService: AlcadasService,
+    private readonly provisionamento: ProvisionamentoColaboradoresService,
   ) {}
 
   /**
@@ -125,8 +107,8 @@ export class SaasController {
   }
 
   /**
-   * Sincroniza uma empresa cliente (dados fiscais, departamentos/centros de custo, funcionários e delegações)
-   * diretamente no Firestore Emulator e no Firebase Auth Emulator.
+   * Cria ou atualiza uma empresa cliente (dados fiscais, departamentos/centros de custo e
+   * colaboradores) no Firestore e provisiona os colaboradores no Firebase Auth (#32).
    */
   @Put('saas/tenants/:tenantId')
   @HttpCode(HttpStatus.OK)
@@ -135,10 +117,13 @@ export class SaasController {
     @Body() payload: SaasTenantPayload,
   ): Promise<SaasTenantPayload> {
     const tenantId = paramTenantId || payload.tenantId;
-    const normalized: SaasTenantPayload = {
+    let normalized: SaasTenantPayload = {
       ...payload,
       tenantId,
     };
+    if (process.env['NODE_ENV'] === 'production') {
+      normalized = this.removerSenhas(normalized);
+    }
 
     // 1. Grava no registro global SaaS e no escopo isolado do próprio tenant no Firestore
     await this.firestore.setTenantDocument(
@@ -190,10 +175,12 @@ export class SaasController {
       });
     }
 
-    // 4. Sincroniza contas dos colaboradores/clientes no Firebase Auth Emulator (quando disponível)
-    void this.syncEmployeesWithFirebaseAuth(
+    // 4. Provisiona os colaboradores no Firebase Auth com as claims de empresa e papel (#32).
+    //    Roda em segundo plano: o serviço nunca lança e não atrasa a resposta do cadastro.
+    //    As senhas (só usadas no emulador) vêm do payload original, não do documento persistido.
+    void this.provisionamento.sincronizar(
       tenantId,
-      normalized.organization?.employees ?? [],
+      payload?.organization?.employees ?? [],
       departments,
     );
 
@@ -304,57 +291,22 @@ export class SaasController {
     });
   }
 
-  private async syncEmployeesWithFirebaseAuth(
-    tenantId: string,
-    employees: EmployeePayload[],
-    departments: DepartmentPayload[] = [],
-  ): Promise<void> {
-    if (process.env['NODE_ENV'] === 'production') return;
-    try {
-      const auth = getAuth(getFirebaseApp());
-      for (const emp of employees) {
-        if (!emp.email) continue;
-        const email = emp.email.trim().toLowerCase();
-        const password = emp.password && emp.password.length >= 6 ? emp.password : '123456';
-        const roleClaim = mapRoleToClaim(emp.role);
-        const dept = departments.find(
-          (d) => d.id === emp.departmentId || d.name === emp.departmentName,
-        );
-        const costCenterId = dept?.costCenter || dept?.id;
-
-        const claims: Record<string, unknown> = {
-          tenantId,
-          role: roleClaim,
-          roles: [roleClaim],
-          name: emp.fullName,
-          departmentId: emp.departmentId || null,
-          departmentName: emp.departmentName || null,
-          costCenterId: costCenterId || null,
-          limiteAlcada: emp.approvalLimit ?? null,
-        };
-
-        try {
-          const existing = await auth.getUserByEmail(email);
-          await auth.updateUser(existing.uid, {
-            displayName: emp.fullName,
-            password,
-            disabled: emp.status === 'INATIVO',
-          });
-          await auth.setCustomUserClaims(existing.uid, claims);
-        } catch {
-          const created = await auth.createUser({
-            uid: `${tenantId}-${emp.id}`,
-            email,
-            password,
-            displayName: emp.fullName,
-            emailVerified: true,
-            disabled: emp.status === 'INATIVO',
-          });
-          await auth.setCustomUserClaims(created.uid, claims);
-        }
-      }
-    } catch {
-      // Ignora silenciosamente se o Auth Emulator estiver indisponível
+  /** Em produção nenhuma senha de colaborador é persistida no Firestore nem devolvida (RNF09). */
+  private removerSenhas(payload: SaasTenantPayload): SaasTenantPayload {
+    const employees = payload.organization?.employees;
+    if (!Array.isArray(employees)) {
+      return payload;
     }
+    return {
+      ...payload,
+      organization: {
+        ...payload.organization,
+        employees: employees.map((colaborador) => {
+          const semSenha = { ...colaborador };
+          delete semSenha.password;
+          return semSenha;
+        }),
+      },
+    };
   }
 }

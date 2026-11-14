@@ -8,6 +8,7 @@ versionado: os segredos ficam no painel do Render (ver [`render.yaml`](../../ren
 | #34 | CORS restrito aos domínios da equipe | `apps/api/src/app/common/cors.ts` |
 | #35 | Logs JSON com `requestId`, sem dados pessoais | `apps/api/src/app/common/log-requisicoes.ts` |
 | #29 | Firestore real via Admin SDK, sem fallback em memória, `/readyz` | `apps/api/src/app/database/firestore.service.ts` |
+| #32 | Provisionamento no Firebase Auth e seed de produção | `apps/api/src/app/alcadas/provisionamento-colaboradores.service.ts`, `scripts/seed-producao.ts` |
 
 ---
 
@@ -84,3 +85,38 @@ curl -i https://<api>.onrender.com/api/readyz
 60 s, então um monitor batendo em `/readyz` gasta no máximo ~1.440 das 50.000 leituras diárias.
 Falhas não são cacheadas e qualquer operação que falhe invalida o cache. O health check do Render
 continua em `/api/healthz`, que não toca no banco.
+
+---
+
+## Usuários: provisionamento e seed de produção (#32)
+
+### Colaborador cadastrado pela tela de Organização
+`PUT /api/saas/tenants/:tenantId` cria a conta no Firebase Auth **sem senha**, grava as claims
+`tenantId`, `role` e `roles` e pede ao Firebase o envio do e-mail de definição de senha (exige
+`FIREBASE_API_KEY`, a chave Web pública; sem ela o colaborador usa "Esqueci minha senha").
+A API nunca define nem armazena senha de colaborador em produção: o campo `password` do payload é
+descartado. Contas que já pertencem a outra empresa (ou a um `SUPER_USER`) não são alteradas.
+
+### Seed mínimo de produção
+
+```bash
+FIREBASE_PROJECT_ID=<projeto> \
+FIREBASE_SERVICE_ACCOUNT_JSON='<json ou base64>' \
+SEED_SENHA_SOLICITANTE=... SEED_SENHA_GERENTE=... SEED_SENHA_DIRETOR=... SEED_SENHA_CFO=... \
+SEED_CONFIRMAR=producao \
+npm run seed:prod
+```
+
+Cria a organização Startop, 3 centros de custo, as faixas N1/N2/N3 e um usuário por papel
+(Solicitante, Gerente, Diretor, CFO). É **idempotente**: só cria o que falta, não sobrescreve
+alterações e não redefine senhas. Custo: 8 leituras por execução e 8 escritas apenas na primeira.
+
+Saída da segunda execução:
+
+```text
+  Firestore: 0 documento(s) criado(s), 8 já existente(s).
+  Auth: 0 conta(s) criada(s), 4 já existente(s).
+```
+
+Ensaio local, sem credencial: defina `FIRESTORE_EMULATOR_HOST` e `FIREBASE_AUTH_EMULATOR_HOST`
+(o `SEED_CONFIRMAR` só é exigido contra o Firebase real).

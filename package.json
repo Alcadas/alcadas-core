@@ -26,6 +26,7 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "seed": "ts-node -T -O '{\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\"}' scripts/seed.ts",
+    "seed:prod": "ts-node -T -O '{\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\"}' scripts/seed-producao.ts",
     "test:rules": "nx e2e api-e2e --testFile=firestore-rules.spec.ts",
     "test:e2e:emulated": "firebase emulators:exec --project demo-alcadas \"nx e2e api-e2e\""
   },

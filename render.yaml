@@ -22,5 +22,8 @@ services:
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+      # Chave Web (pública): envio do e-mail de definição de senha aos colaboradores (#32).
+      - key: FIREBASE_API_KEY
+        sync: false
     healthCheckPath: /api/healthz
     autoDeploy: true
