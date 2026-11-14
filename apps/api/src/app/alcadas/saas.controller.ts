@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -344,6 +345,21 @@ export class SaasController {
     }
 
     if (Array.isArray(body.workflows)) {
+      // Reconciliação atômica de deleção: remove fluxos excluídos da coleção do tenant
+      const existingWorkflows = await this.firestore.listTenantCollection<Record<string, unknown>>(
+        tenantId,
+        WORKFLOWS_COLLECTION,
+      );
+      const newWorkflowIds = new Set(
+        body.workflows.map((wf) => String(wf['id'] || '')).filter(Boolean),
+      );
+      for (const existing of existingWorkflows) {
+        const existingId = String(existing['id'] || '');
+        if (existingId && !newWorkflowIds.has(existingId)) {
+          await this.firestore.deleteTenantDocument(tenantId, WORKFLOWS_COLLECTION, existingId);
+        }
+      }
+
       for (const wf of body.workflows) {
         const id = String(wf.id || `wf-${Date.now()}`);
         await this.firestore.setTenantDocument(tenantId, WORKFLOWS_COLLECTION, id, wf);
@@ -360,6 +376,17 @@ export class SaasController {
     }
 
     return { savedWorkflows, savedRules };
+  }
+
+  @Delete('organizacao/fluxos/:id')
+  @HttpCode(HttpStatus.OK)
+  async deleteTenantWorkflow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<{ success: boolean; deletedId: string }> {
+    const tenantId = user.tenantId || 'startop';
+    await this.firestore.deleteTenantDocument(tenantId, WORKFLOWS_COLLECTION, id);
+    return { success: true, deletedId: id };
   }
 
   /**

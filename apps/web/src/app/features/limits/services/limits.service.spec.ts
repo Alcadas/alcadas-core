@@ -1,21 +1,35 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MODELOS_REGRAS_ALCADA } from '@alcadas-core/models';
 import { LimitsService } from './limits.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 describe('LimitsService', () => {
   let service: LimitsService;
+  let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [
         LimitsService,
         provideHttpClient(),
         provideHttpClientTesting(),
+        {
+          provide: AuthService,
+          useValue: {
+            isAuthenticated: () => true,
+          },
+        },
       ],
     });
     service = TestBed.inject(LimitsService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('deve instanciar o serviço', () => {
@@ -42,6 +56,27 @@ describe('LimitsService', () => {
     expect(updated?.title).toBe('Regra Atualizada');
     expect(updated?.ceilingAmount).toBe(90000);
     expect(service.getRuleById(created.id)?.title).toBe('Regra Atualizada');
+  });
+
+  it('deve duplicar regra existente com status Rascunho', () => {
+    const created = service.createRule({ title: 'Regra Base', department: 'TI' });
+    const copy = service.duplicateRule(created.id);
+
+    expect(copy).toBeDefined();
+    expect(copy?.id).not.toBe(created.id);
+    expect(copy?.title).toBe('Regra Base (Cópia)');
+    expect(copy?.status).toBe('DRAFT');
+  });
+
+  it('deve excluir regra definitivamente do estado, storage e backend', () => {
+    const created = service.createRule({ id: 'DEL-123', title: 'Regra a Deletar' });
+    expect(service.getRuleById('DEL-123')).toBeDefined();
+
+    service.deleteRule('DEL-123');
+
+    expect(service.getRuleById('DEL-123')).toBeUndefined();
+    const stored = JSON.parse(localStorage.getItem('alcadas.workflows.v1') || '[]');
+    expect(stored.find((r: { id: string }) => r.id === 'DEL-123')).toBeUndefined();
   });
 
   it('deve salvar e atualizar workflow com nós', () => {

@@ -548,6 +548,14 @@ export class LimitsComponent {
     this.router.navigate(['/alcadas/regras']);
   }
 
+  deleteWorkflow(): void {
+    const id = this.currentRuleId();
+    if (id) {
+      this.limitsService.deleteRule(id);
+      this.router.navigate(['/alcadas/minhas-alcadas']);
+    }
+  }
+
   saveWorkflow(): void {
     // Remove o indicador isNew de todos os nós após o salvamento
     this.workflowNodes.update((nodes) =>

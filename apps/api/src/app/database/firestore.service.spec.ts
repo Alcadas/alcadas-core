@@ -37,6 +37,10 @@ function criarBancoFalso() {
       }
       documentos.set(caminho, dados);
     }),
+    delete: jest.fn(async () => {
+      verificar();
+      documentos.delete(caminho);
+    }),
   });
 
   const db = {
@@ -118,6 +122,14 @@ describe('FirestoreService (Issue #29)', () => {
     it('devolve null para documento inexistente e lista vazia para coleção vazia', async () => {
       await expect(servico.getTenantDocument('startop', 'requests', 'nao-existe')).resolves.toBeNull();
       await expect(servico.listTenantCollection('startop', 'requests')).resolves.toEqual([]);
+    });
+
+    it('remove documento com sucesso via deleteTenantDocument', async () => {
+      await servico.setTenantDocument('startop', 'workflows', 'wf-del', { title: 'Fluxo Para Deletar' });
+      expect(await servico.getTenantDocument('startop', 'workflows', 'wf-del')).not.toBeNull();
+
+      await servico.deleteTenantDocument('startop', 'workflows', 'wf-del');
+      expect(await servico.getTenantDocument('startop', 'workflows', 'wf-del')).toBeNull();
     });
 
     it('lista apenas os documentos do tenant solicitado', async () => {

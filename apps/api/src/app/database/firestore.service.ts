@@ -200,6 +200,30 @@ export class FirestoreService {
   }
 
   /**
+   * Remove um documento do tenant: `/tenants/{tenantId}/{subcollectionPath}/{docId}`.
+   */
+  async deleteTenantDocument(
+    tenantId: string,
+    subcollectionPath: string,
+    docId: string,
+  ): Promise<boolean> {
+    const relativePath = this.buildPath(tenantId, subcollectionPath, docId);
+
+    if (!this.emProducao()) {
+      this.memoryStore.delete(relativePath);
+    }
+
+    const resultado = await this.noBanco(`delete ${relativePath}`, (db) =>
+      db.doc(relativePath).delete(),
+    );
+    if (!resultado.remoto) {
+      this.logger.debug(`Emulador do Firestore indisponível; documento removido do store local (${relativePath}).`);
+    }
+
+    return true;
+  }
+
+  /**
    * Lista os documentos de uma (sub)coleção do tenant: `/tenants/{tenantId}/{subcollectionPath}`.
    * Documentos gravados com `tenantId` diferente do solicitado são descartados (RNF07).
    */

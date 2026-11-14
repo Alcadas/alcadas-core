@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { MODELOS_REGRAS_ALCADA } from '@alcadas-core/models';
 import { LimitsComponent } from './limits.component';
 import { LimitsService } from './services/limits.service';
@@ -14,7 +14,10 @@ describe('LimitsComponent', () => {
       imports: [LimitsComponent],
       providers: [
         LimitsService,
-        provideRouter([]),
+        provideRouter([
+          { path: 'alcadas/minhas-alcadas', component: LimitsComponent },
+          { path: 'alcadas/regras', component: LimitsComponent },
+        ]),
         {
           provide: ActivatedRoute,
           useValue: {
@@ -119,5 +122,16 @@ describe('LimitsComponent', () => {
     component.deleteNode(addedId);
     expect(component.workflowNodes().length).toBe(total - 1);
     expect(component.selectedNodeId()).toBeNull();
+  });
+
+  it('deve excluir o workflow atual e navegar para minhas alçadas', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = jest.spyOn(router, 'navigate');
+    const deleteSpy = jest.spyOn(limitsService, 'deleteRule');
+
+    component.deleteWorkflow();
+
+    expect(deleteSpy).toHaveBeenCalledWith('ALC-TEST');
+    expect(navSpy).toHaveBeenCalledWith(['/alcadas/minhas-alcadas']);
   });
 });

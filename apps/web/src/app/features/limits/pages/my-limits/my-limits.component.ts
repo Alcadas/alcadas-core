@@ -36,6 +36,26 @@ export class MyLimitsComponent {
   // Estado de Carregamento da Lista
   readonly isLoading = signal(true);
 
+  // Notificação Toast
+  readonly toast = signal<{
+    title: string;
+    message: string;
+    type: 'success' | 'warning' | 'info';
+  } | null>(null);
+
+  triggerToast(
+    title: string,
+    message: string,
+    type: 'success' | 'warning' | 'info' = 'info',
+  ): void {
+    this.toast.set({ title, message, type });
+    setTimeout(() => {
+      if (this.toast()?.title === title) {
+        this.toast.set(null);
+      }
+    }, 4000);
+  }
+
   // Controle de menu contextual de ações
   readonly openMenuId = signal<string | null>(null);
 
@@ -320,16 +340,18 @@ export class MyLimitsComponent {
     }
   }
 
-  duplicateRule(id: string, event: Event): void {
-    event.stopPropagation();
+  duplicateRule(id: string, event?: Event): void {
+    event?.stopPropagation?.();
     this.closeActionsMenu();
     this.limitsService.duplicateRule(id);
+    this.triggerToast('Fluxo Duplicado', `O fluxo #${id} foi duplicado com sucesso.`, 'success');
   }
 
-  deleteRule(id: string, event: Event): void {
-    event.stopPropagation();
+  deleteRule(id: string, event?: Event): void {
+    event?.stopPropagation?.();
     this.closeActionsMenu();
     this.limitsService.deleteRule(id);
+    this.triggerToast('Fluxo Excluído', `O fluxo #${id} foi removido com sucesso.`, 'info');
   }
 
   constructor() {

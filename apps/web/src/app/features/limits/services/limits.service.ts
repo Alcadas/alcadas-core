@@ -17,6 +17,29 @@ import {
   mapModeloToLimitRule,
 } from './limits-workflow.utils';
 
+export const STORAGE_KEY_WORKFLOWS = 'alcadas.workflows.v1';
+
+export function lerWorkflowsDoStorage(): LimitRuleItem[] | null {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_WORKFLOWS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salvarWorkflowsNoStorage(workflows: LimitRuleItem[]): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_WORKFLOWS, JSON.stringify(workflows));
+  } catch {
+    // ignora se localStorage estiver inacessível
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -202,8 +225,10 @@ export class LimitsService {
     this.ruleTemplatesState.update((list) => list.filter((t) => t.title !== title));
   }
 
-  // Lista central de regras de alçada (inicia com fluxos ativos padrão e sincroniza do Firestore via API)
-  private readonly rulesState = signal<LimitRuleItem[]>(this.getInitialSeedRules());
+  // Lista central de regras de alçada (inicia com fluxos salvos em storage ou padrão e sincroniza do Firestore via API)
+  private readonly rulesState = signal<LimitRuleItem[]>(
+    lerWorkflowsDoStorage() ?? this.getInitialSeedRules(),
+  );
 
   readonly allRules = this.rulesState.asReadonly();
 
@@ -269,6 +294,20 @@ export class LimitsService {
   }
 
   constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === STORAGE_KEY_WORKFLOWS && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (Array.isArray(parsed)) {
+              this.rulesState.set(parsed);
+            }
+          } catch {
+            // ignora erro de parse
+          }
+        }
+      });
+    }
     this.loadFromBackend();
   }
 
@@ -283,9 +322,14 @@ export class LimitsService {
       )
       .subscribe({
         next: (res) => {
-          const remotos = Array.isArray(res?.workflows) ? res.workflows : [];
-          if (remotos.length > 0) {
-            this.rulesState.set(remotos);
+          if (Array.isArray(res?.workflows)) {
+            const stored = lerWorkflowsDoStorage();
+            if (res.workflows.length > 0) {
+              this.rulesState.set(res.workflows);
+              salvarWorkflowsNoStorage(res.workflows);
+            } else if (stored && stored.length === 0) {
+              this.rulesState.set([]);
+            }
           }
           if (onRulesCatalogLoaded && Array.isArray(res?.rulesCatalog)) {
             onRulesCatalogLoaded(res.rulesCatalog);
@@ -296,6 +340,7 @@ export class LimitsService {
   }
 
   persistWorkflowsToBackend(rulesCatalog?: unknown[]): void {
+    salvarWorkflowsNoStorage(this.rulesState());
     if (!this.http || !this.authService?.isAuthenticated?.()) return;
     this.http
       .put(`${this.apiBaseUrl}/organizacao/fluxos`, {
@@ -351,7 +396,13 @@ export class LimitsService {
 
   deleteRule(id: string): void {
     this.rulesState.update((list) => list.filter((r) => r.id !== id));
+    salvarWorkflowsNoStorage(this.rulesState());
     this.persistWorkflowsToBackend();
+    if (this.http && this.authService?.isAuthenticated?.()) {
+      this.http
+        .delete(`${this.apiBaseUrl}/organizacao/fluxos/${encodeURIComponent(id)}`)
+        .subscribe({ error: () => undefined });
+    }
   }
 
   duplicateRule(id: string): LimitRuleItem | undefined {
