@@ -76,4 +76,19 @@ describe('TourOverlayComponent', () => {
     component.onEscape();
     expect(tourService.isTourActive()).toBe(false);
   });
+
+  it('deve iniciar tours específicos para abas de solicitações, aprovações, fluxos e regras', () => {
+    tourService.startTour('solicitacoes');
+    expect(tourService.isTourActive()).toBe(true);
+    expect(tourService.currentContext()).toBe('solicitacoes');
+
+    tourService.startTour('aprovacoes');
+    expect(tourService.currentContext()).toBe('aprovacoes');
+
+    tourService.startTour('meus-fluxos');
+    expect(tourService.currentContext()).toBe('meus-fluxos');
+
+    tourService.startTour('minhas-regras');
+    expect(tourService.currentContext()).toBe('minhas-regras');
+  });
 });

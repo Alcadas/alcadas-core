@@ -279,14 +279,26 @@
               Compreenda as regras de escalonamento por faixas de valor e teste com o simulador interativo abaixo.
             </p>
           </div>
-          <button
-            type="button"
-            class="btn-trigger-tour"
-            (click)="iniciarTourContextual('meus-fluxos')"
-          >
-            <span class="material-symbols-rounded">touch_app</span>
-            <span>Tour desta tela</span>
-          </button>
+          <div style="display: flex; gap: 0.5rem; align-items: center">
+            <button
+              type="button"
+              class="btn-trigger-tour"
+              (click)="iniciarTourContextual('meus-fluxos')"
+              title="Fazer tour das esteiras de fluxo"
+            >
+              <span class="material-symbols-rounded">account_tree</span>
+              <span>Tour dos Fluxos</span>
+            </button>
+            <button
+              type="button"
+              class="btn-trigger-tour"
+              (click)="iniciarTourContextual('minhas-regras')"
+              title="Fazer tour do catálogo de regras"
+            >
+              <span class="material-symbols-rounded">rule</span>
+              <span>Tour das Regras</span>
+            </button>
+          </div>
         </div>
 
         <!-- Simulador Interativo de Alçada -->

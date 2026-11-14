@@ -2,6 +2,7 @@ import { Component, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { TourService } from '../../../core/services/tour.service';
 
 export interface PageHeaderTab {
   id: string;
@@ -20,6 +21,7 @@ export interface PageHeaderTab {
 })
 export class PageHeaderComponent {
   private readonly router = inject(Router);
+  protected readonly tourService = inject(TourService);
 
   // Tier 1: Breadcrumb & Busca
   readonly breadcrumbRoot = input<string>('Alçadas');
@@ -58,6 +60,8 @@ export class PageHeaderComponent {
   onQuickActionClick(action: string): void {
     if (action === 'tutorials') {
       void this.router.navigate(['/tutoriais']);
+    } else if (action === 'tour') {
+      this.tourService.startTourForCurrentRoute();
     }
     this.quickAction.emit(action);
   }

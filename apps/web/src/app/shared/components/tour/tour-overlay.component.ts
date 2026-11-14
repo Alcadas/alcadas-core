@@ -170,9 +170,9 @@ export interface TargetBox {
 
     .tour-backdrop-panel {
       position: fixed;
-      background: rgba(15, 23, 42, 0.72);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(2.5px);
+      -webkit-backdrop-filter: blur(2.5px);
       z-index: 10000;
       pointer-events: auto;
       transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);

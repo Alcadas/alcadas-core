@@ -39,4 +39,10 @@ describe('PageHeaderComponent', () => {
     component.selectTab('aprovadas');
     expect(component.tabChange.emit).toHaveBeenCalledWith('aprovadas');
   });
+
+  it('should emit quick action on quick action click and trigger contextual tour', () => {
+    jest.spyOn(component.quickAction, 'emit');
+    component.onQuickActionClick('tour');
+    expect(component.quickAction.emit).toHaveBeenCalledWith('tour');
+  });
 });
