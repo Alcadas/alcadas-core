@@ -7,8 +7,6 @@
   searchPlaceholder="Search..."
   [searchQuery]="searchQuery()"
   (searchQueryChange)="setSearchQuery($event)"
-  contextIcon="receipt_long"
-  contextTitle="Central de Solicitações"
   [contextSubtitle]="stats().total + ' pedidos · ' + stats().pendentes + ' em tramitação'"
   [tabs]="headerTabs()"
   [activeTab]="currentTab()"
@@ -29,6 +27,43 @@
 <div class="requests-body-container">
   <!-- Conteúdo Rolável da Página -->
   <main class="page-scrollable-content">
+
+    <!-- BANNER DE APOIO / GUIA PARA PRIMEIRA SOLICITAÇÃO (Quando lista vazia) -->
+    @if (requestsService.requests().length === 0) {
+      <section class="first-request-guide-banner">
+        <div class="banner-icon-box">
+          <span class="material-symbols-rounded">school</span>
+        </div>
+        <div class="banner-body">
+          <div class="banner-header-row">
+            <strong class="banner-title">Gostaria de fazer a sua primeira solicitação?</strong>
+            <span class="banner-badge">Tutorial Interativo</span>
+          </div>
+          <p class="banner-text">
+            Preparamos uma trilha guiada passo a passo para ajudar você a cadastrar seu primeiro pedido corporativo e compreender as alçadas de aprovação.
+          </p>
+        </div>
+        <div class="banner-actions">
+          <button
+            type="button"
+            class="btn-banner-guide"
+            (click)="iniciarTourCriarSolicitacao()"
+          >
+            <span class="material-symbols-rounded">play_circle</span>
+            <span>Iniciar Criação Assistida</span>
+          </button>
+          <button
+            type="button"
+            class="btn-banner-open"
+            (click)="openCreateModal()"
+          >
+            <span class="material-symbols-rounded">add</span>
+            <span>Nova Solicitação</span>
+          </button>
+        </div>
+      </section>
+    }
+
     <!-- Toolbar Secundária: Filtros por Categoria, Centro de Custo e Ordenação -->
     <section class="toolbar-section">
       <div class="filter-dropdowns">
@@ -160,7 +195,16 @@
                     <span class="material-symbols-rounded empty-icon">inbox</span>
                     <h3 class="empty-title">Nenhuma solicitação ainda</h3>
                     <p class="empty-desc">Quando alguém da sua organização submeter um pedido, ele aparece aqui.</p>
-                    <button type="button" class="btn-header-outline" (click)="openCreateDrawer()">Criar a primeira</button>
+                    <div class="empty-actions-row">
+                      <button type="button" class="btn-header-primary" (click)="openCreateModal()">
+                        <span class="material-symbols-rounded">add</span>
+                        <span>Criar Nova Solicitação</span>
+                      </button>
+                      <button type="button" class="btn-guide-inline-link" (click)="iniciarTourCriarSolicitacao()">
+                        <span class="material-symbols-rounded">school</span>
+                        <span>Gostaria de fazer a sua primeira solicitação com guia interativo?</span>
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -642,6 +686,254 @@
         <button type="button" class="btn-edit-save" (click)="saveEditRequest()" [disabled]="isSavingEdit()">
           <span class="material-symbols-rounded">save</span>
           <span>{{ isSavingEdit() ? 'Salvando...' : 'Salvar Alterações e Reenviar' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ========================================================================= -->
+<!-- MODAL DE CRIAÇÃO DE NOVA SOLICITAÇÃO (SIMPLIFICADO & DIRETO)              -->
+<!-- ========================================================================= -->
+@if (isCreateModalOpen()) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-create-title" data-tour="solicitacao-modal">
+    <button
+      type="button"
+      class="modal-backdrop"
+      (click)="closeCreateModal()"
+      tabindex="-1"
+      aria-label="Fechar modal de nova solicitação"
+    ></button>
+
+    <div class="modal-card-create">
+      <!-- Header do Modal -->
+      <div class="modal-create-header">
+        <div class="title-row">
+          <div class="header-icon-box">
+            <span class="material-symbols-rounded">post_add</span>
+          </div>
+          <div>
+            <h3 id="modal-create-title">Nova Solicitação de Compra & Despesa</h3>
+            <p class="create-sub">Preencha os dados e submeta diretamente para a esteira de governança</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-sm" (click)="closeCreateModal()" aria-label="Fechar">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+
+      <!-- Corpo do Modal com 2 Colunas -->
+      <div class="modal-create-body">
+        <div class="create-columns-wrap">
+          <!-- Coluna 1: Dados da Demanda -->
+          <div class="column-fields">
+            <!-- Título -->
+            <div class="form-group" data-tour="solicitacao-titulo">
+              <label for="createTituloInput" class="form-label">
+                Título da Solicitação <span class="required">*</span>
+              </label>
+              <input
+                id="createTituloInput"
+                type="text"
+                class="form-input"
+                [ngModel]="formTitulo()"
+                (ngModelChange)="formTitulo.set($event)"
+                placeholder="Ex: Aquisição de licenças Figma Enterprise para equipe de design"
+                [class.has-error]="formErrors()['titulo']"
+              />
+              @if (formErrors()['titulo']) {
+                <span class="error-msg">{{ formErrors()['titulo'] }}</span>
+              } @else {
+                <span class="field-hint">Defina o que está sendo adquirido com clareza para a diretoria.</span>
+              }
+            </div>
+
+            <!-- Linha Dupla: Centro de Custo e Categoria -->
+            <div class="form-row-2col" data-tour="solicitacao-classificacao">
+              <div class="form-group">
+                <label for="createCcSelect" class="form-label">
+                  Centro de Custo <span class="required">*</span>
+                </label>
+                <select
+                  id="createCcSelect"
+                  class="form-select"
+                  [disabled]="isCostCenterLocked()"
+                  [ngModel]="formCentroCustoId()"
+                  (ngModelChange)="formCentroCustoId.set($event)"
+                >
+                  @for (cc of availableCostCenters(); track cc.id) {
+                    <option [value]="cc.id">{{ cc.code }} - {{ cc.nome }}</option>
+                  }
+                </select>
+                @if (formErrors()['centroCusto']) {
+                  <span class="error-msg">{{ formErrors()['centroCusto'] }}</span>
+                }
+              </div>
+
+              <div class="form-group">
+                <label for="createCategoriaSelect" class="form-label">
+                  Categoria de Despesa <span class="required">*</span>
+                </label>
+                <select
+                  id="createCategoriaSelect"
+                  class="form-select"
+                  [ngModel]="formCategoria()"
+                  (ngModelChange)="formCategoria.set($event)"
+                >
+                  @for (cat of requestsService.categories; track cat.id) {
+                    <option [value]="cat.id">{{ cat.label }}</option>
+                  }
+                </select>
+                @if (formErrors()['categoria']) {
+                  <span class="error-msg">{{ formErrors()['categoria'] }}</span>
+                }
+              </div>
+            </div>
+
+            <!-- Seletor de Prioridade -->
+            <div class="form-group" data-tour="solicitacao-prioridade">
+              <span class="form-label">Prioridade da Demanda</span>
+              <div class="priority-pill-selector" role="radiogroup" aria-label="Prioridade da Solicitação">
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.is-active]="formPrioridade() === 'BAIXA'"
+                  (click)="setPriority('BAIXA')"
+                >
+                  <span class="dot low"></span>
+                  <span>Baixa</span>
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.is-active]="formPrioridade() === 'MEDIA'"
+                  (click)="setPriority('MEDIA')"
+                >
+                  <span class="dot med"></span>
+                  <span>Média</span>
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.is-active]="formPrioridade() === 'ALTA'"
+                  (click)="setPriority('ALTA')"
+                >
+                  <span class="dot high"></span>
+                  <span>Alta</span>
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.is-active]="formPrioridade() === 'CRITICA'"
+                  (click)="setPriority('CRITICA')"
+                >
+                  <span class="dot crit"></span>
+                  <span>Crítica</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Justificativa de Governança -->
+            <div class="form-group" data-tour="solicitacao-justificativa">
+              <div class="label-row-counter">
+                <label for="createJustificativaInput" class="form-label">
+                  Justificativa de Negócio & SoD <span class="required">*</span>
+                </label>
+                <span class="char-count" [class.is-valid]="formJustificativa().length >= 30">
+                  {{ formJustificativa().length }} / min 30 caracteres
+                </span>
+              </div>
+              <textarea
+                id="createJustificativaInput"
+                class="form-textarea"
+                rows="3"
+                [ngModel]="formJustificativa()"
+                (ngModelChange)="formJustificativa.set($event)"
+                placeholder="Descreva detalhadamente a necessidade do pedido e os impactos esperados na operação..."
+                [class.has-error]="formErrors()['justificativa']"
+              ></textarea>
+              @if (formErrors()['justificativa']) {
+                <span class="error-msg">{{ formErrors()['justificativa'] }}</span>
+              } @else {
+                <span class="field-hint">Esta fundamentação recebe carimbo de tempo inviolável na trilha SHA-256.</span>
+              }
+            </div>
+          </div>
+
+          <!-- Coluna 2: Valor & Esteira Calculada -->
+          <div class="column-preview">
+            <!-- Card de Valor -->
+            <div class="value-input-card" data-tour="solicitacao-valor">
+              <span class="card-caption">Valor Previsto</span>
+              <div class="money-wrapper" [class.has-error]="formErrors()['valor']">
+                <span class="currency-tag">R$</span>
+                <input
+                  id="createValorInput"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  class="input-valor"
+                  [ngModel]="formValor()"
+                  (ngModelChange)="formValor.set($event)"
+                  placeholder="0,00"
+                />
+              </div>
+              @if (formErrors()['valor']) {
+                <span class="error-msg">{{ formErrors()['valor'] }}</span>
+              }
+            </div>
+
+            <!-- Esteira Calculada Dinamicamente -->
+            <div class="workflow-summary-card" data-tour="solicitacao-esteira">
+              <div class="workflow-header">
+                <span class="material-symbols-rounded icon-wf">account_tree</span>
+                <div>
+                  <strong class="wf-title">{{ suggestedWorkflow().nome }}</strong>
+                  <span class="wf-sub">{{ suggestedWorkflow().totalEtapas }} níveis de alçada</span>
+                </div>
+              </div>
+
+              <div class="workflow-stepper">
+                @for (step of suggestedWorkflow().etapas; track step.numero) {
+                  <div class="stepper-node" [class.active]="step.numero === 1">
+                    <span class="node-num">{{ step.numero }}</span>
+                    <div class="node-text">
+                      <strong class="node-role">{{ step.nome }}</strong>
+                      <span class="node-name">{{ step.responsavelNome }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <div class="sod-notice">
+                <span class="material-symbols-rounded">verified_user</span>
+                <span>Segregação de Funções (SoD) assegurada com hash SHA-256.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="modal-create-footer">
+        <button type="button" class="btn-cancel" (click)="closeCreateModal()" [disabled]="isSubmitting()">
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="btn-submit"
+          data-tour="solicitacao-submeter"
+          (click)="submitNewRequest()"
+          [disabled]="isSubmitting()"
+        >
+          @if (isSubmitting()) {
+            <span class="material-symbols-rounded spin-icon">progress_activity</span>
+            <span>Processando...</span>
+          } @else {
+            <span class="material-symbols-rounded">send</span>
+            <span>Submeter para Aprovação</span>
+          }
         </button>
       </div>
     </div>

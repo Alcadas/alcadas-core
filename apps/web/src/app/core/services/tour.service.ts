@@ -210,74 +210,114 @@ export class TourService {
     ],
     'criar-solicitacao': [
       {
+        targetSelector: 'app-page-header',
+        route: '/solicitacoes',
+        title: 'Central de Solicitações: Visão Geral',
+        description: 'Esta é a sua Central de Solicitações. Nela você submete pedidos de compras corporativas, contratações de serviços e reembolsos de despesas, acompanhando pareceres e auditoria em tempo real.',
+        badge: 'Apresentação',
+        icon: 'receipt_long',
+        position: 'bottom',
+        actionHint: 'Vamos aprender as funções desta tela e criar sua primeira solicitação juntos!',
+      },
+      {
+        targetSelector: '.page-header-tier2',
+        route: '/solicitacoes',
+        title: 'Abas por Status da Esteira',
+        description: 'Aqui você navega entre "Todas", "Em Análise" (pendentes com gestores), "Aprovadas" (liberadas para compra), "Ajustes" (pedidos com parecer de revisão) e "Recusadas".',
+        badge: 'Organização',
+        icon: 'tab',
+        position: 'bottom',
+        actionHint: 'Cada aba exibe um contador dinâmico de solicitações atualizado em tempo real.',
+      },
+      {
+        targetSelector: '.toolbar-section',
+        route: '/solicitacoes',
+        title: 'Filtros Rápidos & Centro de Custo',
+        description: 'Filtre suas demandas por categoria contábil (TI, Marketing, Operações) ou por centro de custo da equipe, além de ordenar por valor e data.',
+        badge: 'Filtros',
+        icon: 'filter_alt',
+        position: 'bottom',
+        actionHint: 'Facilita localizar qualquer requisição corporativa em segundos.',
+      },
+      {
         targetSelector: '[data-tour="btn-new-request"]',
         route: '/solicitacoes',
-        title: '1. Iniciar Nova Solicitação',
-        description: 'Para iniciar uma nova despesa ou compra corporativa, clique no botão destacado "Nova Solicitação".',
-        badge: 'Abertura',
+        title: 'Vamos Criar a sua Primeira Solicitação!',
+        description: 'Agora que você conhece a tela, vamos abrir o seu primeiro pedido! Clique no botão destacado "Nova Solicitação" para abrir o formulário simplificado.',
+        badge: 'Ação Interativa',
         icon: 'add_circle',
         position: 'bottom',
-        actionHint: '👉 Clique no botão destacado ou em "Próximo" para abrir o formulário.',
+        actionHint: '👉 Clique no botão destacado ou em "Próximo" para abrir o modal de solicitação.',
       },
       {
         targetSelector: '[data-tour="solicitacao-titulo"]',
-        route: '/solicitacoes/nova',
-        title: '2. Título & Objeto da Demanda',
-        description: 'Informe o que está sendo contratado de forma clara e resumida (ex: "Licenças de Software Cloud" ou "Notebooks para Novos Colaboradores").',
+        route: '/solicitacoes',
+        title: '1. O que está sendo solicitado?',
+        description: 'Informe um título claro e representativo da sua demanda (ex: "Licenças anuais Figma Enterprise" ou "Equipamentos para novos colaboradores").',
         badge: 'Identificação',
         icon: 'title',
         position: 'bottom',
-        actionHint: 'Um título objetivo facilita a triagem e agiliza a aprovação da gerência.',
+        actionHint: 'Um título objetivo facilita a triagem e agiliza a aprovação da diretoria.',
       },
       {
         targetSelector: '[data-tour="solicitacao-classificacao"]',
-        route: '/solicitacoes/nova',
-        title: '3. Centro de Custo & Categoria',
-        description: 'Selecione qual centro de custo arcará com a despesa e a categoria contábil correspondente (ex: TI, Marketing, Treinamentos). O saldo orçamentário é checado em tempo real.',
+        route: '/solicitacoes',
+        title: '2. Centro de Custo & Categoria',
+        description: 'Selecione qual centro de custo assumirá a despesa e a categoria contábil correspondente (TI, Marketing, Treinamentos). O sistema valida a dotação em tempo real.',
         badge: 'Classificação',
         icon: 'category',
         position: 'bottom',
-        actionHint: 'Centros de custo respeitam os limites orçamentários anuais aprovados.',
+        actionHint: 'Garante que os gastos permaneçam alinhados com o orçamento anual aprovado.',
+      },
+      {
+        targetSelector: '[data-tour="solicitacao-prioridade"]',
+        route: '/solicitacoes',
+        title: '3. Prioridade da Demanda & SLA',
+        description: 'Escolha a urgência do atendimento: Baixa, Média, Alta ou Crítica. Pedidos de prioridade alta recebem destaque na fila dos aprovadores e alertas automáticos.',
+        badge: 'Priorização',
+        icon: 'flag',
+        position: 'bottom',
+        actionHint: 'Defina a urgência real para garantir o cumprimento dos prazos operacionais.',
       },
       {
         targetSelector: '[data-tour="solicitacao-justificativa"]',
-        route: '/solicitacoes/nova',
-        title: '4. Justificativa de Governança',
-        description: 'Descreva a necessidade da despesa e os benefícios para a operação (mínimo de 30 caracteres). Esta justificativa recebe carimbo de data/hora e hash criptográfico SHA-256.',
+        route: '/solicitacoes',
+        title: '4. Justificativa de Negócio & SoD',
+        description: 'Explique por que essa compra é necessária e quais os benefícios esperados para a organização (mínimo de 30 caracteres para conformidade SoD).',
         badge: 'Compliance & SoD',
         icon: 'description',
         position: 'bottom',
-        actionHint: 'Garante conformidade com as diretrizes de governança corporativa.',
+        actionHint: 'O texto é gravado de forma imutável com carimbo de tempo na trilha criptográfica SHA-256.',
       },
       {
         targetSelector: '[data-tour="solicitacao-valor"]',
-        route: '/solicitacoes/nova',
-        title: '5. Valor Total Previsto',
-        description: 'Digite o montante estimado em Reais (R$). Conforme você digita o valor, o motor de regras recalcula imediatamente a esteira de deliberação.',
+        route: '/solicitacoes',
+        title: '5. Valor Previsto em Reais (R$)',
+        description: 'Digite o montante total previsto. O sistema recalcula instantaneamente os níveis de aprovação necessários conforme as regras da sua empresa.',
         badge: 'Financeiro',
         icon: 'payments',
         position: 'left',
-        actionHint: 'Experimente testar valores: até R$ 10 mil (gerente), acima de R$ 50 mil (diretor/CFO).',
+        actionHint: 'Experimente digitar valores diferentes para ver a esteira se adaptar na hora!',
       },
       {
         targetSelector: '[data-tour="solicitacao-esteira"]',
-        route: '/solicitacoes/nova',
+        route: '/solicitacoes',
         title: '6. Esteira de Alçada Dinâmica',
-        description: 'Esta coluna exibe os aprovadores requeridos para a solicitação (ex: Gestor de Área ➔ Diretor ➔ CFO), respeitando a Segregação de Funções (SoD).',
-        badge: 'Esteira de Decisão',
+        description: 'Aqui você visualiza com antecedência a trilha hierárquica (ex: Gestor Direto ➔ Diretor da Área ➔ CFO). Você sabe exatamente quem terá a palavra final!',
+        badge: 'Governança',
         icon: 'account_tree',
         position: 'left',
-        actionHint: 'Cada gestor receberá notificações automáticas com prazos de SLA.',
+        actionHint: 'A esteira automatizada evita retrabalho e assegura conformidade fiscal e contábil.',
       },
       {
         targetSelector: '[data-tour="solicitacao-submeter"]',
-        route: '/solicitacoes/nova',
-        title: '7. Submissão à Esteira',
-        description: 'Tudo pronto! Ao clicar em "Submeter para Aprovação", seu pedido entra na fila de deliberação e você pode acompanhar os pareceres em tempo real.',
+        route: '/solicitacoes',
+        title: '7. Submeter à Esteira de Aprovação',
+        description: 'Tudo pronto! Ao clicar em "Submeter para Aprovação", o pedido entra na fila dos gestores competentes e você pode acompanhar os pareceres em tempo real.',
         badge: 'Finalização',
         icon: 'send',
         position: 'top',
-        actionHint: 'Parabéns! Você completou a trilha prática de criação de solicitação.',
+        actionHint: '👉 Clique em "Submeter" ou em Concluir para finalizar com sucesso a trilha assistida!',
       },
     ],
     dashboard: [
@@ -613,6 +653,17 @@ export class TourService {
     }
   }
 
+  private ensureModalOpenIfTargetInside(targetSelector?: string): void {
+    if (!targetSelector || typeof document === 'undefined') return;
+    if (targetSelector.includes('solicitacao-') && !targetSelector.includes('btn-new-request')) {
+      const modal = document.querySelector('[data-tour="solicitacao-modal"]');
+      if (!modal) {
+        const btn = document.querySelector('[data-tour="btn-new-request"]') as HTMLButtonElement | null;
+        btn?.click();
+      }
+    }
+  }
+
   startTour(contextKey = 'onboarding'): void {
     const steps = this.toursCatalog[contextKey] || this.toursCatalog['onboarding'] || this.toursCatalog['dashboard'];
     this.currentContext.set(contextKey);
@@ -622,6 +673,7 @@ export class TourService {
 
     const firstStep = steps[0];
     void this.safeNavigate(firstStep?.route);
+    this.ensureModalOpenIfTargetInside(firstStep?.targetSelector);
 
     this.scrollToActiveTarget();
   }
@@ -633,6 +685,7 @@ export class TourService {
       const nextStep = steps[nextIdx];
       this.currentStepIndex.set(nextIdx);
       void this.safeNavigate(nextStep?.route);
+      this.ensureModalOpenIfTargetInside(nextStep?.targetSelector);
       this.scrollToActiveTarget();
     } else {
       this.endTour();
@@ -646,6 +699,7 @@ export class TourService {
       const prevStep = steps[prevIdx];
       this.currentStepIndex.set(prevIdx);
       void this.safeNavigate(prevStep?.route);
+      this.ensureModalOpenIfTargetInside(prevStep?.targetSelector);
       this.scrollToActiveTarget();
     }
   }

@@ -8,6 +8,7 @@ import { podeDecidir } from '../../core/auth/roles';
 import { SettingsService } from '../settings/services/settings.service';
 import { mensagemDeErroDaApi } from '../../core/http/api-error';
 import { ActivatedRoute, Router } from '@angular/router';
+import { TourService } from '../../core/services/tour.service';
 import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
 import { fluxoDaAlcada } from './requests.mapper';
@@ -54,16 +55,21 @@ export class RequestsComponent implements OnInit, OnDestroy {
   private readonly settingsService = inject(SettingsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly tourService = inject(TourService);
 
   private pollingSub: Subscription | null = null;
   private visibilityListener: (() => void) | null = null;
 
   goToCreatePage(): void {
-    this.router.navigate(['/solicitacoes/nova']);
+    this.openCreateModal();
+    void this.router.navigate(['/solicitacoes/nova']);
   }
 
   constructor() {
     const params = this.route.snapshot.queryParams;
+    if (params && (params['nova'] === 'true' || params['criar'] === 'true')) {
+      setTimeout(() => this.openCreateModal(), 150);
+    }
     if (params && params['criada'] === 'true') {
       setTimeout(() => {
         this.showToast('Nova solicitação submetida com sucesso à esteira de aprovação!', 'success');
@@ -95,7 +101,8 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly currentPage = signal<number>(1);
   readonly pageSize = signal<number>(10);
 
-  // Drawers
+  // Drawers e Modais
+  readonly isCreateModalOpen = signal<boolean>(false);
   readonly isCreateDrawerOpen = signal<boolean>(false);
   readonly isDetailDrawerOpen = signal<boolean>(false);
   readonly selectedRequest = signal<RequestItem | null>(null);
@@ -189,11 +196,13 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly toastType = signal<'success' | 'warning' | 'info'>('success');
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Formulário de criação (US-02)
+  // Formulário de criação (US-02 / Modal Simples)
   readonly isSubmitting = signal<boolean>(false);
+  readonly formTitulo = signal<string>('');
   readonly formCategoria = signal<string>(this.requestsService.categories[0]?.id ?? '');
   readonly formCentroCustoId = signal<string>('');
   readonly formValor = signal<number | null>(null);
+  readonly formPrioridade = signal<'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA'>('MEDIA');
   readonly formJustificativa = signal<string>('');
   readonly formErrors = signal<Record<string, string>>({});
   readonly justificativaMinima = JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE;
@@ -422,14 +431,32 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.selectedIds.set(selecionados);
   }
 
-  // Criação
-  openCreateDrawer(): void {
+  // Criação (Modal e Drawer)
+  openCreateModal(): void {
     this.resetCreateForm();
+    this.isCreateModalOpen.set(true);
     this.isCreateDrawerOpen.set(true);
   }
 
-  closeCreateDrawer(): void {
+  closeCreateModal(): void {
+    this.isCreateModalOpen.set(false);
     this.isCreateDrawerOpen.set(false);
+  }
+
+  openCreateDrawer(): void {
+    this.openCreateModal();
+  }
+
+  closeCreateDrawer(): void {
+    this.closeCreateModal();
+  }
+
+  setPriority(p: 'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA'): void {
+    this.formPrioridade.set(p);
+  }
+
+  iniciarTourCriarSolicitacao(): void {
+    this.tourService.startTour('criar-solicitacao');
   }
 
   submitNewRequest(): void {
@@ -450,7 +477,7 @@ export class RequestsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (criada) => {
           this.isSubmitting.set(false);
-          this.closeCreateDrawer();
+          this.closeCreateModal();
           this.showToast(`Solicitação ${criada.codigo} criada e enviada para aprovação.`, 'success');
           this.openDetailDrawer(criada);
         },
@@ -626,9 +653,12 @@ export class RequestsComponent implements OnInit, OnDestroy {
   }
 
   private resetCreateForm(): void {
-    this.formCategoria.set(this.requestsService.categories[0]?.id ?? '');
-    this.formCentroCustoId.set(this.requestsService.costCenters()[0]?.id ?? '');
+    this.formTitulo.set('');
+    const ccs = this.availableCostCenters();
+    this.formCentroCustoId.set(ccs[0]?.id ?? '');
+    this.formCategoria.set(this.requestsService.categories[0]?.id ?? 'TI');
     this.formValor.set(null);
+    this.formPrioridade.set('MEDIA');
     this.formJustificativa.set('');
     this.formErrors.set({});
   }

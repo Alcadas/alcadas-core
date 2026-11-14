@@ -164,15 +164,15 @@ export interface TargetBox {
       position: fixed;
       inset: 0;
       z-index: 10000;
-      pointer-events: auto;
+      pointer-events: none;
       animation: fadeIn 0.18s ease-out;
     }
 
     .tour-backdrop-panel {
       position: fixed;
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(2.5px);
-      -webkit-backdrop-filter: blur(2.5px);
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       z-index: 10000;
       pointer-events: auto;
       transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -500,12 +500,12 @@ export class TourOverlayComponent implements OnDestroy {
     if (this.activeTargetElement === el) return;
     this.detachTargetClickListener();
     this.activeTargetElement = el;
-    el.addEventListener('click', this.onTargetClick, { once: true });
+    el.addEventListener('click', this.onTargetClick, { capture: true, once: true });
   }
 
   private detachTargetClickListener(): void {
     if (this.activeTargetElement) {
-      this.activeTargetElement.removeEventListener('click', this.onTargetClick);
+      this.activeTargetElement.removeEventListener('click', this.onTargetClick, { capture: true });
       this.activeTargetElement = null;
     }
   }
