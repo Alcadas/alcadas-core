@@ -47,6 +47,99 @@
         >
           <span class="material-symbols-rounded">warning</span>
         </button>
+
+        <!-- Dropdown Unificado de Tutoriais e Apoio ao Usuário -->
+        <div class="tutorial-dropdown-container">
+          <button
+            type="button"
+            class="btn-quick-icon btn-tutorials-help"
+            [class.is-active]="isTutorialDropdownOpen()"
+            title="Ajuda, Tutoriais & Trilha Guiada"
+            aria-label="Ajuda, Tutoriais & Trilha Guiada"
+            aria-haspopup="true"
+            [attr.aria-expanded]="isTutorialDropdownOpen()"
+            (click)="toggleTutorialDropdown($event)"
+          >
+            <span class="material-symbols-rounded">help</span>
+          </button>
+
+          @if (isTutorialDropdownOpen()) {
+            <div class="tutorial-dropdown-menu" role="menu">
+              <div class="dropdown-header">
+                <span class="material-symbols-rounded header-icon">school</span>
+                <div class="header-titles">
+                  <strong class="title">Ajuda & Trilha Guiada</strong>
+                  <span class="subtitle">Aprenda a operar o sistema Alçadas</span>
+                </div>
+              </div>
+
+              <div class="dropdown-items">
+                <button
+                  type="button"
+                  class="dropdown-item"
+                  role="menuitem"
+                  (click)="startTourForCurrentScreen()"
+                >
+                  <div class="item-icon-box primary">
+                    <span class="material-symbols-rounded">explore</span>
+                  </div>
+                  <div class="item-content">
+                    <strong class="item-label">Começar trilha para {{ currentScreenName() }}</strong>
+                    <span class="item-desc">Tour guiado interativo com os recursos desta tela</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="dropdown-item"
+                  role="menuitem"
+                  (click)="startCreateRequestTour()"
+                >
+                  <div class="item-icon-box success">
+                    <span class="material-symbols-rounded">add_circle</span>
+                  </div>
+                  <div class="item-content">
+                    <strong class="item-label">Criar solicitação assistida</strong>
+                    <span class="item-desc">Aprenda na prática a preencher e submeter um pedido</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="dropdown-item"
+                  role="menuitem"
+                  (click)="startGeneralTour()"
+                >
+                  <div class="item-icon-box indigo">
+                    <span class="material-symbols-rounded">route</span>
+                  </div>
+                  <div class="item-content">
+                    <strong class="item-label">Apresentação geral (Tour Completo)</strong>
+                    <span class="item-desc">Visão de ponta a ponta do menu e módulos do sistema</span>
+                  </div>
+                </button>
+
+                <div class="dropdown-divider"></div>
+
+                <button
+                  type="button"
+                  class="dropdown-item item-link"
+                  role="menuitem"
+                  (click)="goToTutorialsGuide()"
+                >
+                  <div class="item-icon-box neutral">
+                    <span class="material-symbols-rounded">menu_book</span>
+                  </div>
+                  <div class="item-content">
+                    <strong class="item-label">Ir para a Central de Tutoriais (Guia)</strong>
+                    <span class="item-desc">Manuais detalhados, simulador de alçadas e FAQ</span>
+                  </div>
+                  <span class="material-symbols-rounded item-arrow">chevron_right</span>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
       </div>
     }
   </div>
@@ -57,23 +150,6 @@
 <!-- ========================================================================= -->
 @if (showTier2()) {
   <nav class="page-header-tier2" aria-label="Navegação secundária de abas">
-    <!-- Contexto do Módulo / Página -->
-    @if (contextTitle()) {
-      <div class="context-container">
-        @if (contextIcon()) {
-          <div class="context-icon-box">
-            <span class="material-symbols-rounded">{{ contextIcon() }}</span>
-          </div>
-        }
-        <div class="context-text-group">
-          <strong class="context-title">{{ contextTitle() }}</strong>
-          @if (contextSubtitle()) {
-            <span class="context-subtitle">{{ contextSubtitle() }}</span>
-          }
-        </div>
-      </div>
-    }
-
     <!-- Abas de Navegação -->
     @if (tabs().length > 0) {
       <div class="tabs-container">

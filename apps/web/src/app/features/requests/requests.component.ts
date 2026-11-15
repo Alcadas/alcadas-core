@@ -8,6 +8,7 @@ import { podeDecidir } from '../../core/auth/roles';
 import { SettingsService } from '../settings/services/settings.service';
 import { mensagemDeErroDaApi } from '../../core/http/api-error';
 import { ActivatedRoute, Router } from '@angular/router';
+import { TourService } from '../../core/services/tour.service';
 import { RightDrawerComponent } from '../../shared/components/right-drawer/right-drawer.component';
 import { PageHeaderComponent, PageHeaderTab } from '../../shared/components/page-header/page-header.component';
 import { fluxoDaAlcada } from './requests.mapper';
@@ -54,16 +55,20 @@ export class RequestsComponent implements OnInit, OnDestroy {
   private readonly settingsService = inject(SettingsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly tourService = inject(TourService);
 
   private pollingSub: Subscription | null = null;
   private visibilityListener: (() => void) | null = null;
 
   goToCreatePage(): void {
-    this.router.navigate(['/solicitacoes/nova']);
+    this.openCreateModal();
   }
 
   constructor() {
     const params = this.route.snapshot.queryParams;
+    if (params && (params['nova'] === 'true' || params['criar'] === 'true')) {
+      setTimeout(() => this.openCreateModal(), 150);
+    }
     if (params && params['criada'] === 'true') {
       setTimeout(() => {
         this.showToast('Nova solicitação submetida com sucesso à esteira de aprovação!', 'success');
@@ -95,7 +100,8 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly currentPage = signal<number>(1);
   readonly pageSize = signal<number>(10);
 
-  // Drawers
+  // Drawers e Modais
+  readonly isCreateModalOpen = signal<boolean>(false);
   readonly isCreateDrawerOpen = signal<boolean>(false);
   readonly isDetailDrawerOpen = signal<boolean>(false);
   readonly selectedRequest = signal<RequestItem | null>(null);
@@ -105,6 +111,14 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly editingRequest = signal<RequestItem | null>(null);
   readonly editFormTitulo = signal<string>('');
   readonly editFormValor = signal<number | null>(null);
+  readonly editFormValorDisplay = computed<string>(() => {
+    const v = this.editFormValor();
+    if (v === null || v === undefined || isNaN(v) || v <= 0) return '';
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(v);
+  });
   readonly editFormCategoria = signal<string>('');
   readonly editFormCentroCustoId = signal<string>('');
   readonly editFormJustificativa = signal<string>('');
@@ -116,7 +130,15 @@ export class RequestsComponent implements OnInit, OnDestroy {
     const user = this.authService?.currentUser();
     if (!user) return true;
     if (user.email && user.email.toLowerCase() === 'dev@alcadas.com') return true;
-    const globalRoles = ['DIRETOR_CFO', 'ADMIN', 'SUPER_USER'];
+    const globalRoles = [
+      'DIRETOR',
+      'DIRETOR_CFO',
+      'DIRETORIA',
+      'CFO',
+      'ADMIN',
+      'ADMINISTRADOR',
+      'SUPER_USER',
+    ];
     if (user.role && globalRoles.includes(user.role)) return true;
     if (user.roles?.some((r: string) => globalRoles.includes(r))) return true;
     return false;
@@ -189,11 +211,30 @@ export class RequestsComponent implements OnInit, OnDestroy {
   readonly toastType = signal<'success' | 'warning' | 'info'>('success');
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Formulário de criação (US-02)
+  // Formulário de criação (US-02 / Modal Simples)
   readonly isSubmitting = signal<boolean>(false);
+  readonly formTitulo = signal<string>('');
   readonly formCategoria = signal<string>(this.requestsService.categories[0]?.id ?? '');
   readonly formCentroCustoId = signal<string>('');
   readonly formValor = signal<number | null>(null);
+  readonly formValorDisplay = computed<string>(() => {
+    const v = this.formValor();
+    if (v === null || v === undefined || isNaN(v) || v <= 0) return '';
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(v);
+  });
+  readonly formAnexos = signal<Array<{ nome: string; tamanho: string; tipo: string; icone: string }>>([
+    {
+      nome: 'Cotacao_Orcamento_Fornecedor.pdf',
+      tamanho: '1.2 MB',
+      tipo: 'application/pdf',
+      icone: 'picture_as_pdf',
+    },
+  ]);
+  readonly isDraggingFiles = signal<boolean>(false);
+  readonly formPrioridade = signal<'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA'>('MEDIA');
   readonly formJustificativa = signal<string>('');
   readonly formErrors = signal<Record<string, string>>({});
   readonly justificativaMinima = JUSTIFICATIVA_MINIMA_ACIMA_DA_BASE;
@@ -238,12 +279,21 @@ export class RequestsComponent implements OnInit, OnDestroy {
     const user = this.authService.currentUser();
     if (!user) return true;
     // Administradores, Diretores e Gerentes Aprovadores da empresa podem ver as solicitações da organização
+    const roleNormalized = (user.role || '').toUpperCase();
+    const globalAdminRoles = [
+      'ADMIN',
+      'ADMINISTRADOR',
+      'DIRETOR',
+      'DIRETOR_CFO',
+      'DIRETORIA',
+      'CFO',
+      'SUPER_USER',
+      'APROVADOR_N2',
+      'APROVADOR_N1',
+    ];
     if (
-      user.role === 'ADMIN' ||
-      user.role === 'DIRETOR_CFO' ||
-      user.role === 'SUPER_USER' ||
-      user.role === 'APROVADOR_N2' ||
-      user.role === 'APROVADOR_N1'
+      globalAdminRoles.includes(roleNormalized) ||
+      user.roles?.some((r: string) => globalAdminRoles.includes(r.toUpperCase()))
     ) {
       return true;
     }
@@ -422,14 +472,132 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.selectedIds.set(selecionados);
   }
 
-  // Criação
-  openCreateDrawer(): void {
+  // Criação (Modal e Drawer)
+  openCreateModal(): void {
     this.resetCreateForm();
+    this.isCreateModalOpen.set(true);
     this.isCreateDrawerOpen.set(true);
   }
 
-  closeCreateDrawer(): void {
+  closeCreateModal(): void {
+    this.isCreateModalOpen.set(false);
     this.isCreateDrawerOpen.set(false);
+  }
+
+  openCreateDrawer(): void {
+    this.openCreateModal();
+  }
+
+  closeCreateDrawer(): void {
+    this.closeCreateModal();
+  }
+
+  setPriority(p: 'BAIXA' | 'MEDIA' | 'ALTA' | 'CRITICA'): void {
+    this.formPrioridade.set(p);
+  }
+
+  iniciarTourCriarSolicitacao(): void {
+    this.tourService.startTour('criar-solicitacao');
+  }
+
+  onValorInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const cleanDigits = input.value.replace(/\D/g, '');
+    if (!cleanDigits) {
+      this.formValor.set(null);
+      input.value = '';
+      return;
+    }
+    const numericValue = parseInt(cleanDigits, 10) / 100;
+    this.formValor.set(numericValue);
+    input.value = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericValue);
+  }
+
+  onEditValorInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const cleanDigits = input.value.replace(/\D/g, '');
+    if (!cleanDigits) {
+      this.editFormValor.set(null);
+      input.value = '';
+      return;
+    }
+    const numericValue = parseInt(cleanDigits, 10) / 100;
+    this.editFormValor.set(numericValue);
+    input.value = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericValue);
+  }
+
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.addFiles(Array.from(input.files));
+      input.value = '';
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingFiles.set(true);
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingFiles.set(false);
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingFiles.set(false);
+    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      this.addFiles(Array.from(event.dataTransfer.files));
+    }
+  }
+
+  addFiles(files: File[]): void {
+    const newItems = files.map((file) => {
+      const sizeInMB = file.size / (1024 * 1024);
+      const sizeFormatted =
+        sizeInMB >= 1
+          ? `${sizeInMB.toFixed(1)} MB`
+          : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+      let icone = 'description';
+      const lowerName = file.name.toLowerCase();
+      if (file.type.includes('pdf') || lowerName.endsWith('.pdf')) {
+        icone = 'picture_as_pdf';
+      } else if (
+        file.type.includes('image') ||
+        /\.(png|jpe?g|webp|gif|svg)$/i.test(lowerName)
+      ) {
+        icone = 'image';
+      } else if (
+        file.type.includes('sheet') ||
+        /\.(xlsx?|csv)$/i.test(lowerName)
+      ) {
+        icone = 'table_chart';
+      }
+
+      return {
+        nome: file.name,
+        tamanho: sizeFormatted,
+        tipo: file.type || 'application/octet-stream',
+        icone,
+      };
+    });
+
+    this.formAnexos.update((curr) => [...curr, ...newItems]);
+  }
+
+  removeAnexo(index: number): void {
+    this.formAnexos.update((curr) => curr.filter((_, i) => i !== index));
   }
 
   submitNewRequest(): void {
@@ -442,15 +610,18 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.isSubmitting.set(true);
     this.requestsService
       .create({
+        titulo: this.formTitulo().trim() || undefined,
+        prioridade: this.formPrioridade(),
         centroCustoId: this.formCentroCustoId(),
         categoria: this.formCategoria(),
         valor: this.formValor() ?? 0,
         justificativa: this.formJustificativa().trim(),
+        anexos: this.formAnexos(),
       })
       .subscribe({
         next: (criada) => {
           this.isSubmitting.set(false);
-          this.closeCreateDrawer();
+          this.closeCreateModal();
           this.showToast(`Solicitação ${criada.codigo} criada e enviada para aprovação.`, 'success');
           this.openDetailDrawer(criada);
         },
@@ -626,10 +797,22 @@ export class RequestsComponent implements OnInit, OnDestroy {
   }
 
   private resetCreateForm(): void {
-    this.formCategoria.set(this.requestsService.categories[0]?.id ?? '');
-    this.formCentroCustoId.set(this.requestsService.costCenters()[0]?.id ?? '');
+    this.formTitulo.set('');
+    const ccs = this.availableCostCenters();
+    this.formCentroCustoId.set(ccs[0]?.id ?? '');
+    this.formCategoria.set(this.requestsService.categories[0]?.id ?? 'TI');
     this.formValor.set(null);
+    this.formPrioridade.set('MEDIA');
     this.formJustificativa.set('');
+    this.formAnexos.set([
+      {
+        nome: 'Cotacao_Orcamento_Fornecedor.pdf',
+        tamanho: '1.2 MB',
+        tipo: 'application/pdf',
+        icone: 'picture_as_pdf',
+      },
+    ]);
+    this.isDraggingFiles.set(false);
     this.formErrors.set({});
   }
 

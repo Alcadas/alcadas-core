@@ -438,12 +438,13 @@ $bg-page: #f8fafc;
 
 .requests-table {
   width: 100%;
+  min-width: 1120px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.775rem;
 
   thead th {
-    padding: 0.65rem 0.85rem;
+    padding: 0.75rem 0.9rem;
     background: #f8fafc;
     border-bottom: 1px solid $border;
     font-size: 0.675rem;
@@ -453,15 +454,15 @@ $bg-page: #f8fafc;
     letter-spacing: 0.03em;
     white-space: nowrap;
 
-    &.th-checkbox { width: 36px; text-align: center; }
+    &.th-checkbox { width: 44px; text-align: center; }
     &.th-code { width: 130px; }
-    &.th-title { min-width: 200px; }
-    &.th-requester { width: 150px; }
-    &.th-cost-center { width: 150px; }
-    &.th-value { width: 110px; }
-    &.th-workflow { width: 180px; }
-    &.th-status { width: 110px; }
-    &.th-actions { width: 230px; text-align: right; }
+    &.th-title { min-width: 230px; }
+    &.th-requester { width: 160px; }
+    &.th-cost-center { width: 160px; }
+    &.th-value { width: 125px; text-align: right; }
+    &.th-workflow { width: 210px; }
+    &.th-status { width: 130px; }
+    &.th-actions { width: 170px; text-align: center; }
   }
 
   tbody tr.request-table-row {
@@ -474,11 +475,12 @@ $bg-page: #f8fafc;
   }
 
   tbody td {
-    padding: 0.65rem 0.85rem;
+    padding: 0.75rem 0.9rem;
     vertical-align: middle;
 
     &.td-checkbox { text-align: center; }
-    &.td-actions { text-align: right; }
+    &.td-value { text-align: right; }
+    &.td-actions { text-align: center; }
   }
 }
 
@@ -654,134 +656,68 @@ $bg-page: #f8fafc;
 }
 
 /* ========================================================================= */
-/* AÇÕES DE DELIBERAÇÃO NA LINHA                                             */
+/* AÇÕES DE DELIBERAÇÃO NA LINHA (INPUT DE DROPDOWN CORPORATIVO)             */
 /* ========================================================================= */
+.action-select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  min-width: 145px;
+  max-width: 165px;
+
+  .action-select-input {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0.38rem 1.6rem 0.38rem 0.65rem;
+    font-size: 0.735rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: $primary;
+      color: $primary-dark;
+      background: #f8fafc;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: $primary;
+      box-shadow: 0 0 0 3px rgba(100, 78, 243, 0.15);
+    }
+
+    option {
+      font-weight: 500;
+      color: #1e293b;
+      background: #ffffff;
+      padding: 0.35rem;
+
+      &:disabled {
+        color: #94a3b8;
+      }
+    }
+  }
+
+  .select-chevron {
+    position: absolute;
+    right: 0.45rem;
+    pointer-events: none;
+    font-size: 16px;
+    color: #64748b;
+  }
+}
+
 .action-buttons-group {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-
-  .btn-act-sign {
-    background: #0f172a;
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    padding: 0.3rem 0.55rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    .material-symbols-rounded {
-      font-size: 15px;
-    }
-
-    &:hover {
-      background: $primary;
-    }
-  }
-
-  .btn-act-validate {
-    background: #ffffff;
-    color: #0284c7;
-    border: 1px solid #bae6fd;
-    border-radius: 6px;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    .material-symbols-rounded {
-      font-size: 15px;
-    }
-
-    &:hover {
-      background: #f0f9ff;
-    }
-  }
-
-  .btn-act-adjust {
-    background: #ffffff;
-    color: #d97706;
-    border: 1px solid #fde68a;
-    border-radius: 6px;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    .material-symbols-rounded {
-      font-size: 15px;
-    }
-
-    &:hover {
-      background: #fffbeb;
-    }
-  }
-
-  .btn-act-reject {
-    background: transparent;
-    color: #94a3b8;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 0.3rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
-
-    .material-symbols-rounded {
-      font-size: 15px;
-    }
-
-    &:hover {
-      background: #fff1f2;
-      color: #e11d48;
-      border-color: #ffe4e6;
-    }
-  }
-
-  .btn-view-trilha {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.15rem;
-    padding: 0.3rem 0.55rem;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    color: #334155;
-    font-size: 0.7rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    .material-symbols-rounded {
-      font-size: 15px;
-      transition: transform 0.15s ease;
-    }
-
-    &:hover {
-      background: #f5f3ff;
-      border-color: #c4b5fd;
-      color: $primary;
-
-      .material-symbols-rounded {
-        transform: translateX(2px);
-      }
-    }
-  }
 }
 
 /* ========================================================================= */
@@ -1696,4 +1632,41 @@ $bg-page: #f8fafc;
 @keyframes slideInUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.governance-alert-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+
+  .alert-icon {
+    font-size: 22px;
+    color: #d97706;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .alert-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    .alert-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #92400e;
+    }
+
+    .alert-desc {
+      font-size: 0.75rem;
+      color: #78350f;
+      line-height: 1.4;
+      margin: 0;
+    }
+  }
 }

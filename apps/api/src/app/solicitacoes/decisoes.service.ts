@@ -404,7 +404,7 @@ export class DecisoesService {
     user: AuthenticatedUser,
     solicitacao: SolicitacaoResponseDto,
   ): void {
-    if (user.role === 'ADMIN' || user.role === 'SUPER_USER') {
+    if (user.role === 'ADMIN' || user.role === 'SUPER_USER' || user.role === 'DIRETOR_CFO') {
       return;
     }
     if (solicitacao.aprovadorEsperadoPapel && user.role !== solicitacao.aprovadorEsperadoPapel) {

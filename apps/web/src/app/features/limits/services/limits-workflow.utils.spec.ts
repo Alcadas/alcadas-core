@@ -1,5 +1,6 @@
 import { MODELOS_REGRAS_ALCADA } from '@alcadas-core/models';
 import {
+  avaliarSolicitacaoNoFluxo,
   buildWorkflowNodesFromFaixas,
   buildWorkflowNodesFromModelo,
   calculateCeilingFromNodes,
@@ -7,6 +8,7 @@ import {
   formatCurrencyBRL,
   mapModeloToLimitRule,
 } from './limits-workflow.utils';
+import { LimitRuleItem } from '../limits.models';
 
 describe('limits-workflow.utils', () => {
   const modeloReembolso = MODELOS_REGRAS_ALCADA.find(
@@ -95,5 +97,91 @@ describe('limits-workflow.utils', () => {
     expect(rule.nodes?.length).toBeGreaterThan(0);
     expect(rule.ceilingAmount).toBe(2000);
     expect(rule.status).toBe('ACTIVE');
+  });
+
+  describe('avaliarSolicitacaoNoFluxo (Motor de Governança)', () => {
+    const regraTiComTeto: LimitRuleItem = {
+      id: 'ALC-TI-101',
+      title: 'Fluxo TI & Hardware',
+      department: 'TI & Engenharia',
+      assignedTo: 'Gerente de TI',
+      employmentType: 'Despesas',
+      locationOrCenter: 'cc-ti',
+      channelOrOrigin: 'Portal Web',
+      status: 'ACTIVE',
+      statusLabel: 'Ativo',
+      ceilingAmount: 15000,
+      quorumLabel: '1 Aprovador',
+      slaHours: 24,
+      sodEnforced: true,
+      createdAt: 'Hoje',
+      accentColor: '#644EF3',
+      currentStepLabel: 'Ativo',
+      steps: [],
+      category: 'EQUIPAMENTOS',
+      nodes: [
+        {
+          id: 'cond-1',
+          type: 'CONDITION_VALUE',
+          title: 'Teto de Hardware (R$ 15.000)',
+          subtitle: 'Limite máximo',
+          tag: '<= R$ 15.000',
+          tagColor: '#644EF3',
+          icon: 'calculate',
+          config: { valueMax: 15000 },
+        },
+        {
+          id: 'app-1',
+          type: 'APPROVER',
+          title: 'Aprovação: Gerente de TI',
+          subtitle: 'Deliberação do gestor',
+          tag: 'Gerência',
+          tagColor: '#10B981',
+          icon: 'person_check',
+          config: { approverRole: 'GERENTE' },
+        },
+      ],
+    };
+
+    it('aprova solicitação dentro do teto orçamentário e avança para aprovação gerencial', () => {
+      const resultado = avaliarSolicitacaoNoFluxo(
+        {
+          valor: 8500,
+          categoria: 'EQUIPAMENTOS',
+          centroCustoId: 'cc-ti',
+          departamento: 'TI & Engenharia',
+        },
+        [regraTiComTeto],
+      );
+
+      expect(resultado.aprovado).toBe(true);
+      expect(resultado.status).toBe('PENDENTE');
+      expect(resultado.alertaRisco).toBeNull();
+      expect(resultado.etapaAtualNumero).toBe(3);
+      expect(resultado.etapas[1].status).toBe('CONCLUIDA');
+      expect(resultado.etapas[2].status).toBe('EM_ANALISE');
+    });
+
+    it('reprova automaticamente na etapa de governança solicitação que excede o teto e define EM_AJUSTE', () => {
+      const resultado = avaliarSolicitacaoNoFluxo(
+        {
+          valor: 22000,
+          categoria: 'EQUIPAMENTOS',
+          centroCustoId: 'cc-ti',
+          departamento: 'TI & Engenharia',
+        },
+        [regraTiComTeto],
+      );
+
+      expect(resultado.aprovado).toBe(false);
+      expect(resultado.status).toBe('EM_AJUSTE');
+      expect(resultado.statusLabel).toBe('Ajuste solicitado');
+      expect(resultado.alertaRisco).toContain('Teto de Alçada Excedido');
+      expect(resultado.alertaRisco).toContain('22.000');
+      expect(resultado.alertaRisco).toContain('15.000');
+      expect(resultado.etapaAtualNumero).toBe(2);
+      expect(resultado.etapas[1].status).toBe('AJUSTE');
+      expect(resultado.etapas[2].status).toBe('PENDENTE'); // Bloqueada para o gerente
+    });
   });
 });

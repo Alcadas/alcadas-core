@@ -35,10 +35,11 @@ $border: #eef2f6;
 /* 2. Barra de Metadados e Edição Rápida do Fluxo (Estilo Talently / Builder) */
 /* ========================================================================= */
 .flow-meta-toolbar {
-  height: 48px;
+  min-height: 52px;
+  height: auto;
   background: #ffffff;
   border-bottom: 1px solid var(--color-border);
-  padding: 0 1.25rem;
+  padding: 0.45rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -53,6 +54,7 @@ $border: #eef2f6;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
+    flex-shrink: 0;
 
     .flow-title-edit-wrap {
       display: flex;
@@ -83,6 +85,7 @@ $border: #eef2f6;
         font-weight: 700;
         color: $text;
         width: 210px;
+        max-width: 100%;
 
         &::placeholder {
           color: #94a3b8;
@@ -99,6 +102,7 @@ $border: #eef2f6;
       background: #ede9fe;
       padding: 0.15rem 0.45rem;
       border-radius: 4px;
+      white-space: nowrap;
     }
 
     .version-chip {
@@ -108,13 +112,14 @@ $border: #eef2f6;
       background: #f1f5f9;
       padding: 0.15rem 0.4rem;
       border-radius: 4px;
+      white-space: nowrap;
     }
   }
 
   .toolbar-center-group {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.65rem;
     flex-wrap: wrap;
 
     .meta-field {
@@ -129,6 +134,7 @@ $border: #eef2f6;
         font-size: 0.675rem;
         font-weight: 600;
         color: #64748b;
+        white-space: nowrap;
 
         .meta-icon {
           font-size: 14px;
@@ -147,6 +153,8 @@ $border: #eef2f6;
         outline: none;
         cursor: pointer;
         transition: border 0.15s ease;
+        max-width: 170px;
+        text-overflow: ellipsis;
 
         &:focus {
           border-color: $primary;
@@ -173,6 +181,18 @@ $border: #eef2f6;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
+
+    .btn-delete-flow {
+      color: #dc2626;
+      border-color: #fecaca;
+
+      &:hover {
+        background: #fef2f2;
+        border-color: #ef4444;
+        color: #b91c1c;
+      }
+    }
   }
 }
 
@@ -217,7 +237,7 @@ $border: #eef2f6;
 /* Toasts Flutuantes */
 .toast-success {
   position: absolute;
-  top: 76px;
+  top: 1rem;
   right: 1.5rem;
   z-index: 60;
   display: flex;
@@ -238,7 +258,7 @@ $border: #eef2f6;
 
 .toast-insert-hint {
   position: absolute;
-  top: 76px;
+  top: 1rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
@@ -332,7 +352,6 @@ $border: #eef2f6;
   position: relative;
   flex: 1;
   width: 100%;
-  height: calc(100% - 68px);
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -795,6 +814,7 @@ $border: #eef2f6;
     top: 2rem;
     left: calc(50% - 240px);
     width: 480px;
+    max-width: calc(100% - 24px);
     transform-origin: top center;
     will-change: transform;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);

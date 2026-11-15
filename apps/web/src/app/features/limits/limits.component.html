@@ -124,6 +124,18 @@
         <span>Voltar</span>
       </button>
 
+      @if (currentRuleId()) {
+        <button
+          type="button"
+          class="btn-header-outline btn-delete-flow"
+          (click)="deleteWorkflow()"
+          title="Excluir este fluxo de alçadas"
+        >
+          <span class="material-symbols-rounded">delete</span>
+          <span>Excluir</span>
+        </button>
+      }
+
       <button
         type="button"
         class="btn-header-outline"

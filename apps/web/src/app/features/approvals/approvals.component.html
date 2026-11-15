@@ -7,8 +7,6 @@
   searchPlaceholder="Search..."
   [searchQuery]="searchQuery()"
   (searchQueryChange)="setSearchQuery($event)"
-  contextIcon="how_to_reg"
-  contextTitle="Central de Deliberação e Alçadas"
   [contextSubtitle]="pendingCount() + ' para deliberar · ' + (pendingTotalValue() | currency:'BRL':'symbol':'1.2-2') + ' retido'"
   [tabs]="headerTabs()"
   [activeTab]="currentTab()"
@@ -27,7 +25,12 @@
 <!-- ========================================================================= -->
 <!-- 2. CONTAINER DE CONTEÚDO (Abaixo do Header, onde o drawer lateral fica)    -->
 <!-- ========================================================================= -->
-<div class="requests-body-container">
+<div
+  class="requests-body-container"
+  (click)="closeActionsMenu()"
+  (keydown.escape)="closeActionsMenu()"
+  tabindex="-1"
+>
   <!-- Conteúdo Rolável da Página -->
   <main class="page-scrollable-content">
 
@@ -261,63 +264,22 @@
                   </td>
 
                   <td class="td-actions" (click)="$event.stopPropagation()">
-                    <div class="action-buttons-group">
-                      @if (req.status === 'PENDENTE') {
-                        <!-- Botão Assinar Digitalmente (Principal) -->
-                        <button
-                          type="button"
-                          class="btn-act-sign"
-                          (click)="openSignModal(req)"
-                          title="Assinar digitalmente e aprovar solicitação"
-                        >
-                          <span class="material-symbols-rounded">draw</span>
-                          <span>Assinar</span>
-                        </button>
-
-                        <!-- Botão Validar Tecnicamente -->
-                        <button
-                          type="button"
-                          class="btn-act-validate"
-                          (click)="openValidateModal(req)"
-                          title="Registrar parecer ou validação técnica"
-                        >
-                          <span class="material-symbols-rounded">task_alt</span>
-                          <span>Validar</span>
-                        </button>
-
-                        <!-- Botão Solicitar Revisão / Ajuste -->
-                        <button
-                          type="button"
-                          class="btn-act-adjust"
-                          (click)="openAdjustmentModal(req)"
-                          title="Solicitar revisão ao solicitante"
-                        >
-                          <span class="material-symbols-rounded">edit_note</span>
-                          <span>Revisar</span>
-                        </button>
-
-                        <!-- Botão Recusar / Negar -->
-                        <button
-                          type="button"
-                          class="btn-act-reject"
-                          (click)="openRejectModal(req)"
-                          title="Recusar solicitação"
-                        >
-                          <span class="material-symbols-rounded">close</span>
-                        </button>
-                      }
-
-                      <!-- Botão Detalhes / Trilha (Padrão de Requests) -->
-                      <button
-                        type="button"
-                        class="btn-view-trilha"
-                        title="Ver detalhes da solicitação e trilha de aprovação"
-                        (click)="openDetailDrawer(req)"
-                        aria-label="Ver detalhes da solicitação {{ req.codigo }}"
+                    <div class="action-select-wrapper">
+                      <select
+                        #actionSelect
+                        class="action-select-input"
+                        [attr.aria-label]="'Ações de deliberação para ' + req.codigo"
+                        (change)="onActionSelect(req, actionSelect)"
                       >
-                        <span>Trilha</span>
-                        <span class="material-symbols-rounded">chevron_right</span>
-                      </button>
+                        <option value="" disabled selected>Ações...</option>
+                        @if (req.status === 'PENDENTE') {
+                          <option value="aprovar">✓ Aprovar Compra</option>
+                          <option value="revisar">✎ Solicitar Ajuste</option>
+                          <option value="rejeitar">✕ Recusar / Rejeitar</option>
+                        }
+                        <option value="trilha">👁 Ver Trilha & Detalhes</option>
+                      </select>
+                      <span class="material-symbols-rounded select-chevron" aria-hidden="true">expand_more</span>
                     </div>
                   </td>
                 </tr>
@@ -453,6 +415,16 @@
             </div>
           </div>
         </div>
+
+        @if (req.alertaRisco) {
+          <div class="governance-alert-card" role="alert">
+            <span class="material-symbols-rounded alert-icon">warning</span>
+            <div class="alert-body">
+              <strong class="alert-title">Alerta de Governança Orçamentária</strong>
+              <p class="alert-desc">{{ req.alertaRisco }}</p>
+            </div>
+          </div>
+        }
 
         <!-- Justificativa da Demanda -->
         <div class="detail-section">
@@ -592,21 +564,12 @@
             </button>
             <button
               type="button"
-              class="btn-drawer-validate"
-              (click)="closeDetailDrawer(); openValidateModal(req)"
-              title="Registrar parecer técnico"
-            >
-              <span class="material-symbols-rounded">task_alt</span>
-              <span>Validar</span>
-            </button>
-            <button
-              type="button"
               class="btn-drawer-sign"
               (click)="closeDetailDrawer(); openSignModal(req)"
-              title="Assinar e aprovar"
+              title="Aprovar e assinar digitalmente a compra"
             >
-              <span class="material-symbols-rounded">draw</span>
-              <span>Assinar & Aprovar</span>
+              <span class="material-symbols-rounded">verified</span>
+              <span>Aprovar Compra</span>
             </button>
           </div>
         }

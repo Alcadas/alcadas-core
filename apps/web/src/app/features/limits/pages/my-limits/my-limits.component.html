@@ -5,8 +5,6 @@
   searchPlaceholder="Buscar por título, ID (#ALC) ou departamento..."
   [searchQuery]="limitsService.searchQuery()"
   (searchQueryChange)="onSearchChange($event)"
-  contextIcon="account_tree"
-  contextTitle="Gestão de Alçadas & Tetos"
   [contextSubtitle]="limitsService.filteredRules().length + ' esteiras de aprovação configuradas na organização'"
   [tabs]="pageHeaderTabs()"
   [activeTab]="limitsService.activeTab()"
@@ -596,5 +594,21 @@
         }
       </div>
     </div>
+  </div>
+}
+
+<!-- Notificação Toast Flutuante -->
+@if (toast(); as t) {
+  <div class="toast-notification" [ngClass]="'toast-' + t.type">
+    <span class="material-symbols-rounded toast-icon">
+      {{ t.type === 'success' ? 'check_circle' : t.type === 'warning' ? 'warning' : 'info' }}
+    </span>
+    <div class="toast-content">
+      <strong class="toast-title">{{ t.title }}</strong>
+      <span class="toast-msg">{{ t.message }}</span>
+    </div>
+    <button type="button" class="btn-toast-close" (click)="toast.set(null)" aria-label="Fechar notificação">
+      <span class="material-symbols-rounded">close</span>
+    </button>
   </div>
 }

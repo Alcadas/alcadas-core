@@ -15,6 +15,7 @@ import {
   validarFaixasRegra,
 } from '@alcadas-core/models';
 import { PageHeaderComponent, PageHeaderTab } from '../../../../shared/components/page-header/page-header.component';
+import { SidebarService } from '../../../../core/services/sidebar.service';
 import { LimitsService } from '../../services/limits.service';
 import { formatCurrencyBRL } from '../../services/limits-workflow.utils';
 
@@ -30,9 +31,30 @@ export type FlowWizardStep = 'choose' | 'template' | 'configure' | 'scratch';
 export class MyLimitsComponent {
   private readonly router = inject(Router);
   protected readonly limitsService = inject(LimitsService);
+  private readonly sidebarService = inject(SidebarService);
 
   // Estado de Carregamento da Lista
   readonly isLoading = signal(true);
+
+  // Notificação Toast
+  readonly toast = signal<{
+    title: string;
+    message: string;
+    type: 'success' | 'warning' | 'info';
+  } | null>(null);
+
+  triggerToast(
+    title: string,
+    message: string,
+    type: 'success' | 'warning' | 'info' = 'info',
+  ): void {
+    this.toast.set({ title, message, type });
+    setTimeout(() => {
+      if (this.toast()?.title === title) {
+        this.toast.set(null);
+      }
+    }, 4000);
+  }
 
   // Controle de menu contextual de ações
   readonly openMenuId = signal<string | null>(null);
@@ -147,6 +169,7 @@ export class MyLimitsComponent {
   }
 
   navigateToEditor(ruleId: string): void {
+    this.sidebarService.collapse();
     this.router.navigate(['/alcadas/editor', ruleId]);
   }
 
@@ -155,6 +178,7 @@ export class MyLimitsComponent {
   }
 
   openCreateModal(): void {
+    this.sidebarService.collapse();
     this.wizardStep.set('choose');
     this.selectedModelo.set(null);
     this.activateImmediately.set(true);
@@ -316,16 +340,18 @@ export class MyLimitsComponent {
     }
   }
 
-  duplicateRule(id: string, event: Event): void {
-    event.stopPropagation();
+  duplicateRule(id: string, event?: Event): void {
+    event?.stopPropagation?.();
     this.closeActionsMenu();
     this.limitsService.duplicateRule(id);
+    this.triggerToast('Fluxo Duplicado', `O fluxo #${id} foi duplicado com sucesso.`, 'success');
   }
 
-  deleteRule(id: string, event: Event): void {
-    event.stopPropagation();
+  deleteRule(id: string, event?: Event): void {
+    event?.stopPropagation?.();
     this.closeActionsMenu();
     this.limitsService.deleteRule(id);
+    this.triggerToast('Fluxo Excluído', `O fluxo #${id} foi removido com sucesso.`, 'info');
   }
 
   constructor() {

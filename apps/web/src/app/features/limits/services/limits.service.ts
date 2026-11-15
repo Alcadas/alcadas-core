@@ -17,6 +17,29 @@ import {
   mapModeloToLimitRule,
 } from './limits-workflow.utils';
 
+export const STORAGE_KEY_WORKFLOWS = 'alcadas.workflows.v1';
+
+export function lerWorkflowsDoStorage(): LimitRuleItem[] | null {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_WORKFLOWS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salvarWorkflowsNoStorage(workflows: LimitRuleItem[]): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_WORKFLOWS, JSON.stringify(workflows));
+  } catch {
+    // ignora se localStorage estiver inacessível
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -202,8 +225,10 @@ export class LimitsService {
     this.ruleTemplatesState.update((list) => list.filter((t) => t.title !== title));
   }
 
-  // Lista central de regras de alçada (inicia vazia e carrega do Firestore via API)
-  private readonly rulesState = signal<LimitRuleItem[]>([]);
+  // Lista central de regras de alçada (inicia com fluxos salvos em storage ou padrão e sincroniza do Firestore via API)
+  private readonly rulesState = signal<LimitRuleItem[]>(
+    lerWorkflowsDoStorage() ?? this.getInitialSeedRules(),
+  );
 
   readonly allRules = this.rulesState.asReadonly();
 
@@ -215,7 +240,74 @@ export class LimitsService {
     () => this.settingsService?.organization().departments ?? [],
   );
 
+  private getInitialSeedRules(): LimitRuleItem[] {
+    const tiModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'aquisicao-equipamentos-ti');
+    const opsModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'reembolso-despesas-operacionais');
+    const finModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'fornecedores-servicos-recorrentes');
+
+    const seeds: LimitRuleItem[] = [];
+
+    if (tiModel) {
+      seeds.push(
+        mapModeloToLimitRule(tiModel, {
+          id: 'ALC-104',
+          nome: 'Aquisição de Equipamentos de TI & Hardware',
+          centroCusto: 'CC-TI-01 · Tecnologia & Infraestrutura',
+          department: 'TI & Engenharia',
+          status: 'ACTIVE',
+          category: 'EQUIPAMENTOS',
+          faixas: [
+            { id: 'f1', valorMinimo: 0, valorMaximo: 15000, papelAprovador: 'GERENTE', aprovacaoTecnica: true },
+            { id: 'f2', valorMinimo: 15000.01, valorMaximo: null, papelAprovador: 'DIRETOR', aprovacaoTecnica: true },
+          ],
+        }),
+      );
+    }
+
+    if (opsModel) {
+      seeds.push(
+        mapModeloToLimitRule(opsModel, {
+          id: 'ALC-102',
+          nome: 'Despesas e Insumos Operacionais',
+          centroCusto: 'CC-CENTRO · Clínica Centro',
+          department: 'Operações',
+          status: 'ACTIVE',
+          category: 'SERVICOS_TERCEIROS',
+        }),
+      );
+    }
+
+    if (finModel) {
+      seeds.push(
+        mapModeloToLimitRule(finModel, {
+          id: 'ALC-103',
+          nome: 'Suprimentos e Material Administrativo',
+          centroCusto: 'CC-FIN-02 · Controladoria & Finanças',
+          department: 'Financeiro',
+          status: 'ACTIVE',
+          category: 'MATERIAL_ESCRITORIO',
+        }),
+      );
+    }
+
+    return seeds;
+  }
+
   constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === STORAGE_KEY_WORKFLOWS && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (Array.isArray(parsed)) {
+              this.rulesState.set(parsed);
+            }
+          } catch {
+            // ignora erro de parse
+          }
+        }
+      });
+    }
     this.loadFromBackend();
   }
 
@@ -230,8 +322,15 @@ export class LimitsService {
       )
       .subscribe({
         next: (res) => {
-          const remotos = Array.isArray(res?.workflows) ? res.workflows : [];
-          this.rulesState.set(remotos);
+          if (Array.isArray(res?.workflows)) {
+            const stored = lerWorkflowsDoStorage();
+            if (res.workflows.length > 0) {
+              this.rulesState.set(res.workflows);
+              salvarWorkflowsNoStorage(res.workflows);
+            } else if (stored && stored.length === 0) {
+              this.rulesState.set([]);
+            }
+          }
           if (onRulesCatalogLoaded && Array.isArray(res?.rulesCatalog)) {
             onRulesCatalogLoaded(res.rulesCatalog);
           }
@@ -241,6 +340,7 @@ export class LimitsService {
   }
 
   persistWorkflowsToBackend(rulesCatalog?: unknown[]): void {
+    salvarWorkflowsNoStorage(this.rulesState());
     if (!this.http || !this.authService?.isAuthenticated?.()) return;
     this.http
       .put(`${this.apiBaseUrl}/organizacao/fluxos`, {
@@ -296,7 +396,13 @@ export class LimitsService {
 
   deleteRule(id: string): void {
     this.rulesState.update((list) => list.filter((r) => r.id !== id));
+    salvarWorkflowsNoStorage(this.rulesState());
     this.persistWorkflowsToBackend();
+    if (this.http && this.authService?.isAuthenticated?.()) {
+      this.http
+        .delete(`${this.apiBaseUrl}/organizacao/fluxos/${encodeURIComponent(id)}`)
+        .subscribe({ error: () => undefined });
+    }
   }
 
   duplicateRule(id: string): LimitRuleItem | undefined {

@@ -123,4 +123,32 @@ describe('MyLimitsComponent', () => {
       expect.arrayContaining(['/alcadas/editor']),
     );
   });
+
+  it('deve chamar deleteRule do serviço e disparar toast informativo', () => {
+    const deleteSpy = jest.spyOn(limitsService, 'deleteRule');
+    component.deleteRule('ALC-999');
+
+    expect(deleteSpy).toHaveBeenCalledWith('ALC-999');
+    expect(component.toast()).toEqual({
+      title: 'Fluxo Excluído',
+      message: 'O fluxo #ALC-999 foi removido com sucesso.',
+      type: 'info',
+    });
+  });
+
+  it('deve chamar duplicateRule do serviço e disparar toast de sucesso', () => {
+    const duplicateSpy = jest.spyOn(limitsService, 'duplicateRule').mockReturnValue({
+      id: 'ALC-NEW',
+      title: 'Fluxo Teste (Cópia)',
+    } as any);
+
+    component.duplicateRule('ALC-999');
+
+    expect(duplicateSpy).toHaveBeenCalledWith('ALC-999');
+    expect(component.toast()).toEqual({
+      title: 'Fluxo Duplicado',
+      message: 'O fluxo #ALC-999 foi duplicado com sucesso.',
+      type: 'success',
+    });
+  });
 });

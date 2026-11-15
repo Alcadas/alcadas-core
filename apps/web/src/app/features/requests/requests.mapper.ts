@@ -133,6 +133,7 @@ export function paraRequestItem(dto: SolicitacaoResponseDto, contexto: ContextoD
       aprovadorEsperadoPapel: dto.aprovadorEsperadoPapel,
       aprovadorEsperadoNivel: dto.aprovadorEsperadoNivel,
     }),
+    alertaRisco: (dto as unknown as { alertaRisco?: string | null }).alertaRisco ?? null,
   };
 }
 
