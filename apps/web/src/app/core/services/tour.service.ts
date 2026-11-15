@@ -256,7 +256,7 @@ export class TourService {
         description: 'Informe um título claro e representativo da sua demanda (ex: "Licenças anuais Figma Enterprise" ou "Equipamentos para novos colaboradores").',
         badge: 'Identificação',
         icon: 'title',
-        position: 'bottom',
+        position: 'right',
         actionHint: 'Um título objetivo facilita a triagem e agiliza a aprovação da diretoria.',
       },
       {
@@ -266,7 +266,7 @@ export class TourService {
         description: 'Selecione qual centro de custo assumirá a despesa e a categoria contábil correspondente (TI, Marketing, Treinamentos). O sistema valida a dotação em tempo real.',
         badge: 'Classificação',
         icon: 'category',
-        position: 'bottom',
+        position: 'right',
         actionHint: 'Garante que os gastos permaneçam alinhados com o orçamento anual aprovado.',
       },
       {
@@ -276,7 +276,7 @@ export class TourService {
         description: 'Escolha a urgência do atendimento: Baixa, Média, Alta ou Crítica. Pedidos de prioridade alta recebem destaque na fila dos aprovadores e alertas automáticos.',
         badge: 'Priorização',
         icon: 'flag',
-        position: 'bottom',
+        position: 'right',
         actionHint: 'Defina a urgência real para garantir o cumprimento dos prazos operacionais.',
       },
       {
@@ -286,38 +286,38 @@ export class TourService {
         description: 'Explique por que essa compra é necessária e quais os benefícios esperados para a organização (mínimo de 30 caracteres para conformidade SoD).',
         badge: 'Compliance & SoD',
         icon: 'description',
-        position: 'bottom',
+        position: 'right',
         actionHint: 'O texto é gravado de forma imutável com carimbo de tempo na trilha criptográfica SHA-256.',
       },
       {
         targetSelector: '[data-tour="solicitacao-valor"]',
         route: '/solicitacoes',
         title: '5. Valor Previsto em Reais (R$)',
-        description: 'Digite o montante total previsto. O sistema recalcula instantaneamente os níveis de aprovação necessários conforme as regras da sua empresa.',
+        description: 'Digite o montante estimado da sua compra. O campo formata automaticamente em moeda brasileira com vírgulas e pontos conforme você digita.',
         badge: 'Financeiro',
         icon: 'payments',
         position: 'left',
-        actionHint: 'Experimente digitar valores diferentes para ver a esteira se adaptar na hora!',
+        actionHint: 'Digite o valor com pontuação para verificar a conformidade com as alçadas.',
       },
       {
-        targetSelector: '[data-tour="solicitacao-esteira"]',
+        targetSelector: '[data-tour="solicitacao-documentos"]',
         route: '/solicitacoes',
-        title: '6. Esteira de Alçada Dinâmica',
-        description: 'Aqui você visualiza com antecedência a trilha hierárquica (ex: Gestor Direto ➔ Diretor da Área ➔ CFO). Você sabe exatamente quem terá a palavra final!',
-        badge: 'Governança',
-        icon: 'account_tree',
+        title: '6. Comprovantes & Cotações (Drag & Drop)',
+        description: 'Arraste e solte arquivos como cotações, orçamentos comparativos e fotos de materiais diretamente neste painel. Você não precisa se preocupar com as etapas internas; a governança encaminha tudo automaticamente!',
+        badge: 'Comprovação',
+        icon: 'cloud_upload',
         position: 'left',
-        actionHint: 'A esteira automatizada evita retrabalho e assegura conformidade fiscal e contábil.',
+        actionHint: 'Comprovantes e orçamentos aceleram a aprovação e garantem conformidade com a auditoria.',
       },
       {
         targetSelector: '[data-tour="solicitacao-submeter"]',
         route: '/solicitacoes',
-        title: '7. Submeter à Esteira de Aprovação',
-        description: 'Tudo pronto! Ao clicar em "Submeter para Aprovação", o pedido entra na fila dos gestores competentes e você pode acompanhar os pareceres em tempo real.',
+        title: '7. Submeter para Aprovação',
+        description: 'Tudo pronto! Ao clicar em "Submeter para Aprovação", o pedido entra imediatamente na fila dos gestores competentes e você pode acompanhar os pareceres em tempo real.',
         badge: 'Finalização',
         icon: 'send',
         position: 'top',
-        actionHint: '👉 Clique em "Submeter" ou em Concluir para finalizar com sucesso a trilha assistida!',
+        actionHint: '👉 Clique em "Submeter" ou em Concluir para finalizar a trilha assistida!',
       },
     ],
     dashboard: [
@@ -660,6 +660,12 @@ export class TourService {
       if (!modal) {
         const btn = document.querySelector('[data-tour="btn-new-request"]') as HTMLButtonElement | null;
         btn?.click();
+      }
+    } else if (targetSelector === '[data-tour="btn-new-request"]' || !targetSelector.includes('solicitacao-')) {
+      const modal = document.querySelector('[data-tour="solicitacao-modal"]');
+      if (modal) {
+        const closeBtn = modal.querySelector('.btn-close-sm') as HTMLButtonElement | null;
+        closeBtn?.click();
       }
     }
   }

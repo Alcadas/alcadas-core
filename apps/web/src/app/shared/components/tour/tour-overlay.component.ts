@@ -225,7 +225,7 @@ export interface TargetBox {
 
     .tour-card {
       width: 100%;
-      max-width: 460px;
+      max-width: 440px;
       background: #ffffff;
       border-radius: 16px;
       box-shadow: 0 20px 35px -5px rgba(15, 23, 42, 0.3), 0 10px 15px -6px rgba(15, 23, 42, 0.2), 0 0 0 1px #e2e8f0;
@@ -334,6 +334,8 @@ export interface TargetBox {
           font-weight: 700;
           color: #0f172a;
           letter-spacing: -0.01em;
+          word-break: break-word;
+          overflow-wrap: break-word;
         }
       }
 
@@ -342,6 +344,8 @@ export interface TargetBox {
         font-size: 0.875rem;
         color: #475569;
         line-height: 1.5;
+        word-break: break-word;
+        overflow-wrap: break-word;
       }
 
       .step-hint-box {
@@ -364,6 +368,8 @@ export interface TargetBox {
 
         .hint-text {
           line-height: 1.4;
+          word-break: break-word;
+          overflow-wrap: break-word;
         }
       }
     }
@@ -467,6 +473,12 @@ export class TourOverlayComponent implements OnDestroy {
   readonly cardStyle = signal<Record<string, string>>({});
   private activeTargetElement: HTMLElement | null = null;
 
+  private readonly onCapturedScroll = (): void => {
+    if (this.tourService.isTourActive()) {
+      this.refreshSpotlight(false);
+    }
+  };
+
   private readonly onTargetClick = (): void => {
     // Avança o tour interativamente quando o usuário interage diretamente com o elemento destacado
     setTimeout(() => {
@@ -477,15 +489,19 @@ export class TourOverlayComponent implements OnDestroy {
   };
 
   constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', this.onCapturedScroll, true);
+    }
+
     effect(() => {
       const active = this.tourService.isTourActive();
       // Track index so effect re-runs when step changes
       this.tourService.currentStepIndex();
 
       if (active) {
-        this.refreshSpotlight();
-        setTimeout(() => this.refreshSpotlight(), 100);
-        setTimeout(() => this.refreshSpotlight(), 280);
+        this.refreshSpotlight(true);
+        setTimeout(() => this.refreshSpotlight(false), 100);
+        setTimeout(() => this.refreshSpotlight(false), 280);
       } else {
         this.detachTargetClickListener();
         this.targetBox.set(null);
@@ -494,6 +510,9 @@ export class TourOverlayComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('scroll', this.onCapturedScroll, true);
+    }
     this.detachTargetClickListener();
   }
 
@@ -514,14 +533,14 @@ export class TourOverlayComponent implements OnDestroy {
   @HostListener('window:resize')
   onResize(): void {
     if (this.tourService.isTourActive()) {
-      this.refreshSpotlight();
+      this.refreshSpotlight(false);
     }
   }
 
   @HostListener('window:scroll')
   onScroll(): void {
     if (this.tourService.isTourActive()) {
-      this.refreshSpotlight();
+      this.refreshSpotlight(false);
     }
   }
 
@@ -546,7 +565,7 @@ export class TourOverlayComponent implements OnDestroy {
     }
   }
 
-  refreshSpotlight(): void {
+  refreshSpotlight(scrollIntoView = false): void {
     if (typeof window === 'undefined') return;
     const step = this.tourService.currentStep();
     if (!step || !step.targetSelector) {
@@ -559,6 +578,14 @@ export class TourOverlayComponent implements OnDestroy {
     try {
       const el = document.querySelector(step.targetSelector) as HTMLElement | null;
       if (el) {
+        if (scrollIntoView) {
+          try {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          } catch {
+            // Ignora se não suportado no ambiente de teste
+          }
+        }
+
         const r = el.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) {
           this.detachTargetClickListener();
@@ -611,7 +638,7 @@ export class TourOverlayComponent implements OnDestroy {
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '460px',
+        width: '420px',
         maxWidth: '90vw',
         zIndex: '10002',
       });
@@ -620,38 +647,116 @@ export class TourOverlayComponent implements OnDestroy {
 
     const step = this.tourService.currentStep();
     const pref = step?.position || 'bottom';
-    const cardWidth = 440;
-    const cardHeight = 260;
+    const cardWidth = 420;
+    const cardHeight = 240;
     const gap = 16;
 
+    // Detectar se o elemento focado está dentro de um modal aberto
+    const modalEl = document.querySelector(
+      '.modal-card-create, .modal-card-edit, .modal-card, [data-tour="solicitacao-modal"] .modal-card-create, [role="dialog"].modal-overlay .modal-card-create'
+    ) as HTMLElement | null;
+
+    if (modalEl) {
+      const modalRect = modalEl.getBoundingClientRect();
+      const isInsideModal =
+        box.top >= modalRect.top - 30 &&
+        box.left >= modalRect.left - 30 &&
+        box.left + box.width <= modalRect.right + 30;
+
+      if (isInsideModal) {
+        // Se a tela for estreita para duas colunas sem sobreposição, ancora na base da viewport
+        if (window.innerWidth < 960 || modalRect.width < 640) {
+          this.cardStyle.set({
+            position: 'fixed',
+            bottom: '16px',
+            left: '16px',
+            right: '16px',
+            maxWidth: 'calc(100vw - 32px)',
+            zIndex: '10002',
+          });
+          return;
+        }
+
+        let top = 0;
+        let left = 0;
+
+        // Se o elemento estiver no rodapé do modal (ex: botão de submeter)
+        if (box.top > modalRect.bottom - 90) {
+          top = Math.max(modalRect.top + 20, box.top - cardHeight - 16);
+          left = Math.min(
+            window.innerWidth - cardWidth - 20,
+            Math.max(modalRect.left + 24, box.left + box.width - cardWidth)
+          );
+        } else {
+          const targetCenterX = box.left + box.width / 2;
+          const modalCenterX = modalRect.left + modalRect.width / 2;
+
+          // Se estiver na coluna esquerda do formulário, projeta o card na coluna direita
+          if (targetCenterX < modalCenterX) {
+            left = Math.min(
+              window.innerWidth - cardWidth - 24,
+              modalRect.right - cardWidth - 24
+            );
+            top = Math.max(
+              modalRect.top + 20,
+              Math.min(modalRect.bottom - cardHeight - 20, box.top)
+            );
+          } else {
+            // Se estiver na coluna direita (preço, documentos), projeta o card na coluna esquerda
+            left = Math.max(24, modalRect.left + 24);
+            top = Math.max(
+              modalRect.top + 20,
+              Math.min(modalRect.bottom - cardHeight - 20, box.top)
+            );
+          }
+        }
+
+        this.cardStyle.set({
+          position: 'fixed',
+          top: `${Math.round(top)}px`,
+          left: `${Math.round(left)}px`,
+          width: `${cardWidth}px`,
+          maxWidth: 'calc(100vw - 32px)',
+          zIndex: '10002',
+        });
+        return;
+      }
+    }
+
+    // Posicionamento padrão fora de modais (Dashboard, Tabelas, Filtros, Menus)
     let top = 0;
     let left = 0;
 
-    if (pref === 'right' || (box.left < window.innerWidth / 3 && pref !== 'left')) {
+    if (pref === 'right') {
       left = box.left + box.width + gap;
       top = Math.max(16, Math.min(window.innerHeight - cardHeight - 16, box.top));
       if (left + cardWidth > window.innerWidth - 16) {
         left = Math.max(16, window.innerWidth - cardWidth - 16);
         top = Math.min(window.innerHeight - cardHeight - 16, box.top + box.height + gap);
       }
-    } else if (pref === 'left' || box.left > (window.innerWidth * 2) / 3) {
+    } else if (pref === 'left') {
       left = Math.max(16, box.left - cardWidth - gap);
       top = Math.max(16, Math.min(window.innerHeight - cardHeight - 16, box.top));
-    } else if (pref === 'bottom' || box.top < 220) {
+      if (left < 16) {
+        left = 16;
+        top = Math.min(window.innerHeight - cardHeight - 16, box.top + box.height + gap);
+      }
+    } else if (pref === 'top') {
+      top = Math.max(16, box.top - cardHeight - gap);
+      left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, box.left));
+    } else {
+      // pref === 'bottom'
       top = box.top + box.height + gap;
       left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, box.left));
       if (top + cardHeight > window.innerHeight - 16) {
         top = Math.max(16, box.top - cardHeight - gap);
       }
-    } else {
-      top = Math.max(16, box.top - cardHeight - gap);
-      left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, box.left));
     }
 
     this.cardStyle.set({
       position: 'fixed',
-      top: `${top}px`,
-      left: `${left}px`,
+      top: `${Math.round(top)}px`,
+      left: `${Math.round(left)}px`,
       width: `${cardWidth}px`,
       maxWidth: 'calc(100vw - 32px)',
       zIndex: '10002',

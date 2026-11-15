@@ -977,34 +977,6 @@
                 </div>
               }
             </div>
-
-            <!-- Esteira Calculada Dinamicamente -->
-            <div class="workflow-summary-card" data-tour="solicitacao-esteira">
-              <div class="workflow-header">
-                <span class="material-symbols-rounded icon-wf">account_tree</span>
-                <div>
-                  <strong class="wf-title">{{ suggestedWorkflow().nome }}</strong>
-                  <span class="wf-sub">{{ suggestedWorkflow().totalEtapas }} níveis de alçada</span>
-                </div>
-              </div>
-
-              <div class="workflow-stepper">
-                @for (step of suggestedWorkflow().etapas; track step.numero) {
-                  <div class="stepper-node" [class.active]="step.numero === 1">
-                    <span class="node-num">{{ step.numero }}</span>
-                    <div class="node-text">
-                      <strong class="node-role">{{ step.nome }}</strong>
-                      <span class="node-name">{{ step.responsavelNome }}</span>
-                    </div>
-                  </div>
-                }
-              </div>
-
-              <div class="sod-notice">
-                <span class="material-symbols-rounded">verified_user</span>
-                <span>Segregação de Funções (SoD) assegurada com hash SHA-256.</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
