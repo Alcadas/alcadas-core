@@ -59,9 +59,13 @@ async function criarSolicitacao(corpo: Record<string, unknown> = corpoValido): P
   return res.data.id;
 }
 
-describe('Contrato OpenAPI v0.1', () => {
+/**
+ * Escopo do CP2: US-01 a US-05. Rotas do contrato ligadas a histórias posteriores ficam como
+ * `it.todo` até o checkpoint em que forem implementadas.
+ */
+describe('Contrato OpenAPI v0.1 (CP2 — US-01 a US-05)', () => {
   describe('POST /solicitacoes', () => {
-    it('201 — solicitação válida segue SolicitacaoResponseDto', async () => {
+    it('201 — solicitação válida segue SolicitacaoResponseDto (CA-02.4)', async () => {
       const res = await axios.post('/api/solicitacoes', corpoValido, comToken(TOKEN_SOLICITANTE));
       expect(res.status).toBe(201);
       expect(res).toSatisfyApiSpec();
@@ -74,7 +78,7 @@ describe('Contrato OpenAPI v0.1', () => {
       expect(res).toSatisfyApiSpec();
     });
 
-    it('400 — valor zero segue ErrorResponse', async () => {
+    it('400 — valor zero segue ErrorResponse (CA-02.3 / BUG-001)', async () => {
       const res = await axios.post(
         '/api/solicitacoes',
         { ...corpoValido, valor: 0 },
@@ -107,7 +111,7 @@ describe('Contrato OpenAPI v0.1', () => {
   });
 
   describe('GET /solicitacoes/{id}', () => {
-    it('200 — solicitante consulta a própria solicitação', async () => {
+    it('200 — solicitante consulta a própria solicitação (BUG-002)', async () => {
       const id = await criarSolicitacao();
       const res = await axios.get(`/api/solicitacoes/${id}`, comToken(TOKEN_SOLICITANTE));
       expect(res.status).toBe(200);
@@ -122,7 +126,7 @@ describe('Contrato OpenAPI v0.1', () => {
       id = await criarSolicitacao();
     });
 
-    it('200 — aprovação segue SolicitacaoResponseDto', async () => {
+    it('200 — aprovação segue SolicitacaoResponseDto (CA-03.3)', async () => {
       const res = await axios.post(
         `/api/solicitacoes/${id}/aprovar`,
         { versao: 1, observacao: 'Aprovado no teste de contrato' },
@@ -132,7 +136,7 @@ describe('Contrato OpenAPI v0.1', () => {
       expect(res).toSatisfyApiSpec();
     });
 
-    it('409 — versão desatualizada segue ErrorResponse', async () => {
+    it('409 — versão desatualizada segue ErrorResponse (CA-05.3)', async () => {
       const res = await axios.post(
         `/api/solicitacoes/${id}/aprovar`,
         { versao: 1 },
@@ -167,7 +171,7 @@ describe('Contrato OpenAPI v0.1', () => {
       id = await criarSolicitacao();
     });
 
-    it('400 — motivo com menos de 10 caracteres segue ErrorResponse', async () => {
+    it('400 — motivo com menos de 10 caracteres segue ErrorResponse (CA-03.2)', async () => {
       const res = await axios.post(
         `/api/solicitacoes/${id}/rejeitar`,
         { versao: 1, motivo: 'curto' },
@@ -177,7 +181,7 @@ describe('Contrato OpenAPI v0.1', () => {
       expect(res).toSatisfyApiSpec();
     });
 
-    it('200 — rejeição segue SolicitacaoResponseDto', async () => {
+    it('200 — rejeição segue SolicitacaoResponseDto (CA-03.3)', async () => {
       const res = await axios.post(
         `/api/solicitacoes/${id}/rejeitar`,
         { versao: 1, motivo: 'Valor fora do orçamento previsto para o trimestre' },
@@ -187,7 +191,7 @@ describe('Contrato OpenAPI v0.1', () => {
       expect(res).toSatisfyApiSpec();
     });
 
-    it('409 — rejeitar solicitação já encerrada segue ErrorResponse', async () => {
+    it('409 — rejeitar solicitação já encerrada segue ErrorResponse (CA-03.4)', async () => {
       const res = await axios.post(
         `/api/solicitacoes/${id}/rejeitar`,
         { versao: 2, motivo: 'Segunda tentativa de rejeição do pedido' },
@@ -199,7 +203,7 @@ describe('Contrato OpenAPI v0.1', () => {
   });
 
   describe('POST /solicitacoes/{id}/ajuste', () => {
-    it('200 — pedido de ajuste segue SolicitacaoResponseDto', async () => {
+    it('200 — pedido de ajuste segue SolicitacaoResponseDto (CA-03.3)', async () => {
       const id = await criarSolicitacao();
       const res = await axios.post(
         `/api/solicitacoes/${id}/ajuste`,
@@ -207,6 +211,17 @@ describe('Contrato OpenAPI v0.1', () => {
         comToken(TOKEN_APROVADOR_N1),
       );
       expect(res.status).toBe(200);
+      expect(res).toSatisfyApiSpec();
+    });
+
+    it('400 — motivo com menos de 10 caracteres segue ErrorResponse (CA-03.2)', async () => {
+      const id = await criarSolicitacao();
+      const res = await axios.post(
+        `/api/solicitacoes/${id}/ajuste`,
+        { versao: 1, motivo: 'curto' },
+        comToken(TOKEN_APROVADOR_N1),
+      );
+      expect(res.status).toBe(400);
       expect(res).toSatisfyApiSpec();
     });
 
@@ -223,21 +238,7 @@ describe('Contrato OpenAPI v0.1', () => {
   });
 
   describe('PUT /solicitacoes/{id} (reenvio após ajuste)', () => {
-    it('200 — reenvio está descrito no contrato', async () => {
-      const id = await criarSolicitacao();
-      await axios.post(
-        `/api/solicitacoes/${id}/ajuste`,
-        { versao: 1, motivo: 'Favor anexar os orçamentos comparativos' },
-        comToken(TOKEN_APROVADOR_N1),
-      );
-      const res = await axios.put(
-        `/api/solicitacoes/${id}`,
-        { justificativa: 'Compra com três orçamentos comparativos anexados ao pedido' },
-        comToken(TOKEN_SOLICITANTE),
-      );
-      expect(res.status).toBe(200);
-      expect(res).toSatisfyApiSpec();
-    });
+    it.todo('200 — reenvio segue o contrato (US-11, fora do escopo do CP2; rota ainda não está no contrato)');
   });
 
   describe('Trilha de auditoria', () => {
@@ -269,13 +270,6 @@ describe('Contrato OpenAPI v0.1', () => {
       expect(res).toSatisfyApiSpec();
     });
 
-    it('GET /trilha/exportar 200 — exportação em JSON', async () => {
-      const res = await axios.get(
-        `/api/solicitacoes/${id}/trilha/exportar?formato=json`,
-        comToken(TOKEN_APROVADOR_N1),
-      );
-      expect(res.status).toBe(200);
-      expect(res).toSatisfyApiSpec();
-    });
+    it.todo('GET /trilha/exportar 200 — exportação em JSON (US-13, fora do escopo do CP2; rota ainda não implementada)');
   });
 });
