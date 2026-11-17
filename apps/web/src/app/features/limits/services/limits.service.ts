@@ -1,9 +1,44 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, throwError } from 'rxjs';
+import {
+  FaixaRegraAlcada,
+  MODELOS_REGRAS_ALCADA,
+  ModeloRegraAlcada,
+  QuorumRegra,
+} from '@alcadas-core/models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import { SettingsService } from '../../settings/services/settings.service';
-import { LimitRuleItem, RuleTemplateItem } from '../limits.models';
+import { LimitRuleItem, LimitRuleStatus, RuleTemplateItem, WorkflowNode } from '../limits.models';
+import {
+  calculateCeilingFromNodes,
+  extractStepsFromNodes,
+  mapModeloToLimitRule,
+} from './limits-workflow.utils';
+
+export const STORAGE_KEY_WORKFLOWS = 'alcadas.workflows.v1';
+
+export function lerWorkflowsDoStorage(): LimitRuleItem[] | null {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_WORKFLOWS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salvarWorkflowsNoStorage(workflows: LimitRuleItem[]): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_WORKFLOWS, JSON.stringify(workflows));
+  } catch {
+    // ignora se localStorage estiver inacessível
+  }
+}
 
 @Injectable({
   providedIn: 'root',
@@ -13,6 +48,9 @@ export class LimitsService {
   private readonly authService = inject(AuthService, { optional: true });
   private readonly settingsService = inject(SettingsService, { optional: true });
   private readonly apiBaseUrl = inject(APP_CONFIG, { optional: true })?.apiBaseUrl ?? '/api';
+  // Modelos de mercado pré-definidos (#69 / CP2)
+  readonly marketModels = MODELOS_REGRAS_ALCADA;
+
   // Catálogo Central de Modelos de Regras (Padrões + Customizadas)
   readonly ruleTemplatesState = signal<RuleTemplateItem[]>([
     {
@@ -187,8 +225,10 @@ export class LimitsService {
     this.ruleTemplatesState.update((list) => list.filter((t) => t.title !== title));
   }
 
-  // Lista central de regras de alçada (inicia vazia e carrega do Firestore via API)
-  private readonly rulesState = signal<LimitRuleItem[]>([]);
+  // Lista central de regras de alçada (inicia com fluxos salvos em storage ou padrão e sincroniza do Firestore via API)
+  private readonly rulesState = signal<LimitRuleItem[]>(
+    lerWorkflowsDoStorage() ?? this.getInitialSeedRules(),
+  );
 
   readonly allRules = this.rulesState.asReadonly();
 
@@ -200,7 +240,74 @@ export class LimitsService {
     () => this.settingsService?.organization().departments ?? [],
   );
 
+  private getInitialSeedRules(): LimitRuleItem[] {
+    const tiModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'aquisicao-equipamentos-ti');
+    const opsModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'reembolso-despesas-operacionais');
+    const finModel = MODELOS_REGRAS_ALCADA.find((m) => m.id === 'fornecedores-servicos-recorrentes');
+
+    const seeds: LimitRuleItem[] = [];
+
+    if (tiModel) {
+      seeds.push(
+        mapModeloToLimitRule(tiModel, {
+          id: 'ALC-104',
+          nome: 'Aquisição de Equipamentos de TI & Hardware',
+          centroCusto: 'CC-TI-01 · Tecnologia & Infraestrutura',
+          department: 'TI & Engenharia',
+          status: 'ACTIVE',
+          category: 'EQUIPAMENTOS',
+          faixas: [
+            { id: 'f1', valorMinimo: 0, valorMaximo: 15000, papelAprovador: 'GERENTE', aprovacaoTecnica: true },
+            { id: 'f2', valorMinimo: 15000.01, valorMaximo: null, papelAprovador: 'DIRETOR', aprovacaoTecnica: true },
+          ],
+        }),
+      );
+    }
+
+    if (opsModel) {
+      seeds.push(
+        mapModeloToLimitRule(opsModel, {
+          id: 'ALC-102',
+          nome: 'Despesas e Insumos Operacionais',
+          centroCusto: 'CC-CENTRO · Clínica Centro',
+          department: 'Operações',
+          status: 'ACTIVE',
+          category: 'SERVICOS_TERCEIROS',
+        }),
+      );
+    }
+
+    if (finModel) {
+      seeds.push(
+        mapModeloToLimitRule(finModel, {
+          id: 'ALC-103',
+          nome: 'Suprimentos e Material Administrativo',
+          centroCusto: 'CC-FIN-02 · Controladoria & Finanças',
+          department: 'Financeiro',
+          status: 'ACTIVE',
+          category: 'MATERIAL_ESCRITORIO',
+        }),
+      );
+    }
+
+    return seeds;
+  }
+
   constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === STORAGE_KEY_WORKFLOWS && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (Array.isArray(parsed)) {
+              this.rulesState.set(parsed);
+            }
+          } catch {
+            // ignora erro de parse
+          }
+        }
+      });
+    }
     this.loadFromBackend();
   }
 
@@ -215,8 +322,15 @@ export class LimitsService {
       )
       .subscribe({
         next: (res) => {
-          const remotos = Array.isArray(res?.workflows) ? res.workflows : [];
-          this.rulesState.set(remotos);
+          if (Array.isArray(res?.workflows)) {
+            const stored = lerWorkflowsDoStorage();
+            if (res.workflows.length > 0) {
+              this.rulesState.set(res.workflows);
+              salvarWorkflowsNoStorage(res.workflows);
+            } else if (stored && stored.length === 0) {
+              this.rulesState.set([]);
+            }
+          }
           if (onRulesCatalogLoaded && Array.isArray(res?.rulesCatalog)) {
             onRulesCatalogLoaded(res.rulesCatalog);
           }
@@ -226,6 +340,7 @@ export class LimitsService {
   }
 
   persistWorkflowsToBackend(rulesCatalog?: unknown[]): void {
+    salvarWorkflowsNoStorage(this.rulesState());
     if (!this.http || !this.authService?.isAuthenticated?.()) return;
     this.http
       .put(`${this.apiBaseUrl}/organizacao/fluxos`, {
@@ -233,6 +348,20 @@ export class LimitsService {
         ...(rulesCatalog ? { rulesCatalog } : {}),
       })
       .subscribe({ error: () => undefined });
+  }
+
+  /**
+   * Persiste uma única regra do catálogo (coleção rules_catalog no Firestore) e
+   * devolve o Observable para a tela dar feedback de sucesso/erro (#69).
+   */
+  saveRuleCatalogEntry(rule: unknown): Observable<{ savedWorkflows: number; savedRules: number }> {
+    if (!this.http) {
+      return throwError(() => new Error('HttpClient indisponível.'));
+    }
+    return this.http.put<{ savedWorkflows: number; savedRules: number }>(
+      `${this.apiBaseUrl}/organizacao/fluxos`,
+      { rulesCatalog: [rule] },
+    );
   }
 
   // Lista filtrada e reativa
@@ -267,7 +396,13 @@ export class LimitsService {
 
   deleteRule(id: string): void {
     this.rulesState.update((list) => list.filter((r) => r.id !== id));
+    salvarWorkflowsNoStorage(this.rulesState());
     this.persistWorkflowsToBackend();
+    if (this.http && this.authService?.isAuthenticated?.()) {
+      this.http
+        .delete(`${this.apiBaseUrl}/organizacao/fluxos/${encodeURIComponent(id)}`)
+        .subscribe({ error: () => undefined });
+    }
   }
 
   duplicateRule(id: string): LimitRuleItem | undefined {
@@ -291,8 +426,122 @@ export class LimitsService {
     return copy;
   }
 
+  updateRule(id: string, partial: Partial<LimitRuleItem>): LimitRuleItem | undefined {
+    let updated: LimitRuleItem | undefined;
+    this.rulesState.update((list) =>
+      list.map((r) => {
+        if (r.id === id) {
+          updated = { ...r, ...partial };
+          return updated;
+        }
+        return r;
+      }),
+    );
+    if (updated) {
+      this.persistWorkflowsToBackend();
+    }
+    return updated;
+  }
+
+  createRuleFromModelo(
+    modelo: ModeloRegraAlcada,
+    overrides?: {
+      id?: string;
+      nome?: string;
+      centroCusto?: string;
+      quorum?: QuorumRegra;
+      slaHoras?: number;
+      faixas?: FaixaRegraAlcada[];
+      department?: string;
+      company?: string;
+      category?: string;
+      status?: LimitRuleStatus;
+    },
+  ): LimitRuleItem {
+    const newRule = mapModeloToLimitRule(modelo, overrides);
+    this.rulesState.update((list) => [newRule, ...list]);
+    this.persistWorkflowsToBackend();
+    return newRule;
+  }
+
+  saveWorkflow(
+    ruleId: string,
+    workflowData: {
+      title: string;
+      department: string;
+      company?: string;
+      category?: string;
+      status: LimitRuleStatus;
+      ceilingAmount?: number;
+      nodes: WorkflowNode[];
+      faixas?: FaixaRegraAlcada[];
+    },
+  ): LimitRuleItem {
+    const existing = this.getRuleById(ruleId);
+    const steps = extractStepsFromNodes(workflowData.nodes);
+    const ceiling =
+      typeof workflowData.ceilingAmount === 'number' && workflowData.ceilingAmount > 0
+        ? workflowData.ceilingAmount
+        : calculateCeilingFromNodes(workflowData.nodes);
+
+    if (existing) {
+      const updated = this.updateRule(ruleId, {
+        title: workflowData.title,
+        department: workflowData.department,
+        company: workflowData.company,
+        category: workflowData.category,
+        status: workflowData.status,
+        statusLabel:
+          workflowData.status === 'ACTIVE'
+            ? 'Ativo'
+            : workflowData.status === 'COMPLETED'
+              ? 'Homologado'
+              : 'Rascunho',
+        ceilingAmount: ceiling,
+        nodes: workflowData.nodes,
+        steps,
+        ...(workflowData.faixas ? { faixas: workflowData.faixas } : {}),
+      });
+      return updated || existing;
+    }
+
+    const newRule: LimitRuleItem = {
+      id: ruleId,
+      title: workflowData.title,
+      department: workflowData.department,
+      assignedTo: `Gestores de ${workflowData.department}`,
+      employmentType: 'Despesas Corporativas',
+      locationOrCenter: workflowData.company || `${workflowData.department} · Matriz`,
+      channelOrOrigin: 'Portal Web',
+      status: workflowData.status,
+      statusLabel:
+        workflowData.status === 'ACTIVE'
+          ? 'Ativo'
+          : workflowData.status === 'COMPLETED'
+            ? 'Homologado'
+            : 'Rascunho',
+      ceilingAmount: ceiling,
+      quorumLabel: '1 Aprovador',
+      slaHours: 24,
+      sodEnforced: true,
+      createdAt: 'Hoje',
+      accentColor: '#644EF3',
+      steps,
+      currentStepLabel: 'Esteira Configurada',
+      nodes: workflowData.nodes,
+      company: workflowData.company,
+      category: workflowData.category,
+      ...(workflowData.faixas ? { faixas: workflowData.faixas } : {}),
+    };
+
+    this.rulesState.update((list) => [newRule, ...list]);
+    this.persistWorkflowsToBackend();
+    return newRule;
+  }
+
   createRule(partial: Partial<LimitRuleItem>): LimitRuleItem {
-    const newId = `ALC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newId = partial.id || `ALC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const statusVal = partial.status || 'DRAFT';
     const newRule: LimitRuleItem = {
       id: newId,
       title: partial.title || 'Nova Regra de Alçada',
@@ -300,22 +549,27 @@ export class LimitsService {
       assignedTo: partial.assignedTo || 'Atribuído a Gestor',
       employmentType: partial.employmentType || 'Despesas Corporativas',
       locationOrCenter: partial.locationOrCenter || 'CC-Geral · Matriz',
-      channelOrOrigin: 'Portal Web',
-      status: 'DRAFT',
-      statusLabel: 'Rascunho',
+      channelOrOrigin: partial.channelOrOrigin || 'Portal Web',
+      status: statusVal,
+      statusLabel: partial.statusLabel || (statusVal === 'ACTIVE' ? 'Ativo' : 'Rascunho'),
       ceilingAmount: partial.ceilingAmount || 20000,
       quorumLabel: partial.quorumLabel || '1 Aprovador',
       slaHours: partial.slaHours || 48,
-      sodEnforced: true,
-      createdAt: 'Hoje',
-      accentColor: '#644EF3',
-      currentStepLabel: 'Rascunho Inicial',
-      steps: [
+      sodEnforced: partial.sodEnforced ?? true,
+      createdAt: partial.createdAt || 'Hoje',
+      accentColor: partial.accentColor || '#644EF3',
+      currentStepLabel: partial.currentStepLabel || 'Rascunho Inicial',
+      steps: partial.steps || [
         { name: 'Solicitação', status: 'completed', icon: 'description' },
         { name: 'Triagem SoD', status: 'pending', icon: 'security' },
         { name: 'Alçada Gerencial', status: 'pending', icon: 'person_check' },
         { name: 'Homologação SHA-256', status: 'pending', icon: 'verified' },
       ],
+      modeloId: partial.modeloId,
+      faixas: partial.faixas,
+      nodes: partial.nodes,
+      company: partial.company,
+      category: partial.category,
     };
 
     this.rulesState.update((list) => [newRule, ...list]);

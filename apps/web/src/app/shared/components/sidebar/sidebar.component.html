@@ -4,6 +4,7 @@
     <button
       type="button"
       class="workspace-info"
+      data-tour="sidebar-workspace"
       [class.cursor-pointer]="isDev() || isCollapsed()"
       (click)="toggleTenantDropdown($event)"
       [title]="isCollapsed() ? 'Clique para expandir menu' : (isDev() ? 'Trocar empresa gerenciada' : settingsService.organization().tradeName)"
@@ -118,6 +119,7 @@
             <button
               type="button"
               class="nav-item"
+              [attr.data-tour]="'sidebar-' + item.id"
               [class.active]="activeItem() === item.id"
               (click)="selectItem(item)"
               [title]="isCollapsed() ? item.label : ''"
@@ -174,7 +176,7 @@
     </div>
 
     <!-- 4. Departamentos & Centros de Custo -->
-    <div class="menu-group">
+    <div class="menu-group" data-tour="sidebar-departments">
       @if (!isCollapsed()) {
         <div class="group-title group-title-action">
           <span>Departamentos</span>
@@ -217,8 +219,8 @@
     </div>
   </div>
 
- <!-- 5. User & System Footer -->
-<div class="sidebar-footer">
+  <!-- 5. User & System Footer -->
+  <div class="sidebar-footer" data-tour="sidebar-user">
   <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
 
     <a

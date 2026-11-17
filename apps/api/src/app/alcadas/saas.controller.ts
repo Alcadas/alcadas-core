@@ -1,26 +1,43 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { getAuth } from 'firebase-admin/auth';
-import { AuthenticatedUser } from '@alcadas-core/models';
-import { CurrentUser } from '../auth/auth.decorators';
+import {
+  AuthenticatedUser,
+  FaixaRegraAlcada,
+  validarFaixasRegra,
+} from '@alcadas-core/models';
+import { CurrentUser, Roles } from '../auth/auth.decorators';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { FirestoreService } from '../database/firestore.service';
-import { getFirebaseApp } from '../firebase/firebase-app';
 import { AlcadasService } from './alcadas.service';
+import { ProvisionamentoColaboradoresService } from './provisionamento-colaboradores.service';
 
 const PLATFORM_TENANT_ID = 'platform-saas';
 const SAAS_TENANTS_COLLECTION = 'saas_tenants';
 const WORKFLOWS_COLLECTION = 'workflows';
 const RULES_CATALOG_COLLECTION = 'rules_catalog';
+
+/** Mesmo formato de tenantId aceito pelos guards de autenticação. */
+const TENANT_ID_VALIDO = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Campos do cadastro da empresa que pertencem à plataforma (plano contratado, situação e limites).
+ * O administrador da empresa não pode alterá-los; só o `SUPER_USER`.
+ */
+const CAMPOS_DA_PLATAFORMA = ['plan', 'status', 'maxUsers', 'createdAt'] as const;
 
 interface DepartmentPayload {
   id: string;
@@ -81,36 +98,38 @@ interface SaasTenantPayload {
   }>;
 }
 
-function mapRoleToClaim(role: string): string {
-  switch (role) {
-    case 'DIRETOR':
-    case 'CFO':
-      return 'DIRETOR_CFO';
-    case 'ADMINISTRADOR':
-      return 'ADMIN';
-    case 'GERENTE':
-      return 'APROVADOR_N2';
-    case 'ANALISTA':
-      return 'APROVADOR_N1';
-    case 'AUDITOR':
-      return 'AUDITOR';
-    default:
-      return 'SOLICITANTE';
-  }
-}
-
+/**
+ * Governança multi-tenant (SaaS) e fluxos/regras de alçada da organização.
+ *
+ * Controle de acesso (Issue #28 / RF01, RF03, RN01, RN02):
+ * - todas as rotas exigem token válido (`JwtAuthGuard`) → sem token ou token inválido: 401;
+ * - `GET saas/tenants` e `POST saas/tenants/sync` enxergam TODAS as empresas e por isso são
+ *   exclusivas do `SUPER_USER` da plataforma → qualquer outro papel: 403;
+ * - `PUT saas/tenants/:tenantId` aceita o `SUPER_USER` (qualquer empresa) e o `ADMIN` da própria
+ *   empresa, que mantém departamentos e colaboradores na tela de Organização. `ADMIN` apontando
+ *   para outra empresa recebe 403 e nunca altera plano, situação ou limites da própria;
+ * - `organizacao/fluxos` usa sempre o tenant do token: não há parâmetro que permita ler outra empresa.
+ */
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class SaasController {
   constructor(
     private readonly firestore: FirestoreService,
     private readonly alcadasService: AlcadasService,
+    private readonly provisionamento: ProvisionamentoColaboradoresService,
   ) {}
 
   /**
    * Lista todas as empresas clientes (tenants) persistidas no Firestore.
+   * Exclusivo do Super Admin da plataforma: a resposta contém dados de todas as empresas.
+   *
+   * @example
+   * GET /api/saas/tenants   (Authorization: Bearer <token SUPER_USER>) → 200 { items: [...] }
+   * GET /api/saas/tenants   (sem token)                                → 401
+   * GET /api/saas/tenants   (token de ADMIN/colaborador de empresa)    → 403
    */
   @Get('saas/tenants')
+  @Roles('SUPER_USER')
   async listSaasTenants(): Promise<{ items: SaasTenantPayload[] }> {
     const docs = await this.firestore.listTenantCollection<SaasTenantPayload>(
       PLATFORM_TENANT_ID,
@@ -120,20 +139,36 @@ export class SaasController {
   }
 
   /**
-   * Sincroniza uma empresa cliente (dados fiscais, departamentos/centros de custo, funcionários e delegações)
-   * diretamente no Firestore Emulator e no Firebase Auth Emulator.
+   * Cria ou atualiza uma empresa cliente (dados fiscais, departamentos/centros de custo e
+   * colaboradores) no Firestore e provisiona os colaboradores no Firebase Auth (#32).
+   *
+   * @example
+   * PUT /api/saas/tenants/startop    (SUPER_USER)                 → 200
+   * PUT /api/saas/tenants/startop    (ADMIN da startop)           → 200 (plano/situação preservados)
+   * PUT /api/saas/tenants/empresa-b  (ADMIN da startop)           → 403
+   * PUT /api/saas/tenants/startop    (SOLICITANTE, APROVADOR...)  → 403
    */
   @Put('saas/tenants/:tenantId')
+  @Roles('SUPER_USER', 'ADMIN')
   @HttpCode(HttpStatus.OK)
   async upsertSaasTenant(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('tenantId') paramTenantId: string,
     @Body() payload: SaasTenantPayload,
   ): Promise<SaasTenantPayload> {
-    const tenantId = paramTenantId || payload.tenantId;
-    const normalized: SaasTenantPayload = {
-      ...payload,
-      tenantId,
-    };
+    const tenantId = paramTenantId || payload?.tenantId;
+    if (!tenantId || !TENANT_ID_VALIDO.test(tenantId) || tenantId === PLATFORM_TENANT_ID) {
+      throw new BadRequestException('Identificador de empresa (tenantId) inválido.');
+    }
+
+    let normalized: SaasTenantPayload = { ...payload, tenantId };
+
+    if (user.role !== 'SUPER_USER') {
+      normalized = await this.restringirAoProprioTenant(user, normalized);
+    }
+    if (process.env['NODE_ENV'] === 'production') {
+      normalized = this.removerSenhas(normalized);
+    }
 
     // 1. Grava no registro global SaaS e no escopo isolado do próprio tenant no Firestore
     await this.firestore.setTenantDocument(
@@ -185,10 +220,12 @@ export class SaasController {
       });
     }
 
-    // 4. Sincroniza contas dos colaboradores/clientes no Firebase Auth Emulator (quando disponível)
-    void this.syncEmployeesWithFirebaseAuth(
+    // 4. Provisiona os colaboradores no Firebase Auth com as claims de empresa e papel (#32).
+    //    Roda em segundo plano: o serviço nunca lança e não atrasa a resposta do cadastro.
+    //    As senhas (só usadas no emulador) vêm do payload original, não do documento persistido.
+    void this.provisionamento.sincronizar(
       tenantId,
-      normalized.organization?.employees ?? [],
+      payload?.organization?.employees ?? [],
       departments,
     );
 
@@ -197,19 +234,72 @@ export class SaasController {
 
   /**
    * Sincroniza um lote de tenants de uma vez (seed inicial ou sincronização completa).
+   * Exclusivo do Super Admin da plataforma.
    */
   @Post('saas/tenants/sync')
+  @Roles('SUPER_USER')
   @HttpCode(HttpStatus.OK)
   async syncAllTenants(
+    @CurrentUser() user: AuthenticatedUser,
     @Body() body: { tenants: SaasTenantPayload[] },
   ): Promise<{ synced: number }> {
     const list = Array.isArray(body?.tenants) ? body.tenants : [];
+    let synced = 0;
     for (const t of list) {
       if (t?.tenantId) {
-        await this.upsertSaasTenant(t.tenantId, t);
+        await this.upsertSaasTenant(user, t.tenantId, t);
+        synced++;
       }
     }
-    return { synced: list.length };
+    return { synced };
+  }
+
+  /**
+   * Isolamento multi-tenant para quem não é `SUPER_USER`: o administrador só altera a PRÓPRIA
+   * empresa, ela precisa já existir (quem cria empresas é a plataforma) e os campos comerciais
+   * (`plan`, `status`, `maxUsers`, `createdAt`) são sempre os já gravados, não os do payload.
+   */
+  private async restringirAoProprioTenant(
+    user: AuthenticatedUser,
+    payload: SaasTenantPayload,
+  ): Promise<SaasTenantPayload> {
+    if (user.tenantId !== payload.tenantId) {
+      throw new ForbiddenException(
+        'RBAC: Acesso negado. Não é permitido alterar os dados de outra empresa.',
+      );
+    }
+    const atual = await this.firestore.getTenantDocument<SaasTenantPayload>(
+      PLATFORM_TENANT_ID,
+      SAAS_TENANTS_COLLECTION,
+      payload.tenantId,
+    );
+    if (!atual) {
+      throw new NotFoundException('Empresa não cadastrada na plataforma.');
+    }
+    const protegido: SaasTenantPayload = { ...payload };
+    for (const campo of CAMPOS_DA_PLATAFORMA) {
+      (protegido as unknown as Record<string, unknown>)[campo] = atual[campo];
+    }
+    return protegido;
+  }
+
+  /** Em produção nenhuma senha de colaborador é persistida no Firestore nem devolvida (RNF09). */
+  private removerSenhas(payload: SaasTenantPayload): SaasTenantPayload {
+    const employees = payload.organization?.employees;
+    if (!Array.isArray(employees)) {
+      return payload;
+    }
+    return {
+      ...payload,
+      organization: {
+        ...payload.organization,
+        employees: employees.map((colaborador) => {
+          const semSenha = { ...colaborador };
+          delete semSenha.password;
+          return semSenha;
+        }),
+      },
+    };
   }
 
   // ===========================================================================
@@ -217,7 +307,6 @@ export class SaasController {
   // ===========================================================================
 
   @Get('organizacao/fluxos')
-  @UseGuards(JwtAuthGuard)
   async getTenantWorkflowsAndRules(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{
@@ -237,7 +326,6 @@ export class SaasController {
   }
 
   @Put('organizacao/fluxos')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async saveTenantWorkflowsAndRules(
     @CurrentUser() user: AuthenticatedUser,
@@ -251,7 +339,27 @@ export class SaasController {
     let savedWorkflows = 0;
     let savedRules = 0;
 
+    // Valida todas as regras com faixas de valor antes de persistir qualquer documento (#69)
+    if (Array.isArray(body.rulesCatalog)) {
+      this.assertRulesCatalogValid(body.rulesCatalog);
+    }
+
     if (Array.isArray(body.workflows)) {
+      // Reconciliação atômica de deleção: remove fluxos excluídos da coleção do tenant
+      const existingWorkflows = await this.firestore.listTenantCollection<Record<string, unknown>>(
+        tenantId,
+        WORKFLOWS_COLLECTION,
+      );
+      const newWorkflowIds = new Set(
+        body.workflows.map((wf) => String(wf['id'] || '')).filter(Boolean),
+      );
+      for (const existing of existingWorkflows) {
+        const existingId = String(existing['id'] || '');
+        if (existingId && !newWorkflowIds.has(existingId)) {
+          await this.firestore.deleteTenantDocument(tenantId, WORKFLOWS_COLLECTION, existingId);
+        }
+      }
+
       for (const wf of body.workflows) {
         const id = String(wf.id || `wf-${Date.now()}`);
         await this.firestore.setTenantDocument(tenantId, WORKFLOWS_COLLECTION, id, wf);
@@ -270,57 +378,38 @@ export class SaasController {
     return { savedWorkflows, savedRules };
   }
 
-  private async syncEmployeesWithFirebaseAuth(
-    tenantId: string,
-    employees: EmployeePayload[],
-    departments: DepartmentPayload[] = [],
-  ): Promise<void> {
-    if (process.env['NODE_ENV'] === 'production') return;
-    try {
-      const auth = getAuth(getFirebaseApp());
-      for (const emp of employees) {
-        if (!emp.email) continue;
-        const email = emp.email.trim().toLowerCase();
-        const password = emp.password && emp.password.length >= 6 ? emp.password : '123456';
-        const roleClaim = mapRoleToClaim(emp.role);
-        const dept = departments.find(
-          (d) => d.id === emp.departmentId || d.name === emp.departmentName,
-        );
-        const costCenterId = dept?.costCenter || dept?.id;
+  @Delete('organizacao/fluxos/:id')
+  @HttpCode(HttpStatus.OK)
+  async deleteTenantWorkflow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<{ success: boolean; deletedId: string }> {
+    const tenantId = user.tenantId || 'startop';
+    await this.firestore.deleteTenantDocument(tenantId, WORKFLOWS_COLLECTION, id);
+    return { success: true, deletedId: id };
+  }
 
-        const claims: Record<string, unknown> = {
-          tenantId,
-          role: roleClaim,
-          roles: [roleClaim],
-          name: emp.fullName,
-          departmentId: emp.departmentId || null,
-          departmentName: emp.departmentName || null,
-          costCenterId: costCenterId || null,
-          limiteAlcada: emp.approvalLimit ?? null,
-        };
+  /**
+   * Regras criadas pelo construtor (com `faixas`) precisam ter nome e faixas de valor
+   * coerentes (mínimo < máximo, sem sobreposição, aprovador definido). Regras legadas
+   * sem `faixas` continuam aceitas como antes.
+   */
+  private assertRulesCatalogValid(rules: Array<Record<string, unknown>>): void {
+    rules.forEach((rule, posicao) => {
+      if (!('faixas' in rule)) return;
 
-        try {
-          const existing = await auth.getUserByEmail(email);
-          await auth.updateUser(existing.uid, {
-            displayName: emp.fullName,
-            password,
-            disabled: emp.status === 'INATIVO',
-          });
-          await auth.setCustomUserClaims(existing.uid, claims);
-        } catch {
-          const created = await auth.createUser({
-            uid: `${tenantId}-${emp.id}`,
-            email,
-            password,
-            displayName: emp.fullName,
-            emailVerified: true,
-            disabled: emp.status === 'INATIVO',
-          });
-          await auth.setCustomUserClaims(created.uid, claims);
-        }
+      const nome = typeof rule['name'] === 'string' ? rule['name'].trim() : '';
+      if (!nome) {
+        throw new BadRequestException(`Regra #${posicao + 1}: o nome da regra é obrigatório.`);
       }
-    } catch {
-      // Ignora silenciosamente se o Auth Emulator estiver indisponível
-    }
+
+      const erros = validarFaixasRegra(rule['faixas'] as FaixaRegraAlcada[]);
+      if (erros.length > 0) {
+        const detalhes = erros
+          .map((e) => (e.indice === null ? e.mensagem : `Faixa ${e.indice + 1}: ${e.mensagem}`))
+          .join(' ');
+        throw new BadRequestException(`Regra "${nome}": ${detalhes}`);
+      }
+    });
   }
 }

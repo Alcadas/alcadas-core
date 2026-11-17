@@ -5,6 +5,11 @@ import { FirestoreService } from '../database/firestore.service';
  * Rotas públicas de saúde (sem guard de autenticação).
  * - `/api/healthz`: o processo está de pé (liveness).
  * - `/api/readyz`: a API consegue falar com o Firestore (readiness) — 503 quando não consegue.
+ *   Em produção consulta o Firestore real, com o resultado saudável reaproveitado por 60 s para não
+ *   gastar a cota de leituras do plano Spark (ver `FirestoreService.ping` — #29).
+ *
+ * @example
+ * curl -i https://<api>/api/readyz   # 200 {"status":"ok","firestore":"ok"} | 503 {"error":"NAO_PRONTO",...}
  */
 @Controller()
 export class HealthController {

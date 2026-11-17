@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -7,6 +7,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { SettingsService } from '../../../features/settings/services/settings.service';
 import { RequestsService } from '../../../features/requests/services/requests.service';
 import { LimitsService } from '../../../features/limits/services/limits.service';
+import { SidebarService } from '../../../core/services/sidebar.service';
 
 export interface SubMenuItem {
   id: string;
@@ -50,8 +51,9 @@ export class SidebarComponent {
   protected readonly requestsService = inject(RequestsService);
   private readonly limitsService = inject(LimitsService);
   private readonly router = inject(Router);
+  protected readonly sidebarService = inject(SidebarService);
 
-  readonly isCollapsed = signal(false);
+  readonly isCollapsed = this.sidebarService.isCollapsed;
   readonly searchQuery = signal('');
   readonly isTenantDropdownOpen = signal(false);
   private readonly pinnedIds = signal<Record<string, boolean>>({});
@@ -164,8 +166,17 @@ export class SidebarComponent {
     return email === 'dev@alcadas.com' || id === 'dev-master';
   });
 
+  constructor() {
+    effect(() => {
+      const url = this.currentUrl();
+      if (url.includes('/alcadas/editor') || url.includes('/alcadas/novo')) {
+        this.sidebarService.collapse();
+      }
+    });
+  }
+
   toggleCollapse(): void {
-    this.isCollapsed.update((v) => !v);
+    this.sidebarService.toggle();
     if (this.isCollapsed()) {
       this.isTenantDropdownOpen.set(false);
     }
@@ -174,7 +185,7 @@ export class SidebarComponent {
   toggleTenantDropdown(event: Event): void {
     event.stopPropagation();
     if (this.isCollapsed()) {
-      this.isCollapsed.set(false);
+      this.sidebarService.expand();
       return;
     }
     if (!this.isDev()) {
@@ -209,7 +220,7 @@ export class SidebarComponent {
     if (!item) return;
     if (item.hasSubmenu && item.subItems && item.subItems.length > 0) {
       if (this.isCollapsed()) {
-        this.isCollapsed.set(false);
+        this.sidebarService.expand();
       }
       this.openSubmenus.update((state) => ({
         ...state,

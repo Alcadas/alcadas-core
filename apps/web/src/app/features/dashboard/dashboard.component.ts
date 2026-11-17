@@ -60,7 +60,7 @@ export class DashboardComponent {
   private readonly router = inject(Router);
 
   goToNewRequest(): void {
-    this.router.navigate(['/solicitacoes/nova']);
+    void this.router.navigate(['/solicitacoes'], { queryParams: { nova: 'true' } });
   }
 
   // Dados para o Gráfico Shadcn de Valores por Solicitação sincronizado com o Backend/Firestore
