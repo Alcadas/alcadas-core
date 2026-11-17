@@ -7,9 +7,10 @@
   searchPlaceholder="Buscar regra..."
   [searchQuery]="searchQuery()"
   (searchQueryChange)="searchQuery.set($event)"
-  contextIcon="rule"
-  contextTitle="Catálogo & Gestão de Regras de Governança"
   [contextSubtitle]="totalRulesCount() + ' regras corporativas cadastradas · ' + activeRulesCount() + ' em produção'"
+  [tabs]="headerTabs()"
+  [activeTab]="activeCatalogTab()"
+  (tabChange)="activeCatalogTab.set($any($event))"
   [showTier2]="true"
 >
   <div header-actions class="header-actions-group">
@@ -18,43 +19,18 @@
       <span>Meus Fluxos</span>
     </button>
   </div>
+  <div tier2-actions class="tier2-actions-group">
+    <div class="table-records-counter">
+      <span class="material-symbols-rounded count-icon">rule</span>
+      <span><strong>{{ filteredRulesList().length }}</strong> regras</span>
+    </div>
+  </div>
 </app-page-header>
 
 <!-- ========================================================================= -->
 <!-- 2. CONTAINER PRINCIPAL COM SCROLL                                         -->
 <!-- ========================================================================= -->
 <div class="rules-page-container">
-  <!-- BANNER SUPERIOR DE RESUMO DA GOVERNANÇA (DESIGN DA IMAGEM 2) -->
-  <section class="governance-overview-banner">
-    <div class="overview-header-row">
-      <h2 class="overview-title">Gestão de Regras de Alçadas & Tetos</h2>
-    </div>
-
-    <!-- Sub-Abas de Navegação (Idêntico a "Featured Tabs / Featured Pages" da Imagem 2) -->
-    <nav class="catalog-subtabs-nav" aria-label="Navegação secundária do catálogo">
-      <button
-        type="button"
-        class="subtab-btn"
-        [class.is-active]="activeCatalogTab() === 'rules'"
-        (click)="activeCatalogTab.set('rules')"
-      >
-        <span>Regras Cadastradas</span>
-        <span class="subtab-counter">{{ filteredRulesList().length }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="subtab-btn"
-        [class.is-active]="activeCatalogTab() === 'templates'"
-        (click)="activeCatalogTab.set('templates')"
-      >
-        <span>Modelos Predefinidos</span>
-        <span class="subtab-counter">{{ limitsService.ruleTemplatesState().length }}</span>
-      </button>
-
-    </nav>
-  </section>
-
   <!-- ========================================================================= -->
   <!-- CONTEÚDO DA ABA 1: LISTA DE REGRAS (DESIGN IDÊNTICO À IMAGEM 2)            -->
   <!-- ========================================================================= -->
@@ -185,6 +161,16 @@
                       >
                         <span class="material-symbols-rounded">edit</span>
                       </button>
+
+                      <button
+                        type="button"
+                        class="btn-row-edit"
+                        (click)="openInFlowEditor(rule); $event.stopPropagation()"
+                        title="Abrir no Editor de Fluxo"
+                        aria-label="Abrir no Editor de Fluxo {{ rule.name }}"
+                      >
+                        <span class="material-symbols-rounded">account_tree</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -298,6 +284,10 @@
         </div>
 
         <div class="editor-header-right">
+          <button type="button" class="btn-bar-draft" (click)="openInFlowEditor(rule)" title="Abrir esta regra no editor visual de fluxo">
+            <span class="material-symbols-rounded">account_tree</span>
+            <span>Abrir no Editor de Fluxo</span>
+          </button>
           <button type="button" class="btn-save-rule" (click)="saveEditorChanges()">
             <span class="material-symbols-rounded">check</span>
             <span>Salvar Regra</span>

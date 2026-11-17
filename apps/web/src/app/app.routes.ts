@@ -65,10 +65,8 @@ export const appRoutes: Route[] = [
       },
       {
         path: 'solicitacoes/nova',
-        loadComponent: () =>
-          import(
-            './features/requests/pages/create-request/create-request.component'
-          ).then((m) => m.CreateRequestComponent),
+        redirectTo: 'solicitacoes',
+        pathMatch: 'full',
       },
       {
         path: 'alcadas',
@@ -126,6 +124,14 @@ export const appRoutes: Route[] = [
         path: 'delegacoes',
         pathMatch: 'full',
         redirectTo: 'configuracoes/delegacoes',
+      },
+      {
+        path: 'tutoriais',
+        title: 'Tutoriais & Guia de Uso · Alçadas',
+        loadComponent: () =>
+          import('./features/tutorials/tutorials.component').then(
+            (m) => m.TutorialsComponent,
+          ),
       },
       {
         path: 'configuracoes',

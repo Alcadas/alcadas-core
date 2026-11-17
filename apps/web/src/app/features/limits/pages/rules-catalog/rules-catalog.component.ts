@@ -17,7 +17,7 @@ import {
   validarFaixasRegra,
 } from '@alcadas-core/models';
 import { mensagemDeErroDaApi } from '../../../../core/http/api-error';
-import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { PageHeaderComponent, PageHeaderTab } from '../../../../shared/components/page-header/page-header.component';
 import { RuleTemplateItem } from '../../limits.models';
 import { LimitsService } from '../../services/limits.service';
 import { modeloExemploDaRegra } from './rule-template-examples';
@@ -73,6 +73,23 @@ export class RulesCatalogComponent {
 
   // Sub-abas principais: Lista de Regras (Imagem 2), Modelos Predefinidos, Editor da Regra Selecionada
   readonly activeCatalogTab = signal<CatalogSubTab>('rules');
+
+  readonly headerTabs = computed<PageHeaderTab[]>(() => [
+    {
+      id: 'rules',
+      label: 'Regras Cadastradas',
+      icon: 'rule',
+      badge: this.filteredRulesList().length,
+      badgeVariant: 'primary',
+    },
+    {
+      id: 'templates',
+      label: 'Modelos Predefinidos',
+      icon: 'auto_awesome',
+      badge: this.limitsService.ruleTemplatesState().length,
+      badgeVariant: 'neutral',
+    },
+  ]);
 
   // Filtros da barra de ferramentas (Imagem 2)
   readonly seeOnlyActive = signal<boolean>(false);
@@ -630,6 +647,26 @@ export class RulesCatalogComponent {
       `A regra "${name}" foi criada. Configure agora os parâmetros na aba de edição.`,
       'success'
     );
+  }
+
+  openInFlowEditor(rule: RuleListItem): void {
+    const existing = this.limitsService.getRuleById(rule.id);
+    if (!existing) {
+      this.limitsService.createRule({
+        id: rule.id,
+        title: rule.name,
+        department: rule.propertyScope,
+        locationOrCenter: rule.centroCusto || rule.propertyScope,
+        ceilingAmount: rule.ceilingAmount || 20000,
+        quorumLabel: rule.quorum || '1 Aprovador',
+        slaHours: rule.slaHours || 24,
+        status: rule.isActive ? 'ACTIVE' : 'DRAFT',
+        statusLabel: rule.isActive ? 'Ativo' : 'Rascunho',
+        modeloId: rule.modeloId,
+        faixas: rule.faixas,
+      });
+    }
+    this.router.navigate(['/alcadas/editor', rule.id]);
   }
 
   // =========================================================================

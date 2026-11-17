@@ -2,9 +2,21 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { RuleTemplateItem, WorkflowNode } from './limits.models';
+import {
+  MODELOS_REGRAS_ALCADA,
+  ModeloRegraAlcada,
+  buscarModeloRegra,
+} from '@alcadas-core/models';
+import { LimitRuleStatus, RuleTemplateItem, WorkflowNode } from './limits.models';
+import {
+  buildWorkflowNodesFromFaixas,
+  buildWorkflowNodesFromModelo,
+  calculateCeilingFromNodes,
+  formatCurrencyBRL,
+} from './services/limits-workflow.utils';
 import { LimitsService } from './services/limits.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
+import { SidebarService } from '../../core/services/sidebar.service';
 
 @Component({
   selector: 'app-limits',
@@ -17,6 +29,7 @@ export class LimitsComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly limitsService = inject(LimitsService);
+  private readonly sidebarService = inject(SidebarService);
 
   // Identificação e Metadados de Edição do Fluxo
   readonly currentRuleId = signal<string | null>(null);
@@ -80,6 +93,24 @@ export class LimitsComponent {
   // Busca na Biblioteca de Modelos
   readonly templateSearch = signal('');
 
+  // Alternância de abas na biblioteca lateral: 'market' (Modelos Pré-definidos) vs 'elements' (Componentes Unitários)
+  readonly libraryTab = signal<'market' | 'elements'>('market');
+
+  // Catálogo com os 4+ modelos pré-definidos de mercado (#69 / CP2)
+  readonly marketModels = MODELOS_REGRAS_ALCADA;
+
+  readonly filteredMarketModels = computed(() => {
+    const query = this.templateSearch().trim().toLowerCase();
+    if (!query) return this.marketModels;
+    return this.marketModels.filter(
+      (m) =>
+        m.nome.toLowerCase().includes(query) ||
+        m.descricao.toLowerCase().includes(query) ||
+        m.centroCustoSugerido.toLowerCase().includes(query) ||
+        m.categoria.toLowerCase().includes(query),
+    );
+  });
+
   // 1. Modelos Disponíveis na Biblioteca Lateral (Centralizado via LimitsService)
   readonly ruleTemplates = this.limitsService.ruleTemplatesState;
 
@@ -94,6 +125,8 @@ export class LimitsComponent {
         t.badge.toLowerCase().includes(query)
     );
   });
+
+  readonly formatCurrency = formatCurrencyBRL;
 
   // 2. Nós do Fluxo Sequencial Atual (Pipeline)
   readonly workflowNodes = signal<WorkflowNode[]>([
@@ -405,14 +438,51 @@ export class LimitsComponent {
   }
 
   constructor() {
+    this.sidebarService.collapse();
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.currentRuleId.set(id);
       const rule = this.limitsService.getRuleById(id);
       if (rule) {
         this.currentRuleTitle.set(rule.title);
+        if (rule.department) this.flowDepartment.set(rule.department);
+        if (rule.locationOrCenter) this.flowCompany.set(rule.locationOrCenter);
+        if (rule.category) this.flowCategory.set(rule.category);
+        if (rule.status) {
+          this.flowStatus.set(
+            rule.status === 'ACTIVE'
+              ? 'ATIVO'
+              : rule.status === 'COMPLETED'
+                ? 'HOMOLOGACAO'
+                : 'RASCUNHO',
+          );
+        }
+        if (rule.ceilingAmount) this.flowThreshold.set(rule.ceilingAmount);
+
+        // Se o fluxo já possui nós persistidos ou faixas configuradas, carrega no canvas
+        if (rule.nodes && rule.nodes.length > 0) {
+          this.workflowNodes.set(rule.nodes);
+        } else if (rule.faixas && rule.faixas.length > 0) {
+          const generated = buildWorkflowNodesFromFaixas(rule.faixas, {
+            ruleTitle: rule.title,
+            costCenter: rule.locationOrCenter || rule.department,
+            quorum: rule.quorumLabel,
+            slaHours: rule.slaHours,
+            category: rule.category,
+          });
+          this.workflowNodes.set(generated);
+        }
       } else {
         this.currentRuleTitle.set(`Alçada #${id}`);
+      }
+    } else {
+      // Se não há ID na rota (ex: /alcadas/novo), verifica queryParam ?modelo=...
+      const modeloId = this.route.snapshot.queryParamMap.get('modelo');
+      if (modeloId) {
+        const modelo = buscarModeloRegra(modeloId);
+        if (modelo) {
+          this.applyMarketModel(modelo);
+        }
       }
     }
 
@@ -420,6 +490,54 @@ export class LimitsComponent {
     setTimeout(() => {
       this.isLoading.set(false);
     }, 600);
+  }
+
+  /**
+   * Aplica um modelo pré-definido de mercado (#69) diretamente à esteira do editor.
+   * Substitui os nós atuais pela esteira determinística correspondente às faixas do modelo.
+   */
+  applyMarketModel(modelo: ModeloRegraAlcada): void {
+    this.currentRuleTitle.set(modelo.nome);
+
+    const categoryMap: Record<string, string> = {
+      CAPEX: 'Equipamentos & Hardware',
+      OPERATIONAL: 'Despesas Operacionais (OPEX)',
+      CONTRACTS: 'Serviços & Terceirização',
+      GOVERNANCE: 'Licenciamento & Cloud',
+      AUDIT: 'Investimentos de Capital (CAPEX)',
+    };
+    const category = categoryMap[modelo.categoria] || 'Despesas Operacionais (OPEX)';
+    this.flowCategory.set(category);
+
+    const dept =
+      modelo.centroCustoSugerido.includes('·')
+        ? modelo.centroCustoSugerido.split('·')[1].trim()
+        : modelo.centroCustoSugerido || 'Operações & Logística';
+
+    if (this.departmentsList.includes(dept)) {
+      this.flowDepartment.set(dept);
+    } else {
+      this.flowDepartment.set(this.departmentsList[0]);
+    }
+
+    const generatedNodes = buildWorkflowNodesFromModelo(modelo, {
+      costCenter: modelo.centroCustoSugerido,
+      category,
+      initialIsNew: true,
+    });
+
+    this.workflowNodes.set(generatedNodes);
+    this.flowThreshold.set(calculateCeilingFromNodes(generatedNodes));
+    this.selectedNodeId.set(null);
+    this.isLibraryExpanded.set(false);
+    this.centerCanvas();
+
+    this.saveSuccessMessage.set(
+      `Modelo "${modelo.nome}" aplicado com ${modelo.faixas.length} faixa(s) de alçada! Clique em Salvar Fluxo para persistir.`,
+    );
+    setTimeout(() => {
+      this.saveSuccessMessage.set(null);
+    }, 4500);
   }
 
   goBack(): void {
@@ -430,12 +548,43 @@ export class LimitsComponent {
     this.router.navigate(['/alcadas/regras']);
   }
 
+  deleteWorkflow(): void {
+    const id = this.currentRuleId();
+    if (id) {
+      this.limitsService.deleteRule(id);
+      this.router.navigate(['/alcadas/minhas-alcadas']);
+    }
+  }
+
   saveWorkflow(): void {
     // Remove o indicador isNew de todos os nós após o salvamento
     this.workflowNodes.update((nodes) =>
       nodes.map((n) => ({ ...n, isNew: false }))
     );
-    this.saveSuccessMessage.set('Workflow de alçadas salvo e versionado com sucesso!');
+
+    const ruleId = this.currentRuleId() || `ALC-${Math.floor(1000 + Math.random() * 9000)}`;
+    this.currentRuleId.set(ruleId);
+
+    const statusVal: LimitRuleStatus =
+      this.flowStatus() === 'ATIVO'
+        ? 'ACTIVE'
+        : this.flowStatus() === 'HOMOLOGACAO'
+          ? 'COMPLETED'
+          : 'DRAFT';
+
+    const ceiling = calculateCeilingFromNodes(this.workflowNodes());
+
+    this.limitsService.saveWorkflow(ruleId, {
+      title: this.currentRuleTitle().trim() || 'Fluxo de Alçadas',
+      department: this.flowDepartment(),
+      company: this.flowCompany(),
+      category: this.flowCategory(),
+      status: statusVal,
+      ceilingAmount: ceiling || this.flowThreshold(),
+      nodes: this.workflowNodes(),
+    });
+
+    this.saveSuccessMessage.set('Workflow de alçadas salvo e versionado com sucesso no Firestore!');
     setTimeout(() => {
       this.saveSuccessMessage.set(null);
     }, 3500);

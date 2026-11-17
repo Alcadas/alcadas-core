@@ -80,6 +80,7 @@ export interface RequestItem {
   aprovadorEsperadoPapel?: string | null;
   aprovadorEsperadoNivel?: string | null;
   fluxoDestinado: WorkflowDestination;
+  alertaRisco?: string | null;
 }
 
 export interface RequestStats {
@@ -119,6 +120,9 @@ export interface CreateRequestDto {
   fluxoNome?: string;
   solicitanteNome?: string;
   solicitanteCargo?: string;
+  titulo?: string;
+  prioridade?: RequestPriority;
+  anexos?: Array<{ nome: string; tamanho: string; tipo: string; icone?: string }>;
 }
 
 /** Dados estendidos da página de criação local/API. */

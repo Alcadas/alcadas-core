@@ -35,10 +35,11 @@ $border: #eef2f6;
 /* 2. Barra de Metadados e Edição Rápida do Fluxo (Estilo Talently / Builder) */
 /* ========================================================================= */
 .flow-meta-toolbar {
-  height: 48px;
+  min-height: 52px;
+  height: auto;
   background: #ffffff;
   border-bottom: 1px solid var(--color-border);
-  padding: 0 1.25rem;
+  padding: 0.45rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -53,6 +54,7 @@ $border: #eef2f6;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
+    flex-shrink: 0;
 
     .flow-title-edit-wrap {
       display: flex;
@@ -83,6 +85,7 @@ $border: #eef2f6;
         font-weight: 700;
         color: $text;
         width: 210px;
+        max-width: 100%;
 
         &::placeholder {
           color: #94a3b8;
@@ -99,6 +102,7 @@ $border: #eef2f6;
       background: #ede9fe;
       padding: 0.15rem 0.45rem;
       border-radius: 4px;
+      white-space: nowrap;
     }
 
     .version-chip {
@@ -108,13 +112,14 @@ $border: #eef2f6;
       background: #f1f5f9;
       padding: 0.15rem 0.4rem;
       border-radius: 4px;
+      white-space: nowrap;
     }
   }
 
   .toolbar-center-group {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.65rem;
     flex-wrap: wrap;
 
     .meta-field {
@@ -129,6 +134,7 @@ $border: #eef2f6;
         font-size: 0.675rem;
         font-weight: 600;
         color: #64748b;
+        white-space: nowrap;
 
         .meta-icon {
           font-size: 14px;
@@ -147,6 +153,8 @@ $border: #eef2f6;
         outline: none;
         cursor: pointer;
         transition: border 0.15s ease;
+        max-width: 170px;
+        text-overflow: ellipsis;
 
         &:focus {
           border-color: $primary;
@@ -173,6 +181,18 @@ $border: #eef2f6;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
+
+    .btn-delete-flow {
+      color: #dc2626;
+      border-color: #fecaca;
+
+      &:hover {
+        background: #fef2f2;
+        border-color: #ef4444;
+        color: #b91c1c;
+      }
+    }
   }
 }
 
@@ -217,7 +237,7 @@ $border: #eef2f6;
 /* Toasts Flutuantes */
 .toast-success {
   position: absolute;
-  top: 76px;
+  top: 1rem;
   right: 1.5rem;
   z-index: 60;
   display: flex;
@@ -238,7 +258,7 @@ $border: #eef2f6;
 
 .toast-insert-hint {
   position: absolute;
-  top: 76px;
+  top: 1rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
@@ -332,7 +352,6 @@ $border: #eef2f6;
   position: relative;
   flex: 1;
   width: 100%;
-  height: calc(100% - 68px);
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -466,7 +485,55 @@ $border: #eef2f6;
       }
     }
 
-    .library-subtitle { margin: 0 0 0.75rem; font-size: 0.72rem; color: $muted; }
+    .library-subtitle { margin: 0 0 0.5rem; font-size: 0.72rem; color: $muted; }
+
+    .lib-tabs-strip {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.65rem;
+      background: #f1f5f9;
+      padding: 0.2rem;
+      border-radius: 8px;
+
+      .lib-tab-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.5rem;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        .tab-mini-icon { font-size: 14px; }
+
+        .tab-chip {
+          background: #e2e8f0;
+          color: #475569;
+          font-size: 0.62rem;
+          padding: 0.1rem 0.35rem;
+          border-radius: 10px;
+          font-weight: 700;
+        }
+
+        &.active {
+          background: #ffffff;
+          color: $primary;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+          .tab-chip {
+            background: rgba($primary, 0.12);
+            color: $primary;
+          }
+        }
+      }
+    }
 
     .library-search {
       display: flex;
@@ -497,6 +564,155 @@ $border: #eef2f6;
 
     &::-webkit-scrollbar { width: 4px; }
     &::-webkit-scrollbar-thumb { background: #f1f5f9; border-radius: 4px; }
+  }
+
+  .market-template-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: $primary;
+      box-shadow: 0 4px 14px rgba($primary, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .market-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.4rem;
+
+      .market-icon-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+
+        .market-icon {
+          font-size: 18px;
+          color: $primary;
+        }
+
+        .category-chip {
+          font-size: 0.62rem;
+          font-weight: 700;
+          padding: 0.1rem 0.4rem;
+          border-radius: 4px;
+          background: rgba($primary, 0.08);
+          color: $primary;
+        }
+      }
+
+      .quorum-chip {
+        font-size: 0.62rem;
+        color: #64748b;
+        font-weight: 600;
+      }
+    }
+
+    .market-name {
+      margin: 0;
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: $text;
+      line-height: 1.25;
+    }
+
+    .market-desc {
+      margin: 0;
+      font-size: 0.72rem;
+      color: $muted;
+      line-height: 1.35;
+    }
+
+    .market-cc-info {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.68rem;
+      color: #64748b;
+      background: #f8fafc;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+
+      .cc-icon { font-size: 13px; color: #94a3b8; }
+    }
+
+    .market-tiers-preview {
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid #f1f5f9;
+
+      .tiers-preview-title {
+        font-size: 0.64rem;
+        font-weight: 700;
+        color: #475569;
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      .tiers-preview-list {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+
+        li {
+          font-size: 0.65rem;
+          color: #334155;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+
+          strong {
+            color: $primary;
+          }
+
+          .tech-tag {
+            font-size: 0.6rem;
+            color: #059669;
+            font-style: normal;
+            font-weight: 700;
+            background: #ecfdf5;
+            padding: 0.05rem 0.25rem;
+            border-radius: 3px;
+          }
+        }
+      }
+    }
+
+    .btn-apply-market-model {
+      margin-top: 0.2rem;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.6rem;
+      background: $primary;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      .material-symbols-rounded { font-size: 15px; }
+
+      &:hover {
+        background: $primary-dark;
+        box-shadow: 0 2px 8px rgba($primary, 0.3);
+      }
+    }
   }
 
   .template-card {
@@ -598,6 +814,7 @@ $border: #eef2f6;
     top: 2rem;
     left: calc(50% - 240px);
     width: 480px;
+    max-width: calc(100% - 24px);
     transform-origin: top center;
     will-change: transform;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);

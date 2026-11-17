@@ -231,4 +231,67 @@ describe('RequestsService', () => {
       expect(service.isPolling).toBe(false);
     });
   });
+
+  describe('Motor de Governança e Regras Automáticas (#89)', () => {
+    it('aprova automaticamente na governança solicitação dentro do teto e define status PENDENTE', () => {
+      const criada = service.createRequest({
+        titulo: 'Notebook para Engenharia',
+        categoria: 'EQUIPAMENTOS',
+        centroCustoId: 'cc-ti',
+        valor: 12000,
+        justificativa: 'Equipamento necessário para desenvolvedor sênior.',
+      });
+
+      expect(criada.status).toBe('PENDENTE');
+      expect(criada.statusLabel).toBe('Em análise');
+      expect(criada.alertaRisco).toBeNull();
+      expect(criada.fluxoDestinado.etapas[1].status).toBe('CONCLUIDA');
+      expect(criada.fluxoDestinado.etapas[2].status).toBe('EM_ANALISE');
+    });
+
+    it('reprova automaticamente na etapa de governança solicitação que excede o teto de R$ 15.000', () => {
+      const criada = service.createRequest({
+        titulo: 'Servidor GPU para Treinamento de IA',
+        categoria: 'EQUIPAMENTOS',
+        centroCustoId: 'cc-ti',
+        valor: 35000,
+        justificativa: 'Infraestrutura de deep learning para processamento de modelos.',
+      });
+
+      expect(criada.status).toBe('EM_AJUSTE');
+      expect(criada.statusLabel).toBe('Ajuste solicitado');
+      expect(criada.alertaRisco).toContain('Teto de Alçada Excedido');
+      expect(criada.alertaRisco).toContain('35.000');
+      expect(criada.alertaRisco).toContain('15.000');
+      expect(criada.fluxoDestinado.etapaAtualNome).toBe('Aguardando ajuste do solicitante');
+      expect(criada.fluxoDestinado.etapas[1].status).toBe('AJUSTE');
+      expect(criada.fluxoDestinado.etapas[2].status).toBe('PENDENTE'); // Bloqueada para o gerente
+    });
+
+    it('reavalia o fluxo ao atualizar o valor e promove para PENDENTE quando corrigido abaixo do teto', () => {
+      const criada = service.createRequest({
+        titulo: 'Monitor Ultrawide Pro',
+        categoria: 'EQUIPAMENTOS',
+        centroCustoId: 'cc-ti',
+        valor: 25000, // Acima do teto de 15.000
+        justificativa: 'Monitor para arquitetura.',
+      });
+
+      expect(criada.status).toBe('EM_AJUSTE');
+
+      // Solicitante ajusta o valor no modal de edição para R$ 14.000 (dentro do teto)
+      const atualizada = service.updateRequest(criada.id, {
+        valor: 14000,
+        descricao: 'Valor renegociado com fornecedor Dell para R$ 14.000.',
+      });
+
+      expect(atualizada).not.toBeNull();
+      expect(atualizada?.status).toBe('PENDENTE');
+      expect(atualizada?.statusLabel).toBe('Em análise');
+      expect(atualizada?.alertaRisco).toBeNull();
+      expect(atualizada?.fluxoDestinado.etapaAtualNumero).toBe(3);
+      expect(atualizada?.fluxoDestinado.etapas[1].status).toBe('CONCLUIDA');
+      expect(atualizada?.fluxoDestinado.etapas[2].status).toBe('EM_ANALISE');
+    });
+  });
 });

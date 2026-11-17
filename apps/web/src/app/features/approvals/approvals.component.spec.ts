@@ -225,6 +225,44 @@ describe('ApprovalsComponent', () => {
     expect(component.isDetailDrawerOpen()).toBe(false);
   });
 
+  it('should trigger actions from onActionSelect dropdown input', () => {
+    const pendingReq = requestsService.requests().find((r) => r.status === 'PENDENTE');
+    expect(pendingReq).toBeDefined();
+    if (pendingReq) {
+      const mockSelect = { value: 'aprovar' } as HTMLSelectElement;
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.isSignModalOpen()).toBe(true);
+      expect(mockSelect.value).toBe('');
+      component.closeSignModal();
+
+      mockSelect.value = 'assinar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.isSignModalOpen()).toBe(true);
+      expect(mockSelect.value).toBe('');
+      component.closeSignModal();
+
+      mockSelect.value = 'validar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.validatingRequest()?.id).toBe(pendingReq.id);
+      component.closeValidateModal();
+
+      mockSelect.value = 'revisar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.adjustingRequest()?.id).toBe(pendingReq.id);
+      component.closeAdjustmentModal();
+
+      mockSelect.value = 'rejeitar';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.rejectingRequest()?.id).toBe(pendingReq.id);
+      component.closeRejectModal();
+
+      mockSelect.value = 'trilha';
+      component.onActionSelect(pendingReq, mockSelect);
+      expect(component.isDetailDrawerOpen()).toBe(true);
+      component.closeDetailDrawer();
+    }
+  });
+
   describe('Isolamento de Departamento (Cenário 2)', () => {
     it('deve filtrar e exibir apenas solicitações do próprio departamento para aprovador setorial', () => {
       const authService = TestBed.inject(AuthService);
@@ -282,6 +320,29 @@ describe('ApprovalsComponent', () => {
       const elegiveis = component.approvalEligibleRequests();
       expect(elegiveis.length).toBeGreaterThan(0);
       expect(elegiveis.some((r) => r.departamento === 'TI & Engenharia')).toBe(true);
+    });
+
+    it('DIRETOR deve visualizar solicitações de todos os departamentos e deliberar sobre pendências', () => {
+      const authService = TestBed.inject(AuthService);
+      jest.spyOn(authService, 'currentUser').mockReturnValue({
+        id: 'usr-diretor',
+        email: 'diretor@startop.com.br',
+        name: 'Mariana Diretora',
+        role: 'DIRETOR',
+      });
+
+      const elegiveis = component.approvalEligibleRequests();
+      expect(elegiveis.length).toBeGreaterThan(0);
+      expect(elegiveis.some((r) => r.departamento === 'TI & Engenharia')).toBe(true);
+
+      const pendentes = component.pendingCount();
+      expect(pendentes).toBeGreaterThan(0);
+    });
+
+    it('Aba todas deve exibir todas as solicitações cadastradas', () => {
+      component.setTab('todas');
+      expect(component.currentTab()).toBe('todas');
+      expect(component.filteredRequests().length).toBe(requestsService.requests().length);
     });
   });
 

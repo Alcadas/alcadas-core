@@ -2,17 +2,30 @@ import { BadRequestException } from '@nestjs/common';
 import { AuthenticatedUser, MODELOS_REGRAS_ALCADA } from '@alcadas-core/models';
 import { FirestoreService } from '../database/firestore.service';
 import { AlcadasService } from './alcadas.service';
+import { ProvisionamentoColaboradoresService } from './provisionamento-colaboradores.service';
 import { SaasController } from './saas.controller';
 
 describe('SaasController — PUT /organizacao/fluxos (#69)', () => {
   const user = { tenantId: 'tenant-a', role: 'ADMIN' } as AuthenticatedUser;
   let setTenantDocument: jest.Mock;
+  let listTenantCollection: jest.Mock;
+  let deleteTenantDocument: jest.Mock;
   let controller: SaasController;
 
   beforeEach(() => {
     setTenantDocument = jest.fn().mockResolvedValue(undefined);
-    const firestore = { setTenantDocument } as unknown as FirestoreService;
-    controller = new SaasController(firestore, {} as AlcadasService);
+    listTenantCollection = jest.fn().mockResolvedValue([]);
+    deleteTenantDocument = jest.fn().mockResolvedValue(true);
+    const firestore = {
+      setTenantDocument,
+      listTenantCollection,
+      deleteTenantDocument,
+    } as unknown as FirestoreService;
+    controller = new SaasController(
+      firestore,
+      {} as AlcadasService,
+      {} as ProvisionamentoColaboradoresService,
+    );
   });
 
   const regraDoModelo = () => {
@@ -60,5 +73,29 @@ describe('SaasController — PUT /organizacao/fluxos (#69)', () => {
       rulesCatalog: [{ id: 'rule-legacy', name: 'Legada', ceilingAmount: 5000 }],
     });
     expect(res.savedRules).toBe(1);
+  });
+
+  it('reconcilia e deleta fluxos removidos da lista salva', async () => {
+    listTenantCollection.mockResolvedValue([
+      { id: 'wf-1', title: 'Fluxo 1' },
+      { id: 'wf-2', title: 'Fluxo 2' },
+      { id: 'wf-deleted', title: 'Fluxo Removido' },
+    ]);
+
+    const res = await controller.saveTenantWorkflowsAndRules(user, {
+      workflows: [
+        { id: 'wf-1', title: 'Fluxo 1' },
+        { id: 'wf-2', title: 'Fluxo 2' },
+      ],
+    });
+
+    expect(res.savedWorkflows).toBe(2);
+    expect(deleteTenantDocument).toHaveBeenCalledWith('tenant-a', 'workflows', 'wf-deleted');
+  });
+
+  it('deleteTenantWorkflow remove o fluxo especificado do tenant', async () => {
+    const res = await controller.deleteTenantWorkflow(user, 'wf-remove-target');
+    expect(res).toEqual({ success: true, deletedId: 'wf-remove-target' });
+    expect(deleteTenantDocument).toHaveBeenCalledWith('tenant-a', 'workflows', 'wf-remove-target');
   });
 });

@@ -4,6 +4,7 @@ import axios, { AxiosInstance } from 'axios';
 import * as adminAuth from 'firebase-admin/auth';
 import { AlcadasController } from '../alcadas/alcadas.controller';
 import { AlcadasService } from '../alcadas/alcadas.service';
+import { ProvisionamentoColaboradoresService } from '../alcadas/provisionamento-colaboradores.service';
 import { SaasController } from '../alcadas/saas.controller';
 import { FirestoreService } from '../database/firestore.service';
 import { DecisoesController } from '../solicitacoes/decisoes.controller';
@@ -139,6 +140,10 @@ describe('Recusa de Tokens Forjados em Rotas Protegidas (Issue #27 / RNF09 - NOD
             listTenantCollection: jest.fn().mockResolvedValue([]),
             setTenantDocument: jest.fn().mockResolvedValue({}),
           },
+        },
+        {
+          provide: ProvisionamentoColaboradoresService,
+          useValue: { sincronizar: jest.fn() },
         },
         {
           provide: ListagemValidator,

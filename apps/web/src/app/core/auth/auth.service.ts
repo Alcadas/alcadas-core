@@ -369,8 +369,8 @@ function criarTokenColaboradorTenant(dados: {
   const agora = Math.floor(Date.now() / 1000);
   const cabecalho = codificarBase64Url({ alg: 'none', typ: 'JWT' });
   const roles =
-    dados.role === 'DIRETOR_CFO' || dados.role === 'ADMIN'
-      ? ['DIRETOR_CFO', 'ADMIN', 'APROVADOR_N2', 'APROVADOR_N1', 'SOLICITANTE']
+    dados.role === 'DIRETOR_CFO' || dados.role === 'ADMIN' || dados.role === 'DIRETOR' || dados.role === 'CFO'
+      ? ['DIRETOR_CFO', 'DIRETOR', 'CFO', 'ADMIN', 'APROVADOR_N2', 'APROVADOR_N1', 'SOLICITANTE']
       : [dados.role];
   const corpo = codificarBase64Url({
     user_id: dados.id,

@@ -11,6 +11,8 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
 import { mensagemDeErroDaApi } from '../../../core/http/api-error';
 import { SettingsService } from '../../settings/services/settings.service';
+import { avaliarSolicitacaoNoFluxo } from '../../limits/services/limits-workflow.utils';
+import { LimitsService } from '../../limits/services/limits.service';
 import {
   CATEGORY_OPTIONS,
   ContextoDoMapeamento,
@@ -36,6 +38,29 @@ import {
 
 /** Quantidade lida por vez (máximo do contrato OpenAPI v0.2 — FinOps). */
 export const TAMANHO_DA_PAGINA_DA_API = 50;
+
+export const STORAGE_KEY_REQUESTS = 'alcadas.requests.v1';
+
+export function lerRequestsDoStorage(): RequestItem[] | null {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_REQUESTS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salvarRequestsNoStorage(requests: RequestItem[]): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(requests));
+  } catch {
+    // Ignora se localStorage estiver bloqueado ou excedido
+  }
+}
 
 const INITIAL_COST_CENTERS: CostCenterOption[] = [
   { id: 'cc-ti', code: 'CC-TI-01', nome: 'Tecnologia & Infraestrutura', departamento: 'TI & Engenharia' },
@@ -234,11 +259,12 @@ export class RequestsService {
   private readonly http = inject(HttpClient, { optional: true });
   private readonly authService = inject(AuthService, { optional: true });
   private readonly settingsService = inject(SettingsService, { optional: true });
+  private readonly limitsService = inject(LimitsService, { optional: true });
   private readonly apiBaseUrl = inject(APP_CONFIG, { optional: true })?.apiBaseUrl ?? '/api';
 
   readonly categories = CATEGORY_OPTIONS;
 
-  private readonly _requests = signal<RequestItem[]>([]);
+  private readonly _requests = signal<RequestItem[]>(lerRequestsDoStorage() ?? []);
   private readonly _costCenters = signal<CostCenterOption[]>([]);
   private readonly _tiers = signal<ApprovalTier[]>([]);
   private readonly _loadState = signal<LoadState>('carregando');
@@ -253,10 +279,54 @@ export class RequestsService {
     return this.pollingSubscription !== null;
   }
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === STORAGE_KEY_REQUESTS && event.newValue) {
+          try {
+            const parsed = JSON.parse(event.newValue);
+            if (Array.isArray(parsed)) {
+              const antigas = this._requests();
+              const antigasMap = new Map<string, RequestItem>(antigas.map((r) => [r.id, r]));
+              this._requests.set(parsed);
+
+              for (const nova of parsed) {
+                const antiga = antigasMap.get(nova.id);
+                if (!antiga) {
+                  if (nova.status === 'PENDENTE') {
+                    this._statusEvents.next({
+                      type: 'NOVA',
+                      request: nova,
+                    });
+                  }
+                } else if (antiga.status !== nova.status) {
+                  let type: RequestStatusChangeType = 'NOVA';
+                  if (nova.status === 'APROVADA') type = 'APROVADA';
+                  else if (nova.status === 'REJEITADA') type = 'REJEITADA';
+                  else if (nova.status === 'EM_AJUSTE') type = 'EM_AJUSTE';
+                  else if (nova.status === 'PENDENTE') type = 'AVANCO_ETAPA';
+
+                  this._statusEvents.next({
+                    type,
+                    request: nova,
+                    statusAnterior: antiga.status,
+                  });
+                }
+              }
+            }
+          } catch {
+            // ignora erro de parse
+          }
+        }
+      });
+    }
+  }
+
   /** Popula dados de exemplo apenas para testes unitários isolados de componentes. */
   seedForTesting(): void {
     this._requests.set(INITIAL_SEED_REQUESTS);
     this._costCenters.set(INITIAL_COST_CENTERS);
+    salvarRequestsNoStorage(INITIAL_SEED_REQUESTS);
   }
 
   readonly requests = this._requests.asReadonly();
@@ -273,6 +343,15 @@ export class RequestsService {
    */
   ensureLoaded(): void {
     this.syncCostCentersFromOrganization();
+    if (this._requests().length === 0) {
+      const stored = lerRequestsDoStorage();
+      if (stored && stored.length > 0) {
+        this._requests.set(stored);
+      } else {
+        this._requests.set(INITIAL_SEED_REQUESTS);
+        salvarRequestsNoStorage(INITIAL_SEED_REQUESTS);
+      }
+    }
     if (this.http && this.authService?.isAuthenticated?.()) {
       this.load();
     }
@@ -320,6 +399,7 @@ export class RequestsService {
         }
         this._tiers.set(tetos);
         this._requests.set(solicitacoes.map((dto) => paraRequestItem(dto, this.contexto())));
+        salvarRequestsNoStorage(this._requests());
         this._loadState.set('pronto');
       },
       error: (erro: unknown) => {
@@ -369,6 +449,10 @@ export class RequestsService {
    */
   loadSilent(): Observable<RequestItem[]> {
     if (!this.http) {
+      const stored = lerRequestsDoStorage();
+      if (stored && stored.length > 0) {
+        this._requests.set(stored);
+      }
       return of(this._requests());
     }
 
@@ -418,11 +502,18 @@ export class RequestsService {
           }
 
           this._requests.set(novas);
+          salvarRequestsNoStorage(novas);
           if (this._loadState() !== 'pronto') {
             this._loadState.set('pronto');
           }
         }),
-        catchError(() => of(this._requests())),
+        catchError(() => {
+          const stored = lerRequestsDoStorage();
+          if (stored && stored.length > 0) {
+            this._requests.set(stored);
+          }
+          return of(this._requests());
+        }),
       );
   }
 
@@ -432,9 +523,39 @@ export class RequestsService {
       const item = this.createRequest(dto);
       return of(item);
     }
-    return this.http.post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes`, dto).pipe(
-      map((resposta) => paraRequestItem(resposta, this.contexto())),
-      tap((criada) => this._requests.update((lista) => [criada, ...lista])),
+    const corpo = {
+      centroCustoId: dto.centroCustoId,
+      categoria: dto.categoria,
+      valor: dto.valor,
+      justificativa: dto.titulo ? `${dto.titulo} — ${dto.justificativa}` : dto.justificativa,
+      fornecedor: dto.fornecedor,
+    };
+    return this.http.post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes`, corpo).pipe(
+      map((resposta) => {
+        const item = paraRequestItem(resposta, this.contexto());
+        if (dto.titulo) item.titulo = dto.titulo;
+        if (dto.prioridade) item.prioridade = dto.prioridade;
+        if (dto.anexos && dto.anexos.length > 0) {
+          item.anexos = dto.anexos.map((att, idx) => ({
+            id: `att-${item.id}-${idx}`,
+            nome: att.nome,
+            tamanho: att.tamanho,
+            tipo: att.tipo,
+            icone:
+              att.icone ||
+              (att.tipo.includes('pdf')
+                ? 'picture_as_pdf'
+                : att.tipo.includes('image')
+                  ? 'image'
+                  : 'description'),
+          }));
+        }
+        return item;
+      }),
+      tap((criada) => {
+        this._requests.update((lista) => [criada, ...lista]);
+        salvarRequestsNoStorage(this._requests());
+      }),
     );
   }
 
@@ -451,9 +572,10 @@ export class RequestsService {
       .post<SolicitacaoResponseDto>(`${this.apiBaseUrl}/solicitacoes/${encodeURIComponent(request.id)}/${acao}`, corpo)
       .pipe(
         map((resposta) => paraRequestItem(resposta, this.contexto())),
-        tap((atualizada) =>
-          this._requests.update((lista) => lista.map((item) => (item.id === atualizada.id ? atualizada : item))),
-        ),
+        tap((atualizada) => {
+          this._requests.update((lista) => lista.map((item) => (item.id === atualizada.id ? atualizada : item)));
+          salvarRequestsNoStorage(this._requests());
+        }),
       );
   }
 
@@ -490,6 +612,22 @@ export class RequestsService {
       : payload.justificativa;
 
     const user = this.authService?.currentUser();
+    const rules = this.limitsService?.allRules?.() ?? [];
+    const centroInfo = this._costCenters().find((c) => c.id === payload.centroCustoId);
+
+    const avaliacao = avaliarSolicitacaoNoFluxo(
+      {
+        valor: payload.valor,
+        categoria: payload.categoria,
+        centroCustoId: payload.centroCustoId,
+        departamento: centroInfo?.departamento,
+        fluxoId: payload.fluxoId,
+        titulo: payload.titulo,
+        descricao: payload.justificativa,
+      },
+      rules,
+    );
+
     const dtoMock: SolicitacaoResponseDto = {
       id,
       tenantId: user?.tenantId ?? 'startop',
@@ -499,9 +637,13 @@ export class RequestsService {
       categoria: payload.categoria,
       justificativa: justificativaCompleta,
       fornecedor: payload.fornecedor,
-      status: 'PENDENTE',
+      status: avaliacao.status,
       versao: 1,
-      alertaRisco: null,
+      alertaRisco: avaliacao.alertaRisco,
+      fluxoId: avaliacao.fluxoId,
+      fluxoNome: avaliacao.fluxoNome,
+      totalEtapas: avaliacao.etapas.length,
+      etapaAtual: avaliacao.etapaAtualNumero,
       createdAt: agora,
       updatedAt: agora,
       ...({
@@ -514,6 +656,19 @@ export class RequestsService {
       ...paraRequestItem(dtoMock, this.contexto()),
       titulo: payload.titulo || paraRequestItem(dtoMock, this.contexto()).titulo,
       prioridade: payload.prioridade ?? inferirPrioridade(payload.valor),
+      status: avaliacao.status,
+      statusLabel: avaliacao.statusLabel,
+      statusIcon: avaliacao.statusIcon,
+      alertaRisco: avaliacao.alertaRisco,
+      fluxoId: avaliacao.fluxoId,
+      fluxoNome: avaliacao.fluxoNome,
+      fluxoDestinado: {
+        nome: avaliacao.fluxoNome,
+        totalEtapas: avaliacao.etapas.length,
+        etapaAtualNumero: avaliacao.etapaAtualNumero,
+        etapaAtualNome: avaliacao.etapaAtualNome,
+        etapas: avaliacao.etapas,
+      },
       solicitante: {
         id: user?.id ?? 'voce',
         nome: user?.name || 'Você',
@@ -524,11 +679,18 @@ export class RequestsService {
         nome: att.nome,
         tamanho: att.tamanho,
         tipo: att.tipo,
-        icone: 'picture_as_pdf',
+        icone:
+          (att as { icone?: string }).icone ||
+          (att.tipo.includes('pdf')
+            ? 'picture_as_pdf'
+            : att.tipo.includes('image')
+              ? 'image'
+              : 'description'),
       })),
     };
 
     this._requests.update((lista) => [novoItem, ...lista]);
+    salvarRequestsNoStorage(this._requests());
 
     // Se houver sessão autenticada na API, envia de forma assíncrona ao backend
     if (this.http && this.authService?.isAuthenticated?.()) {
@@ -551,6 +713,7 @@ export class RequestsService {
             this._requests.update((lista) =>
               lista.map((item) => (item.id === id ? { ...novoItem, ...mapeada } : item)),
             );
+            salvarRequestsNoStorage(this._requests());
           }
         });
     }
@@ -575,7 +738,6 @@ export class RequestsService {
   ): RequestItem | null {
     let atualizado: RequestItem | null = null;
     const nowIso = new Date().toISOString();
-    const nowFormatted = new Date().toLocaleString('pt-BR');
 
     this._requests.update((lista) =>
       lista.map((req) => {
@@ -591,23 +753,20 @@ export class RequestsService {
           typeof patch.valor === 'number' && patch.valor > 0 ? patch.valor : req.valor;
         const novoTitulo = patch.titulo?.trim() || req.titulo;
         const novaDescricao = patch.descricao?.trim() || req.descricao;
-        const novoFluxo = this.calculateSuggestedWorkflow(
-          novoValor,
-          novoCentroId,
-          novaCategoria,
-        );
 
-        const etapasAtualizadas = req.fluxoDestinado.etapas.map((step) => {
-          if (step.status === 'AJUSTE') {
-            return {
-              ...step,
-              status: 'EM_ANALISE' as const,
-              dataHora: nowFormatted,
-              comentario: `Ajuste realizado pelo solicitante (${nowFormatted}): ${novaDescricao}`,
-            };
-          }
-          return step;
-        });
+        const rules = this.limitsService?.allRules?.() ?? [];
+        const avaliacao = avaliarSolicitacaoNoFluxo(
+          {
+            valor: novoValor,
+            categoria: novaCategoria,
+            centroCustoId: novoCentroId,
+            departamento: ccInfo?.departamento ?? req.departamento,
+            fluxoId: req.fluxoId ?? undefined,
+            titulo: novoTitulo,
+            descricao: novaDescricao,
+          },
+          rules,
+        );
 
         atualizado = {
           ...req,
@@ -622,20 +781,27 @@ export class RequestsService {
           departamento: ccInfo?.departamento ?? ccInfo?.nome ?? req.departamento,
           valor: novoValor,
           prioridade: inferirPrioridade(novoValor),
-          status: 'PENDENTE',
-          statusLabel: 'Em análise',
-          statusIcon: 'hourglass_top',
+          status: avaliacao.status,
+          statusLabel: avaliacao.statusLabel,
+          statusIcon: avaliacao.statusIcon,
+          alertaRisco: avaliacao.alertaRisco,
           versao: req.versao + 1,
           dataAtualizacao: nowIso,
+          fluxoId: avaliacao.fluxoId,
+          fluxoNome: avaliacao.fluxoNome,
           fluxoDestinado: {
-            ...novoFluxo,
-            etapas: etapasAtualizadas.length > 0 ? etapasAtualizadas : novoFluxo.etapas,
+            nome: avaliacao.fluxoNome,
+            totalEtapas: avaliacao.etapas.length,
+            etapaAtualNumero: avaliacao.etapaAtualNumero,
+            etapaAtualNome: avaliacao.etapaAtualNome,
+            etapas: avaliacao.etapas,
           },
         };
 
         return atualizado;
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (atualizado && this.http && this.authService?.isAuthenticated?.()) {
       const reqSnapshot = atualizado as RequestItem;
@@ -671,6 +837,7 @@ export class RequestsService {
                   : item,
               ),
             );
+            salvarRequestsNoStorage(this._requests());
           }
         });
     }
@@ -773,6 +940,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (target && this.http && this.authService?.isAuthenticated?.()) {
       this.decide(target, 'aprovar').pipe(catchError(() => of(null))).subscribe();
@@ -819,6 +987,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
     return updated;
   }
 
@@ -860,6 +1029,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (target && this.http && this.authService?.isAuthenticated?.()) {
       this.decide(target, 'ajuste', motivo).pipe(catchError(() => of(null))).subscribe();
@@ -906,6 +1076,7 @@ export class RequestsService {
         };
       }),
     );
+    salvarRequestsNoStorage(this._requests());
 
     if (target && this.http && this.authService?.isAuthenticated?.()) {
       this.decide(target, 'rejeitar', motivo).pipe(catchError(() => of(null))).subscribe();
