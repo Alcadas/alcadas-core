@@ -1,4 +1,4 @@
-import { Injectable, Inject, Optional, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, Optional, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
 import { SolicitacaoValidator } from './solicitacao.validator';
@@ -183,5 +183,13 @@ export class SolicitacoesService {
 
   async listarPorTenant(tenantId: string, filtro: FiltroListagem) {
     return this.repository.listarPorTenant(tenantId, filtro);
+  }
+
+  async obterPorId(tenantId: string, id: string) {
+    const solicitacao = await this.repository.buscarPorId(tenantId, id);
+    if (!solicitacao) {
+      throw new NotFoundException(`Solicitação "${id}" não encontrada.`);
+    }
+    return solicitacao;
   }
 }
