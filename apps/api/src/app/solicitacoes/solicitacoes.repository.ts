@@ -9,4 +9,5 @@ export interface FiltroListagem {
 export interface ISolicitacoesRepository {
   salvarComTrilha(solicitacao: Record<string, unknown>, eloTrilha: Record<string, unknown>): Promise<void>;
   listarPorTenant(tenantId: string, filtro: FiltroListagem): Promise<Record<string, unknown>[]>;
+  buscarPorId(tenantId: string, id: string): Promise<Record<string, unknown> | null>;
 }

@@ -103,10 +103,14 @@ describe('[CP2] EP/BVA — US-01 a US-05', () => {
       expect(res.data.aprovadorEsperadoPapel).toBe('DIRETOR_CFO');
     });
 
-    it('CT-01: R$ 5.000,01 (acima do teto) → Gerente recebe 403 (texto literal do CA-01.2)', async () => {
+    it('CT-01: R$ 5.000,01 (acima do teto) → Gerente recebe 403 ao tentar aprovar no nível superior (CA-01.2 / CA-03.1)', async () => {
       const naEtapaDoGerente = await avancarAteGerente(5000.01);
-      const res = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
+      const etapa2 = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
         versao: naEtapaDoGerente.versao,
+      });
+      // Na etapa 3 (Diretor), o Gerente não pode deliberar acima do seu teto
+      const res = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
+        versao: etapa2.data.versao,
       });
       expect(res.status).toBe(403);
     });

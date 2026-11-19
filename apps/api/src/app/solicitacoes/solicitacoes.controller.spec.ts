@@ -6,13 +6,14 @@ import { SolicitacoesService } from './solicitacoes.service';
 
 describe('SolicitacoesController', () => {
   const usuario: UsuarioAutenticado = { uid: 'ana', tenantId: 'startop', papeis: ['SOLICITANTE'] };
-  let service: { criarSolicitacao: jest.Mock; listarPorTenant: jest.Mock };
+  let service: { criarSolicitacao: jest.Mock; listarPorTenant: jest.Mock; obterPorId: jest.Mock };
   let controller: SolicitacoesController;
 
   beforeEach(() => {
     service = {
       criarSolicitacao: jest.fn().mockResolvedValue({ id: 'sol-1' }),
       listarPorTenant: jest.fn().mockResolvedValue([]),
+      obterPorId: jest.fn().mockResolvedValue({ id: 'sol-1', tenantId: 'startop' }),
     };
     controller = new SolicitacoesController(
       service as unknown as SolicitacoesService,
@@ -32,5 +33,11 @@ describe('SolicitacoesController', () => {
     await controller.listar({ page: '2', limit: '10' }, usuario);
 
     expect(service.listarPorTenant).toHaveBeenCalledWith('startop', { status: undefined, page: 2, limit: 10 });
+  });
+
+  it('obtém a solicitação pelo id usando o tenant do token (BUG-002)', async () => {
+    await controller.obterPorId('sol-1', usuario);
+
+    expect(service.obterPorId).toHaveBeenCalledWith('startop', 'sol-1');
   });
 });

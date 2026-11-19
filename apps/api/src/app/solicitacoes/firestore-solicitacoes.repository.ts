@@ -115,4 +115,36 @@ export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository 
         .slice((filtro.page - 1) * filtro.limit, filtro.page * filtro.limit);
     }
   }
+
+  /**
+   * Busca uma solicitação pelo ID garantindo o isolamento do tenant (RNF07 / CA-16.1).
+   */
+  async buscarPorId(tenantId: string, id: string): Promise<Record<string, unknown> | null> {
+    try {
+      const db = getFirestore(getFirebaseApp());
+      const doc = await db
+        .collection('tenants')
+        .doc(tenantId)
+        .collection('requests')
+        .doc(id)
+        .get();
+
+      if (doc.exists) {
+        return doc.data() as Record<string, unknown>;
+      }
+      return null;
+    } catch {
+      if (!this.firestoreService) {
+        if (emProducao()) {
+          throw firestoreIndisponivel();
+        }
+        return null;
+      }
+      return this.firestoreService.getTenantDocument<Record<string, unknown>>(
+        tenantId,
+        'requests',
+        id,
+      );
+    }
+  }
 }
