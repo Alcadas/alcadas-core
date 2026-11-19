@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SolicitacoesService } from './solicitacoes.service';
 import { SolicitacaoValidator } from './solicitacao.validator';
