@@ -115,4 +115,30 @@ export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository 
         .slice((filtro.page - 1) * filtro.limit, filtro.page * filtro.limit);
     }
   }
+
+  async buscarPorId(tenantId: string, id: string): Promise<Record<string, unknown> | null> {
+    try {
+      const db = getFirestore(getFirebaseApp());
+      const doc = await db
+        .collection('tenants')
+        .doc(tenantId)
+        .collection('requests')
+        .doc(id)
+        .get();
+
+      if (!doc.exists) {
+        return null;
+      }
+      return doc.data() as Record<string, unknown>;
+    } catch {
+      if (this.firestoreService) {
+        return this.firestoreService.getTenantDocument<Record<string, unknown>>(
+          tenantId,
+          'requests',
+          id,
+        );
+      }
+      return null;
+    }
+  }
 }

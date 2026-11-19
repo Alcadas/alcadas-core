@@ -35,4 +35,26 @@ describe('SolicitacaoValidator', () => {
     
     expect(() => validator.validarCriacao(dto)).not.toThrow();
   });
+
+  describe('Validação de Valor (CA-02.3 / BUG-001)', () => {
+    it('deve lançar BadRequestException para valor zero', () => {
+      const dto = { categoria: 'TESTE', valor: 0 } as CriarSolicitacaoDto;
+      expect(() => validator.validarCriacao(dto)).toThrow(BadRequestException);
+    });
+
+    it('deve lançar BadRequestException para valor negativo', () => {
+      const dto = { categoria: 'TESTE', valor: -1 } as CriarSolicitacaoDto;
+      expect(() => validator.validarCriacao(dto)).toThrow(BadRequestException);
+    });
+
+    it('deve lançar BadRequestException para valor com mais de 2 casas decimais', () => {
+      const dto = { categoria: 'TESTE', valor: 10.123 } as CriarSolicitacaoDto;
+      expect(() => validator.validarCriacao(dto)).toThrow(BadRequestException);
+    });
+
+    it('deve aceitar valor com exatamente 2 casas decimais', () => {
+      const dto = { categoria: 'TESTE', valor: 0.01 } as CriarSolicitacaoDto;
+      expect(() => validator.validarCriacao(dto)).not.toThrow();
+    });
+  });
 });
