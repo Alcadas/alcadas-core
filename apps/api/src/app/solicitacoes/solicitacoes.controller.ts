@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { UsuarioAtual, UsuarioAutenticado } from '../auth/usuario-autenticado';
 import { CriarSolicitacaoDto } from './dto/criar-solicitacao.dto';
@@ -29,5 +29,13 @@ export class SolicitacoesController {
   ) {
     const parametros = this.listagemValidator.validar(query);
     return this.solicitacoesService.listarPorTenant(usuario.tenantId, parametros);
+  }
+
+  @Get(':id')
+  async obterPorId(
+    @Param('id') id: string,
+    @UsuarioAtual() usuario: UsuarioAutenticado,
+  ) {
+    return this.solicitacoesService.obterPorId(usuario.tenantId, id);
   }
 }

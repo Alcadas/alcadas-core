@@ -13,7 +13,8 @@ describe('SolicitacoesService', () => {
     validadorMock = { validarCriacao: jest.fn() };
     repositoryMock = { 
       salvarComTrilha: jest.fn().mockResolvedValue(undefined),
-      listarPorTenant: jest.fn().mockResolvedValue([])
+      listarPorTenant: jest.fn().mockResolvedValue([]),
+      buscarPorId: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -161,6 +162,24 @@ describe('SolicitacoesService', () => {
 
       const result = await service.criarSolicitacao(dto, 'tenant-123', 'user-admin', usuarioAdmin);
       expect(result.centroCustoId).toBe('CC-FIN-01');
+    });
+  });
+
+  describe('obterPorId (BUG-002 / RNF07)', () => {
+    it('deve retornar a solicitação quando encontrada', async () => {
+      const mockDoc = { id: 'sol-1', tenantId: 'tenant-123', status: 'PENDENTE' };
+      repositoryMock['buscarPorId'].mockResolvedValue(mockDoc);
+
+      const result = await service.obterPorId('tenant-123', 'sol-1');
+
+      expect(repositoryMock['buscarPorId']).toHaveBeenCalledWith('tenant-123', 'sol-1');
+      expect(result).toEqual(mockDoc);
+    });
+
+    it('deve lançar NotFoundException quando a solicitação não for encontrada', async () => {
+      repositoryMock['buscarPorId'].mockResolvedValue(null);
+
+      await expect(service.obterPorId('tenant-123', 'sol-inexistente')).rejects.toThrow('Solicitação não encontrada.');
     });
   });
 });

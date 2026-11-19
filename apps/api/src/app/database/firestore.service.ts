@@ -38,7 +38,7 @@ const GRPC_ALREADY_EXISTS = 6;
 const DOCUMENTO_DE_SONDA = '_health/readyz';
 
 const PRAZO_PRODUCAO_MS = 10_000;
-const PRAZO_EMULADOR_MS = 5_000;
+const PRAZO_EMULADOR_MS = 10_000;
 const PRAZO_SONDA_EMULADOR_MS = 1_000;
 /** Por quanto tempo o resultado da sonda do emulador é reaproveitado. */
 const VALIDADE_SONDA_EMULADOR_MS = 10_000;
