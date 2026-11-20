@@ -15,6 +15,21 @@ function idsDaListagem(dados: unknown): string[] {
   return (itens as Array<{ id: string }>).map((s) => s.id);
 }
 
+async function idsDeTodasAsPaginas(token: string): Promise<string[]> {
+  const ids: string[] = [];
+  let page = 1;
+  while (page <= 10) {
+    const res = await axios.get(`/api/solicitacoes?page=${page}&limit=50`, comToken(token));
+    if (res.status !== 200) break;
+    const items = idsDaListagem(res.data);
+    if (!items.length) break;
+    ids.push(...items);
+    if (items.length < 50) break;
+    page++;
+  }
+  return ids;
+}
+
 describe('Isolamento de tenant (RNF07)', () => {
   it('CA-16.1: empresa A abre a própria solicitação pelo ID, mas não a da empresa B (BUG-002)', async () => {
     // Controle: sem ele, um 404 de "rota inexistente" passaria como se fosse isolamento.
@@ -28,7 +43,12 @@ describe('Isolamento de tenant (RNF07)', () => {
   it('CA-16.2: listagem da empresa A traz a sua solicitação e não a da empresa B', async () => {
     const res = await axios.get('/api/solicitacoes', comToken(TOKENS.solicitanteA));
     expect(res.status).toBe(200);
-    const ids = idsDaListagem(res.data);
+    let ids = idsDaListagem(res.data);
+    if (!ids.includes(SEED.solicitacaoA)) {
+      // Quando outros testes (ex: ep-bva) criam muitas solicitações no tenant startop,
+      // a solicitação inicial do seed pode ser empurrada para páginas posteriores devido à paginação (limit=20).
+      ids = await idsDeTodasAsPaginas(TOKENS.solicitanteA);
+    }
     expect(ids).toContain(SEED.solicitacaoA);
     expect(ids).not.toContain(SEED.solicitacaoB);
   });
@@ -36,7 +56,10 @@ describe('Isolamento de tenant (RNF07)', () => {
   it('CA-16.2: listagem da empresa B traz a sua solicitação e não a da empresa A', async () => {
     const res = await axios.get('/api/solicitacoes', comToken(TOKENS.solicitanteB));
     expect(res.status).toBe(200);
-    const ids = idsDaListagem(res.data);
+    let ids = idsDaListagem(res.data);
+    if (!ids.includes(SEED.solicitacaoB)) {
+      ids = await idsDeTodasAsPaginas(TOKENS.solicitanteB);
+    }
     expect(ids).toContain(SEED.solicitacaoB);
     expect(ids).not.toContain(SEED.solicitacaoA);
   });
