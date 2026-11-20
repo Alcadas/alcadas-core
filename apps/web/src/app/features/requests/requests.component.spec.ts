@@ -112,6 +112,7 @@ describe('RequestsComponent', () => {
 
     it('should open create modal on goToCreatePage', () => {
       component.goToCreatePage();
+      http.match('/api/centros-custo').forEach((r) => r.flush([]));
       expect(component.isCreateModalOpen()).toBe(true);
     });
 
@@ -149,6 +150,7 @@ describe('RequestsComponent', () => {
       iniciar();
       responderCarga();
       component.openCreateDrawer();
+      http.match('/api/centros-custo').forEach((r) => r.flush([]));
     });
 
     it('já vem com o primeiro centro de custo carregado da API', () => {
@@ -374,6 +376,7 @@ describe('RequestsComponent', () => {
       responderCarga();
 
       component.openCreateModal();
+      http.match('/api/centros-custo').forEach((r) => r.flush([]));
       component.formTitulo.set('Compra de Monitores 4K');
       component.formCentroCustoId.set('cc-clinica-centro');
       component.formCategoria.set('EQUIPAMENTOS');

@@ -385,9 +385,11 @@ export class RequestsComponent implements OnInit, OnDestroy {
       this.visibilityListener = () => {
         if (document.visibilityState === 'visible') {
           this.requestsService.loadSilent().subscribe();
+          this.requestsService.loadCostCenters().subscribe();
         }
       };
       document.addEventListener('visibilitychange', this.visibilityListener);
+      window.addEventListener('focus', this.visibilityListener);
     }
   }
 
@@ -397,6 +399,7 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.pollingSub = null;
     if (this.visibilityListener && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.visibilityListener);
+      window.removeEventListener('focus', this.visibilityListener);
       this.visibilityListener = null;
     }
     this.clearToastTimer();
@@ -477,6 +480,11 @@ export class RequestsComponent implements OnInit, OnDestroy {
     this.resetCreateForm();
     this.isCreateModalOpen.set(true);
     this.isCreateDrawerOpen.set(true);
+    this.requestsService.loadCostCenters().subscribe((ccs) => {
+      if (!this.formCentroCustoId() && ccs.length > 0) {
+        this.formCentroCustoId.set(ccs[0].id);
+      }
+    });
   }
 
   closeCreateModal(): void {
