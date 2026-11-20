@@ -11,6 +11,7 @@ describe('MyLimitsComponent', () => {
   let router: Router;
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [MyLimitsComponent],
       providers: [
@@ -27,6 +28,10 @@ describe('MyLimitsComponent', () => {
     fixture = TestBed.createComponent(MyLimitsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('deve instanciar o componente', () => {
