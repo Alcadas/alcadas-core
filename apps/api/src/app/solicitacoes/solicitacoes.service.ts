@@ -188,7 +188,7 @@ export class SolicitacoesService {
   async obterPorId(tenantId: string, id: string) {
     const solicitacao = await this.repository.buscarPorId(tenantId, id);
     if (!solicitacao) {
-      throw new NotFoundException(`Solicitação "${id}" não encontrada.`);
+      throw new NotFoundException('Solicitação não encontrada.');
     }
     return solicitacao;
   }

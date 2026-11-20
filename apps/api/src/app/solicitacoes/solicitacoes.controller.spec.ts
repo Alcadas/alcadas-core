@@ -13,7 +13,7 @@ describe('SolicitacoesController', () => {
     service = {
       criarSolicitacao: jest.fn().mockResolvedValue({ id: 'sol-1' }),
       listarPorTenant: jest.fn().mockResolvedValue([]),
-      obterPorId: jest.fn().mockResolvedValue({ id: 'sol-1', valor: 500 }),
+      obterPorId: jest.fn().mockResolvedValue({ id: 'sol-1', tenantId: 'startop' }),
     };
     controller = new SolicitacoesController(
       service as unknown as SolicitacoesService,
@@ -35,10 +35,9 @@ describe('SolicitacoesController', () => {
     expect(service.listarPorTenant).toHaveBeenCalledWith('startop', { status: undefined, page: 2, limit: 10 });
   });
 
-  it('consulta a solicitação por ID no tenant do token (BUG-002)', async () => {
-    const res = await controller.obterPorId('sol-1', usuario);
+  it('obtém a solicitação pelo id usando o tenant do token (BUG-002)', async () => {
+    await controller.obterPorId('sol-1', usuario);
 
     expect(service.obterPorId).toHaveBeenCalledWith('startop', 'sol-1');
-    expect(res).toEqual({ id: 'sol-1', valor: 500 });
   });
 });

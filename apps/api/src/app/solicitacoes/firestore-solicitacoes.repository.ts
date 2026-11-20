@@ -116,6 +116,9 @@ export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository 
     }
   }
 
+  /**
+   * Busca uma solicitação pelo ID garantindo o isolamento do tenant (RNF07 / CA-16.1).
+   */
   async buscarPorId(tenantId: string, id: string): Promise<Record<string, unknown> | null> {
     try {
       const db = getFirestore(getFirebaseApp());
@@ -126,19 +129,22 @@ export class FirestoreSolicitacoesRepository implements ISolicitacoesRepository 
         .doc(id)
         .get();
 
-      if (!doc.exists) {
-        return null;
-      }
-      return doc.data() as Record<string, unknown>;
-    } catch {
-      if (this.firestoreService) {
-        return this.firestoreService.getTenantDocument<Record<string, unknown>>(
-          tenantId,
-          'requests',
-          id,
-        );
+      if (doc.exists) {
+        return doc.data() as Record<string, unknown>;
       }
       return null;
+    } catch {
+      if (!this.firestoreService) {
+        if (emProducao()) {
+          throw firestoreIndisponivel();
+        }
+        return null;
+      }
+      return this.firestoreService.getTenantDocument<Record<string, unknown>>(
+        tenantId,
+        'requests',
+        id,
+      );
     }
   }
 }

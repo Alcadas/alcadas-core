@@ -1,111 +1,51 @@
 import axios from 'axios';
+import { SEED, TOKENS } from '../support/tokens';
 
-function criarTokenTeste(payload: { uid: string; tenantId: string; role?: string; roles?: string[] }): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(
-    JSON.stringify({
-      ...payload,
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    }),
-  ).toString('base64url');
-  return `${header}.${body}.signature`;
+/**
+ * Isolamento entre empresas (RNF07 / US-15 / CA-16.1 e CA-16.2) com as solicitações do seed:
+ * `sol-startop-01` (empresa A) e `sol-empresa-b-01` (empresa B).
+ */
+const comToken = (token: string) => ({
+  headers: { Authorization: `Bearer ${token}` },
+  validateStatus: () => true,
+});
+
+function idsDaListagem(dados: unknown): string[] {
+  const itens = Array.isArray(dados) ? dados : ((dados as { items?: unknown[] })?.items ?? []);
+  return (itens as Array<{ id: string }>).map((s) => s.id);
 }
 
-const TOKEN_STARTOP = criarTokenTeste({
-  uid: 'startop-solicitante-01',
-  tenantId: 'startop',
-  role: 'SOLICITANTE',
-  roles: ['SOLICITANTE'],
-});
-
-const TOKEN_EMPRESA_B = criarTokenTeste({
-  uid: 'empresab-solicitante-01',
-  tenantId: 'empresa-b',
-  role: 'SOLICITANTE',
-  roles: ['SOLICITANTE'],
-});
-
 describe('Isolamento de tenant (RNF07)', () => {
-  let idSolicitacaoEmpresaB = 'sol-empresa-b-01';
-  let idSolicitacaoStartop = 'sol-startop-01';
+  it('CA-16.1: empresa A abre a própria solicitação pelo ID, mas não a da empresa B (BUG-002)', async () => {
+    // Controle: sem ele, um 404 de "rota inexistente" passaria como se fosse isolamento.
+    const propria = await axios.get(`/api/solicitacoes/${SEED.solicitacaoA}`, comToken(TOKENS.solicitanteA));
+    expect(propria.status).toBe(200);
 
-  beforeAll(async () => {
-    // Garante que exista solicitação criada para a Empresa B via API
-    try {
-      const resB = await axios.post(
-        '/api/solicitacoes',
-        {
-          centroCustoId: 'cc-empresab-01',
-          valor: 500,
-          categoria: 'SERVICOS_TERCEIROS',
-          justificativa: 'Consultoria técnica externa para teste de isolamento Empresa B',
-        },
-        {
-          headers: { Authorization: `Bearer ${TOKEN_EMPRESA_B}` },
-          validateStatus: () => true,
-        },
-      );
-      if (resB.data && resB.data.id) {
-        idSolicitacaoEmpresaB = resB.data.id;
-      }
-    } catch {
-      // Ignora e usa o identificador fallback
-    }
-
-    // Garante que exista solicitação criada para a Startop via API
-    try {
-      const resA = await axios.post(
-        '/api/solicitacoes',
-        {
-          centroCustoId: 'cc-startop-01',
-          valor: 800,
-          categoria: 'MATERIAL_ESCRITORIO',
-          justificativa: 'Material operacional para teste de isolamento Startop',
-        },
-        {
-          headers: { Authorization: `Bearer ${TOKEN_STARTOP}` },
-          validateStatus: () => true,
-        },
-      );
-      if (resA.data && resA.data.id) {
-        idSolicitacaoStartop = resA.data.id;
-      }
-    } catch {
-      // Ignora e usa o identificador fallback
-    }
+    const deOutraEmpresa = await axios.get(`/api/solicitacoes/${SEED.solicitacaoB}`, comToken(TOKENS.solicitanteA));
+    expect([403, 404]).toContain(deOutraEmpresa.status);
   });
 
-  it('usuario da empresa A recebe 403 ou 404 ao acessar solicitacao da empresa B', async () => {
-    const res = await axios.get(`/api/solicitacoes/${idSolicitacaoEmpresaB}`, {
-      headers: { Authorization: `Bearer ${TOKEN_STARTOP}` },
-      validateStatus: () => true,
-    });
-    expect([403, 404]).toContain(res.status);
-  });
-
-  it('usuario da Startop nao enxerga solicitacoes da Empresa B na listagem', async () => {
-    const res = await axios.get('/api/solicitacoes', {
-      headers: { Authorization: `Bearer ${TOKEN_STARTOP}` },
-      validateStatus: () => true,
-    });
-
+  it('CA-16.2: listagem da empresa A traz a sua solicitação e não a da empresa B', async () => {
+    const res = await axios.get('/api/solicitacoes', comToken(TOKENS.solicitanteA));
     expect(res.status).toBe(200);
-    const solicitacoes = Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
-    const ids = solicitacoes.map((s: { id: string }) => s.id);
-    expect(ids).not.toContain(idSolicitacaoEmpresaB);
-    expect(ids).toContain(idSolicitacaoStartop);
+    const ids = idsDaListagem(res.data);
+    expect(ids).toContain(SEED.solicitacaoA);
+    expect(ids).not.toContain(SEED.solicitacaoB);
   });
 
-  it('usuario da Empresa B enxerga apenas solicitacoes do seu proprio tenant', async () => {
-    const res = await axios.get('/api/solicitacoes', {
-      headers: { Authorization: `Bearer ${TOKEN_EMPRESA_B}` },
-      validateStatus: () => true,
-    });
-
+  it('CA-16.2: listagem da empresa B traz a sua solicitação e não a da empresa A', async () => {
+    const res = await axios.get('/api/solicitacoes', comToken(TOKENS.solicitanteB));
     expect(res.status).toBe(200);
-    const solicitacoes = Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
-    const ids = solicitacoes.map((s: { id: string }) => s.id);
-    expect(ids).toContain(idSolicitacaoEmpresaB);
-    expect(ids).not.toContain(idSolicitacaoStartop);
+    const ids = idsDaListagem(res.data);
+    expect(ids).toContain(SEED.solicitacaoB);
+    expect(ids).not.toContain(SEED.solicitacaoA);
+  });
+
+  it('CA-16.3: empresa A lê a própria trilha, mas não a da solicitação da empresa B', async () => {
+    const propria = await axios.get(`/api/solicitacoes/${SEED.solicitacaoA}/trilha`, comToken(TOKENS.gerenteA));
+    expect(propria.status).toBe(200);
+
+    const deOutraEmpresa = await axios.get(`/api/solicitacoes/${SEED.solicitacaoB}/trilha`, comToken(TOKENS.gerenteA));
+    expect([403, 404]).toContain(deOutraEmpresa.status);
   });
 });
