@@ -43,3 +43,12 @@ jobs:
 
       - name: Testes de API (autorização, contrato, EP/BVA) com emuladores
         run: npx firebase-tools emulators:exec --project demo-alcadas "npx nx e2e api-e2e"
+
+      - name: Instalar navegador do Playwright (Chromium)
+        if: ${{ !cancelled() }}
+        run: npx playwright install --with-deps chromium
+
+      # Roda mesmo se os testes de API falharem, para o resultado das telas também aparecer no CI.
+      - name: Testes de tela (Playwright) com emuladores
+        if: ${{ !cancelled() }}
+        run: npx firebase-tools emulators:exec --project demo-alcadas "npx nx e2e web-e2e"

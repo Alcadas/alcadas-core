@@ -15,8 +15,8 @@ export class CriarSolicitacaoDto {
   categoria: string;
 
   @IsString({ message: 'A justificativa deve ser uma string.' })
-  @IsOptional()
-  justificativa?: string;
+  @IsDefined({ message: 'O campo justificativa é obrigatório (CA-02.1).' })
+  justificativa: string;
   
   @IsString()
   @IsOptional()
