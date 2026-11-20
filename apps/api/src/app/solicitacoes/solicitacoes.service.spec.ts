@@ -166,22 +166,21 @@ describe('SolicitacoesService', () => {
     });
   });
 
-  describe('obterPorId (BUG-002)', () => {
-    it('deve retornar a solicitação quando encontrada no repositório', async () => {
-      const mockSolicitacao = { id: 'sol-001', tenantId: 'tenant-123', valor: 500 };
-      repositoryMock.buscarPorId.mockResolvedValue(mockSolicitacao);
+  describe('obterPorId (BUG-002 / RNF07)', () => {
+    it('deve retornar a solicitação quando encontrada', async () => {
+      const mockDoc = { id: 'sol-1', tenantId: 'tenant-123', status: 'PENDENTE' };
+      repositoryMock['buscarPorId'].mockResolvedValue(mockDoc);
 
-      const result = await service.obterPorId('tenant-123', 'sol-001');
-      expect(repositoryMock.buscarPorId).toHaveBeenCalledWith('tenant-123', 'sol-001');
-      expect(result).toEqual(mockSolicitacao);
+      const result = await service.obterPorId('tenant-123', 'sol-1');
+
+      expect(repositoryMock['buscarPorId']).toHaveBeenCalledWith('tenant-123', 'sol-1');
+      expect(result).toEqual(mockDoc);
     });
 
     it('deve lançar NotFoundException quando a solicitação não for encontrada', async () => {
-      repositoryMock.buscarPorId.mockResolvedValue(null);
+      repositoryMock['buscarPorId'].mockResolvedValue(null);
 
-      await expect(service.obterPorId('tenant-123', 'sol-inexistente')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.obterPorId('tenant-123', 'sol-inexistente')).rejects.toThrow('Solicitação não encontrada.');
     });
   });
 });
