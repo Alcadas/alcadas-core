@@ -255,7 +255,7 @@ export class LimitsComponent {
 
   // Adiciona novo nó no fluxo baseado num modelo da esquerda
   addNode(template: RuleTemplateItem): void {
-    const newId = 'node-' + (Date.now() % 10000);
+    const newId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const newNode: WorkflowNode = {
       id: newId,
       type: template.type,

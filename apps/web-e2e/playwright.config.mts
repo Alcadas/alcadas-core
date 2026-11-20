@@ -29,27 +29,33 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npx nx run web:serve',
-    url: 'http://localhost:4200',
-    reuseExistingServer: true,
-    cwd: workspaceRoot
-  },
+  /* Sobe a API e o frontend antes dos testes (as telas chamam a API em http://localhost:3000/api). */
+  webServer: [
+    {
+      command: 'npx nx serve api',
+      url: 'http://localhost:3000/api',
+      reuseExistingServer: true,
+      cwd: workspaceRoot,
+      timeout: 180_000,
+    },
+    {
+      command: 'npx nx run web:serve',
+      url: 'http://localhost:4200',
+      reuseExistingServer: true,
+      cwd: workspaceRoot,
+      timeout: 180_000,
+    },
+  ],
+  /* Só Chromium: os critérios testados não dependem do navegador, e cada navegador extra multiplica o tempo do CI. */
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-
-    {
-      name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-    },
-
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(process.env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH']
+          ? { launchOptions: { executablePath: process.env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] } }
+          : {}),
+      },
     },
 
     // Uncomment for mobile browsers support

@@ -121,6 +121,7 @@ export class CreateRequestComponent {
 
   constructor() {
     this.requestsService.ensureLoaded();
+    this.requestsService.loadCostCenters().subscribe();
     effect(() => {
       const list = this.availableCostCenters();
       const current = this.formCentroCustoId();

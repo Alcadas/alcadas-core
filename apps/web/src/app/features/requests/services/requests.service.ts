@@ -410,6 +410,31 @@ export class RequestsService {
   }
 
   /**
+   * Atualiza a lista de centros de custo a partir da API em tempo real (CA-01.3 / BUG-004).
+   */
+  loadCostCenters(): Observable<CostCenterOption[]> {
+    if (!this.http) {
+      return of(this._costCenters());
+    }
+    return this.http.get<CostCenter[]>(`${this.apiBaseUrl}/centros-custo`).pipe(
+      catchError(() => of([])),
+      map((centros) => {
+        if (centros.length > 0) {
+          const mapped: CostCenterOption[] = centros.map((c) => ({
+            id: c.id,
+            code: c.code,
+            nome: c.name,
+            departamento: c.name,
+          }));
+          this._costCenters.set(mapped);
+          return mapped;
+        }
+        return this._costCenters();
+      }),
+    );
+  }
+
+  /**
    * Inicia o polling periódico silencioso (padrão: 8s), pausando automaticamente
    * quando a aba do navegador estiver em segundo plano (Page Visibility API).
    */
@@ -424,6 +449,7 @@ export class RequestsService {
         return;
       }
       this.loadSilent().subscribe();
+      this.loadCostCenters().subscribe();
     });
   }
 

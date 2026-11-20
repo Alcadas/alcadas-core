@@ -230,6 +230,20 @@ describe('RequestsService', () => {
       service.stopPolling();
       expect(service.isPolling).toBe(false);
     });
+
+    it('loadCostCenters(): busca centros de custo da API e atualiza o sinal costCenters (CA-01.3 / BUG-004)', () => {
+      let resultado: unknown[] = [];
+      service.loadCostCenters().subscribe((ccs) => (resultado = ccs));
+
+      http.expectOne('/api/centros-custo').flush([
+        { id: 'cc-novo', tenantId: 'startop', code: 'CC-NOVO', name: 'Novo Centro', isActive: true, createdAt: '', updatedAt: '' },
+      ]);
+
+      expect(resultado).toHaveLength(1);
+      expect(service.costCenters()).toEqual([
+        { id: 'cc-novo', code: 'CC-NOVO', nome: 'Novo Centro', departamento: 'Novo Centro' },
+      ]);
+    });
   });
 
   describe('Motor de Governança e Regras Automáticas (#89)', () => {

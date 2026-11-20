@@ -10,6 +10,7 @@ describe('LimitsComponent', () => {
   let limitsService: LimitsService;
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [LimitsComponent],
       providers: [
@@ -48,6 +49,10 @@ describe('LimitsComponent', () => {
     fixture = TestBed.createComponent(LimitsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('deve ser instanciado corretamente', () => {
@@ -122,6 +127,7 @@ describe('LimitsComponent', () => {
     component.deleteNode(addedId);
     expect(component.workflowNodes().length).toBe(total - 1);
     expect(component.selectedNodeId()).toBeNull();
+    expect(component.workflowNodes().some((n) => n.id === addedId)).toBe(false);
   });
 
   it('deve excluir o workflow atual e navegar para minhas alçadas', () => {
