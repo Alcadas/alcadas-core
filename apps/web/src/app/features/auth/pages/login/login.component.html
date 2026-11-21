@@ -70,19 +70,21 @@
           }
         </button>
 
-        <div class="dev-access-divider">
-          <span>ou ambiente de desenvolvimento</span>
-        </div>
+        @if (!isProduction) {
+          <div class="dev-access-divider">
+            <span>ou ambiente de desenvolvimento</span>
+          </div>
 
-        <button
-          type="button"
-          class="btn-dev-access"
-          (click)="enterAsDeveloper()"
-          [disabled]="isLoading()"
-        >
-          <span class="dev-badge">DEV</span>
-          <span>Acesso de Desenvolvedor (Acesso Geral)</span>
-        </button>
+          <button
+            type="button"
+            class="btn-dev-access"
+            (click)="enterAsDeveloper()"
+            [disabled]="isLoading()"
+          >
+            <span class="dev-badge">DEV</span>
+            <span>Acesso de Desenvolvedor (Acesso Geral)</span>
+          </button>
+        }
       </form>
 
       <footer class="login-footer">

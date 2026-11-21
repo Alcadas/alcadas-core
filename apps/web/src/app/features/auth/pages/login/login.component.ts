@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
+import { APP_CONFIG } from '../../../../core/config/app-config';
 
 @Component({
   selector: 'app-login',
@@ -14,7 +15,9 @@ export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly config = inject(APP_CONFIG);
 
+  protected readonly isProduction = this.config.production ?? false;
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
@@ -47,6 +50,9 @@ export class LoginComponent {
   }
 
   enterAsDeveloper(): void {
+    if (this.isProduction) {
+      return;
+    }
     this.errorMessage.set(null);
     if (typeof this.authService.loginAsDeveloper === 'function') {
       this.authService.loginAsDeveloper();
@@ -54,10 +60,13 @@ export class LoginComponent {
       return;
     }
 
-    this.loginForm.patchValue({
-      email: 'dev@alcadas.com',
-      password: 'dev123456',
-    });
-    this.onSubmit();
+    const devCreds = this.config.devCredentials;
+    if (devCreds) {
+      this.loginForm.patchValue({
+        email: devCreds.email,
+        password: devCreds.password,
+      });
+      this.onSubmit();
+    }
   }
 }
