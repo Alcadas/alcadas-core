@@ -10,6 +10,7 @@ versionado: os segredos ficam no painel do Render (ver [`render.yaml`](../../ren
 | #29 | Firestore real via Admin SDK, sem fallback em memória, `/readyz` | `apps/api/src/app/database/firestore.service.ts` |
 | #32 | Provisionamento no Firebase Auth e seed de produção | `apps/api/src/app/alcadas/provisionamento-colaboradores.service.ts`, `scripts/seed-producao.ts` |
 | #28 | RBAC e isolamento em `saas/tenants` | `apps/api/src/app/alcadas/saas.controller.ts` |
+| #51 | Credencial de serviço com menor privilégio e Gitleaks no CI | `.github/workflows/ci.yml`, `.gitleaks.toml`, `docs/cloud/credenciais-servico-gitleaks.md` |
 
 ---
 
