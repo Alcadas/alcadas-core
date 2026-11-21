@@ -1,0 +1,12 @@
+# Configuração oficial do Gitleaks para o repositório Alçadas Core
+# Rastreabilidade: RNF09, ADR-011, Issue #51
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist de falsos-positivos em fixtures de testes e templates legados"
+paths = [
+  '''apps/api/src/app/common/log-requisicoes\.spec\.ts''',
+  '''backend/README\.md'''
+]
