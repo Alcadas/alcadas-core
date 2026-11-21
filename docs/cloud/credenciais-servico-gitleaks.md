@@ -88,7 +88,7 @@ Para proteger o repositório contra vazamento acidental de chaves de API, senhas
 - **Job:** `gitleaks` (`Varredura de Segredos (Gitleaks)`)
 - **Gatilho:** Executado em todo `pull_request` e `push` direcionado às branches `main` e `develop`.
 - **Checkout:** Configurado com `fetch-depth: 0` para analisar todo o histórico do branch e o diff completo do PR.
-- **Action Oficial:** `gitleaks/gitleaks-action@v2` com `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`.
+- **Execução Nativa Open-Source (ADR-011 - Plano Custo Zero):** Para assegurar conformidade com a política de custo zero e evitar a restrição comercial de licença corporativa imposta pela action empacotada em repositórios de organização, o pipeline instala diretamente o binário oficial compilado do Gitleaks (`v8.24.0`) e executa `gitleaks detect --verbose` de forma limpa, rápida (< 2 segundos) e determinística.
 
 ### Configuração e Allowlist (`.gitleaks.toml`)
 O arquivo `.gitleaks.toml` estende as regras padrão do Gitleaks (`useDefault = true`) e define allowlists para falso-positivos em fixtures sintéticas de teste:
