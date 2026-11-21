@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { APP_CONFIG } from '../config/app-config';
+import { AppConfig } from '../config/app-config.model';
 import { criarJwtDeTeste } from '../testing/fake-jwt';
 import { CONFIG_DE_TESTE } from '../testing/test-config';
 import { AuthService } from './auth.service';
@@ -20,9 +21,13 @@ describe('AuthService', () => {
     tenantId: 'startop',
   });
 
-  function configurar(): void {
+  function configurar(configCustom?: Partial<AppConfig>): void {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: APP_CONFIG, useValue: CONFIG_DE_TESTE }],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: APP_CONFIG, useValue: { ...CONFIG_DE_TESTE, ...configCustom } },
+      ],
     });
     service = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);
@@ -125,5 +130,42 @@ describe('AuthService', () => {
 
     expect(token).toBeNull();
     expect(service.isAuthenticated()).toBe(false);
+  });
+
+  it('permite login de desenvolvedor quando não está em produção', () => {
+    let usuario: unknown;
+    service
+      .login({ email: 'dev@alcadas.com', password: 'dev123456' })
+      .subscribe((u) => (usuario = u));
+
+    // Não deve chamar URL_LOGIN externa
+    http.expectNone(URL_LOGIN);
+    expect(usuario).toBeDefined();
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.currentUser()?.role).toBe('SUPER_USER');
+  });
+
+  it('recusa loginAsDeveloper quando está em produção (RNF09 / #38)', () => {
+    TestBed.resetTestingModule();
+    configurar({ production: true });
+
+    expect(() => service.loginAsDeveloper()).toThrow(
+      'Acesso de desenvolvedor desativado em ambiente de produção.',
+    );
+  });
+
+  it('não intercepta credenciais de dev quando em produção e envia para autenticação padrão', () => {
+    TestBed.resetTestingModule();
+    configurar({ production: true });
+
+    let finalizou = false;
+    service
+      .login({ email: 'dev@alcadas.com', password: 'dev123456' })
+      .subscribe({ next: () => (finalizou = true) });
+
+    const req = http.expectOne(URL_LOGIN);
+    expect(req.request.method).toBe('POST');
+    req.flush({ idToken, refreshToken: 'refresh-1', expiresIn: '3600' });
+    expect(finalizou).toBe(true);
   });
 });

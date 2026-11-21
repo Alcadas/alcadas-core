@@ -5,10 +5,15 @@ import { AppConfig } from '../app/core/config/app-config.model';
  * e Firebase Auth Emulator em :9099). O emulador aceita qualquer `apiKey`.
  */
 export const environment: AppConfig = {
+  production: false,
   apiBaseUrl: 'http://localhost:3000/api',
   auth: {
     apiKey: 'demo-alcadas',
     identityToolkitUrl: 'http://localhost:9099/identitytoolkit.googleapis.com/v1',
     secureTokenUrl: 'http://localhost:9099/securetoken.googleapis.com/v1',
+  },
+  devCredentials: {
+    email: 'dev@alcadas.com',
+    password: 'dev123456',
   },
 };
