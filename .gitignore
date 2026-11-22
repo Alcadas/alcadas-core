@@ -49,5 +49,16 @@ Thumbs.db
 firebase-debug.log
 firestore-debug.log
 
+# Environment & Secrets (RNF09 / Issue #51)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*serviceAccount*.json
+*service-account*.json
+firebase-adminsdk*.json
+alcadas-api-key*.json
+
 .agents/
 SKILLS.md
