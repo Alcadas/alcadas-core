@@ -48,8 +48,14 @@ export class AuthService {
 
   login(credenciais: LoginCredentials): Observable<AuthUser> {
     const emailLimpo = credenciais.email.trim().toLowerCase();
+    const devCreds = this.config.devCredentials;
 
-    if (emailLimpo === 'dev@alcadas.com' && credenciais.password === 'dev123456') {
+    if (
+      !this.config.production &&
+      devCreds &&
+      emailLimpo === devCreds.email.toLowerCase() &&
+      credenciais.password === devCreds.password
+    ) {
       return of(this.loginAsDeveloper());
     }
 
@@ -95,7 +101,11 @@ export class AuthService {
           return usuario;
         }),
         catchError((erro: unknown) => {
-          if (emailLimpo === 'dev@alcadas.com') {
+          if (
+            !this.config.production &&
+            this.config.devCredentials &&
+            emailLimpo === this.config.devCredentials.email.toLowerCase()
+          ) {
             return of(this.loginAsDeveloper());
           }
           return throwError(() => new Error(mensagemDeErroDeLogin(erro)));
@@ -108,6 +118,9 @@ export class AuthService {
    * APROVADOR_N2, APROVADOR_N1, AUDITOR, SOLICITANTE) no tenant padrão 'startop'.
    */
   loginAsDeveloper(): AuthUser {
+    if (this.config.production) {
+      throw new Error('Acesso de desenvolvedor desativado em ambiente de produção.');
+    }
     const idToken = criarTokenDesenvolvedor();
     this.iniciarSessao(idToken, 'dev-refresh-token', String(86400 * 7));
     const usuario = usuarioDoToken(idToken);

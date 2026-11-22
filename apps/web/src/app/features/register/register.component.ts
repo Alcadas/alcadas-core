@@ -33,7 +33,6 @@ export class RegisterComponent {
     this.carregando = true;
     try {
       // TODO: integrar com Firebase Auth / API
-      console.log(this.form.getRawValue());
       await this.router.navigate(['/login']);
     } finally {
       this.carregando = false;
