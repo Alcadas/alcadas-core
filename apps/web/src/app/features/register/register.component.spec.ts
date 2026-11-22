@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { RegisterComponent } from './register.component';
 
 describe('RegisterComponent', () => {
@@ -27,5 +27,21 @@ describe('RegisterComponent', () => {
 
     component.form.controls.senha.setValue('12345678');
     expect(component.form.controls.senha.valid).toBe(true);
+  });
+
+  it('não deve imprimir dados sensíveis no console ao enviar o formulário (RNF09 / #38)', async () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const router = TestBed.inject(Router);
+    jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    component.form.setValue({
+      nome: 'Usuário Teste',
+      email: 'teste@startop.com.br',
+      senha: 'SenhaSegura123',
+    });
+
+    await component.enviar();
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });

@@ -3,6 +3,8 @@
  * Não guarda segredos: a `apiKey` do Firebase Web é pública por definição.
  */
 export interface AppConfig {
+  /** Indica se a aplicação está rodando em ambiente de produção compilado. */
+  production?: boolean;
   /** Prefixo das rotas da API. Em desenvolvimento passa pelo proxy do dev-server. */
   apiBaseUrl: string;
   auth: {
@@ -11,5 +13,10 @@ export interface AppConfig {
     identityToolkitUrl: string;
     /** Base do serviço de renovação de token (Secure Token) — emulador ou produção. */
     secureTokenUrl: string;
+  };
+  /** Credenciais de atalho para ambiente de desenvolvimento local (nunca incluídas em produção). */
+  devCredentials?: {
+    email: string;
+    password: string;
   };
 }
