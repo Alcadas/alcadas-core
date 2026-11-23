@@ -269,6 +269,26 @@ async function semearFirestore(db: Firestore): Promise<{ criados: number; existe
   return { criados, existentes: documentos.length - criados };
 }
 
+function obterAllowedFeaturesPorRole(role: UsuarioSeed['role']): string[] {
+  switch (role) {
+    case 'SOLICITANTE':
+      return ['dashboard', 'solicitacoes'];
+    case 'APROVADOR_N2':
+      return ['dashboard', 'minhas_aprovacoes', 'meus_fluxos'];
+    case 'DIRETOR_CFO':
+      return [
+        'dashboard',
+        'minhas_aprovacoes',
+        'meus_fluxos',
+        'minhas_regras',
+        'trilha',
+        'motor_riscos',
+        'delegacoes',
+        'organizacao',
+      ];
+  }
+}
+
 async function semearUsuarios(auth: Auth): Promise<{ criados: number; existentes: number }> {
   let criados = 0;
   let existentes = 0;
@@ -281,10 +301,14 @@ async function semearUsuarios(auth: Auth): Promise<{ criados: number; existentes
       role: usuario.role,
       roles: [usuario.role],
       name: usuario.nome,
+      profissaoNome: usuario.cargo,
+      jobTitle: usuario.cargo,
       departmentId: departamento.id,
       departmentName: departamento.name,
       costCenterId: departamento.code,
       limiteAlcada: usuario.limiteAlcada,
+      approvalLimit: usuario.limiteAlcada ?? 0,
+      allowedFeatures: obterAllowedFeaturesPorRole(usuario.role),
       ...(usuario.level ? { level: usuario.level } : {}),
     };
 

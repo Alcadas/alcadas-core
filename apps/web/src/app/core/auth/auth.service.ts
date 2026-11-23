@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, finalize, map, of, shareReplay, throwError } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, switchMap, throwError } from 'rxjs';
 import { APP_CONFIG } from '../config/app-config';
 import {
   SettingsService,
@@ -59,58 +59,64 @@ export class AuthService {
       return of(this.loginAsDeveloper());
     }
 
-    // 1. Verifica se é uma conta de Cliente / Funcionário gerenciada no SaaS Multi-Tenant
-    const contaTenant = this.settingsService.findAccountByEmail(emailLimpo);
-    if (contaTenant) {
-      if (contaTenant.tenant.status === 'SUSPENSO') {
-        return throwError(
-          () => new Error('O acesso desta empresa encontra-se temporariamente suspenso.'),
-        );
-      }
-      if (contaTenant.employee.status === 'INATIVO') {
-        return throwError(
-          () =>
-            new Error(
-              'Esta conta de colaborador está inativa. Contate o gestor da sua empresa.',
-            ),
-        );
-      }
-      const senhaEsperada = contaTenant.employee.password || '123456';
-      if (credenciais.password !== senhaEsperada) {
-        return throwError(() => new Error('E-mail ou senha incorretos.'));
-      }
-      const usuario = this.loginWithTenantAccount(emailLimpo);
-      if (usuario) {
-        return of(usuario);
+    // 1. Em desenvolvimento/testes locais, permite autenticar contas mock do SaaS Multi-Tenant
+    if (!this.config.production) {
+      const contaTenant = this.settingsService.findAccountByEmail(emailLimpo);
+      if (contaTenant) {
+        if (contaTenant.tenant.status === 'SUSPENSO') {
+          return throwError(
+            () => new Error('O acesso desta empresa encontra-se temporariamente suspenso.'),
+          );
+        }
+        if (contaTenant.employee.status === 'INATIVO') {
+          return throwError(
+            () =>
+              new Error(
+                'Esta conta de colaborador está inativa. Contate o gestor da sua empresa.',
+              ),
+          );
+        }
+        const senhaEsperada = contaTenant.employee.password || '123456';
+        if (credenciais.password !== senhaEsperada) {
+          return throwError(() => new Error('E-mail ou senha incorretos.'));
+        }
+        const usuario = this.loginWithTenantAccount(emailLimpo);
+        if (usuario) {
+          return of(usuario);
+        }
       }
     }
 
     // 2. Autenticação padrão via Firebase Auth / Identity Toolkit
     const url = `${this.config.auth.identityToolkitUrl}/accounts:signInWithPassword`;
-    return this.http
-      .post<RespostaLogin>(
-        url,
-        { email: credenciais.email, password: credenciais.password, returnSecureToken: true },
-        { params: { key: this.config.auth.apiKey } },
-      )
-      .pipe(
-        map((resposta) => {
-          this.iniciarSessao(resposta.idToken, resposta.refreshToken, resposta.expiresIn);
-          const usuario = usuarioDoToken(resposta.idToken);
-          this.settingsService.syncSessionContext(usuario);
-          return usuario;
-        }),
-        catchError((erro: unknown) => {
-          if (
-            !this.config.production &&
-            this.config.devCredentials &&
-            emailLimpo === this.config.devCredentials.email.toLowerCase()
-          ) {
-            return of(this.loginAsDeveloper());
-          }
-          return throwError(() => new Error(mensagemDeErroDeLogin(erro)));
-        }),
-      );
+    return this.obterApiKey$().pipe(
+      switchMap((apiKey) =>
+        this.http
+          .post<RespostaLogin>(
+            url,
+            { email: credenciais.email, password: credenciais.password, returnSecureToken: true },
+            { params: { key: apiKey } },
+          )
+          .pipe(
+            map((resposta) => {
+              this.iniciarSessao(resposta.idToken, resposta.refreshToken, resposta.expiresIn);
+              const usuario = usuarioDoToken(resposta.idToken);
+              this.settingsService.syncSessionContext(usuario);
+              return usuario;
+            }),
+            catchError((erro: unknown) => {
+              if (
+                !this.config.production &&
+                this.config.devCredentials &&
+                emailLimpo === this.config.devCredentials.email.toLowerCase()
+              ) {
+                return of(this.loginAsDeveloper());
+              }
+              return throwError(() => new Error(mensagemDeErroDeLogin(erro)));
+            }),
+          ),
+      ),
+    );
   }
 
   /**
@@ -212,25 +218,45 @@ export class AuthService {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
     }).toString();
-    return this.http
-      .post<RespostaRenovacao>(url, corpo, {
-        params: { key: this.config.auth.apiKey },
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      })
-      .pipe(
-        map((resposta) => {
-          this.iniciarSessao(resposta.id_token, resposta.refresh_token, resposta.expires_in);
-          return resposta.id_token;
+    return this.obterApiKey$().pipe(
+      switchMap((apiKey) =>
+        this.http.post<RespostaRenovacao>(url, corpo, {
+          params: { key: apiKey },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         }),
-        catchError(() => {
-          this.logout();
-          return of(null);
-        }),
-        finalize(() => {
-          this.renovacaoEmAndamento = null;
-        }),
-        shareReplay({ bufferSize: 1, refCount: false }),
-      );
+      ),
+      map((resposta) => {
+        this.iniciarSessao(resposta.id_token, resposta.refresh_token, resposta.expires_in);
+        return resposta.id_token;
+      }),
+      catchError(() => {
+        this.logout();
+        return of(null);
+      }),
+      finalize(() => {
+        this.renovacaoEmAndamento = null;
+      }),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+  }
+
+  private cachedApiKey: string | null = null;
+
+  private obterApiKey$(): Observable<string> {
+    if (this.config.auth.apiKey) {
+      return of(this.config.auth.apiKey);
+    }
+    if (this.cachedApiKey) {
+      return of(this.cachedApiKey);
+    }
+    return this.http.get<{ apiKey?: string }>('/__/firebase/init.json').pipe(
+      map((init) => {
+        const key = init?.apiKey || '';
+        this.cachedApiKey = key;
+        return key;
+      }),
+      catchError(() => of('')),
+    );
   }
 
   private iniciarSessao(
@@ -274,8 +300,11 @@ function usuarioDoToken(idToken: string): AuthUser {
 
   const profId = numero(claims['profissaoId']);
   if (profId !== undefined) user.profissaoId = profId;
-  const profNome = texto(claims['profissaoNome']);
-  if (profNome !== undefined) user.profissaoNome = profNome;
+  const profNome = texto(claims['profissaoNome']) ?? texto(claims['jobTitle']);
+  if (profNome !== undefined) {
+    user.profissaoNome = profNome;
+    user.jobTitle = profNome;
+  }
   if (features !== undefined) user.allowedFeatures = features;
 
   const depId = texto(claims['departmentId']);

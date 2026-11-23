@@ -4,7 +4,10 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/ro
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
-import { SettingsService } from '../../../features/settings/services/settings.service';
+import {
+  SettingsService,
+  mapearRoleParaCargoPadrao,
+} from '../../../features/settings/services/settings.service';
 import { RequestsService } from '../../../features/requests/services/requests.service';
 import { LimitsService } from '../../../features/limits/services/limits.service';
 import { SidebarService } from '../../../core/services/sidebar.service';
@@ -164,6 +167,26 @@ export class SidebarComponent {
     ).toLowerCase();
     const id = this.authService.currentUser()?.id;
     return email === 'dev@alcadas.com' || id === 'dev-master';
+  });
+
+  readonly canManageDepartments = computed(() => {
+    return this.settingsService.currentUserAllowedFeatures().includes('organizacao');
+  });
+
+  readonly userRoleDisplay = computed(() => {
+    if (this.isDev()) {
+      return 'Desenvolvedor (Super Admin)';
+    }
+    const user = this.authService.currentUser();
+    if (user?.profissaoNome) {
+      return user.profissaoNome;
+    }
+    const profileJobTitle = this.settingsService.userProfile().jobTitle;
+    if (profileJobTitle && profileJobTitle !== 'Desenvolvedor (Super Admin)') {
+      return profileJobTitle;
+    }
+    const role = user?.role || this.settingsService.activeUserRole();
+    return mapearRoleParaCargoPadrao(role);
   });
 
   constructor() {
