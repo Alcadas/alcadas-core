@@ -1,0 +1,72 @@
+name: Deploy Automático em Produção (Main)
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  ci-verification:
+    name: Validação de Qualidade Pré-Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js (v24)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Executar Testes Unitários
+        run: npx nx run-many --target=test --all --parallel=3
+
+      - name: Compilar Frontend e Backend
+        run: npx nx run-many --target=build --all --parallel=3
+
+  deploy-frontend:
+    name: Deploy do Frontend (Firebase Hosting Live)
+    needs: [ci-verification]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (v24)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Compilar Frontend em Modo Produção
+        run: npx nx build web --configuration=production
+
+      - name: Deploy no Firebase Hosting (Live)
+        if: ${{ env.FIREBASE_SA != '' }}
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC }}"
+          projectId: alcadas-producao-f40ec
+          channelId: live
+        env:
+          FIREBASE_SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC }}"
+
+      - name: Aviso de Service Account Ausente (Produção)
+        if: ${{ env.FIREBASE_SA == '' }}
+        run: |
+          echo "::warning::O segredo FIREBASE_SERVICE_ACCOUNT (ou FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC) não está configurado no GitHub Secrets. O deploy no canal live do Firebase Hosting não foi executado."
+        env:
+          FIREBASE_SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC }}"
