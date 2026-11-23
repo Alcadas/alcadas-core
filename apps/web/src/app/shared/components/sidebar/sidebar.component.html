@@ -180,13 +180,15 @@
       @if (!isCollapsed()) {
         <div class="group-title group-title-action">
           <span>Departamentos</span>
-          <a
-            routerLink="/configuracoes/organizacao"
-            class="btn-add-action"
-            title="Gerir Departamentos e Centros de Custo"
-          >
-            <span class="material-symbols-rounded btn-add-icon">add</span>
-          </a>
+          @if (canManageDepartments()) {
+            <a
+              routerLink="/configuracoes/organizacao"
+              class="btn-add-action"
+              title="Gerir Departamentos e Centros de Custo"
+            >
+              <span class="material-symbols-rounded btn-add-icon">add</span>
+            </a>
+          }
         </div>
       }
 
@@ -232,14 +234,14 @@
     >
       <div class="user-avatar-wrap">
         <span class="user-avatar-badge">
-          {{ (authService.currentUser()?.name || settingsService.userProfile().displayName || 'D').charAt(0).toUpperCase() }}
+          {{ (authService.currentUser()?.name || settingsService.userProfile().displayName || 'U').charAt(0).toUpperCase() }}
         </span>
       </div>
 
       @if (!isCollapsed()) {
         <div class="user-meta">
-          <span class="user-name">{{ authService.currentUser()?.name || settingsService.userProfile().displayName || 'Desenvolvedor' }}</span>
-          <span class="user-role">{{ authService.currentUser()?.profissaoNome || settingsService.userProfile().jobTitle || authService.currentUser()?.role || 'Desenvolvedor' }}</span>
+          <span class="user-name">{{ authService.currentUser()?.name || settingsService.userProfile().displayName || 'Usuário' }}</span>
+          <span class="user-role">{{ userRoleDisplay() }}</span>
         </div>
       }
     </a>

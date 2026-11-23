@@ -16,6 +16,7 @@ export interface AuthUser {
   /** Profissão vinculada na matriz de Delegações (/delegacoes) da empresa. */
   profissaoId?: number;
   profissaoNome?: string;
+  jobTitle?: string;
   /** Lista de chaves de funcionalidades liberadas para este usuário na empresa. */
   allowedFeatures?: string[];
   /** Departamento e Centro de Custo de lotação do colaborador (Cenário 2). */
