@@ -18,7 +18,7 @@ import {
   TenantProfession,
 } from '../models/organization.model';
 
-const STORAGE_KEY_TENANTS = 'alcadas.saas.tenants.v1';
+const STORAGE_KEY_TENANTS = 'alcadas.saas.tenants.v2';
 const STORAGE_KEY_SESSION = 'alcadas.sessao';
 
 export const TODAS_FUNCIONALIDADES_SISTEMA: string[] = [
@@ -134,6 +134,111 @@ export function mapearRoleParaClaimBackend(
       return 'AUDITOR';
     default:
       return 'SOLICITANTE';
+  }
+}
+
+/**
+ * Retorna a lista de funcionalidades padrão por papel (RBAC / Segregação de Funções - SoD - RN03).
+ * Princípio do Menor Privilégio: usuários desconhecidos ou novos recebem apenas acesso de Solicitante.
+ */
+export function obterFuncionalidadesPadraoPorRole(role?: string): string[] {
+  const normalizada = (role || '').toUpperCase();
+  switch (normalizada) {
+    case 'SUPER_USER':
+      return [...TODAS_FUNCIONALIDADES_SISTEMA, 'clientes'];
+    case 'ADMIN':
+    case 'ADMINISTRADOR':
+      return [
+        'dashboard',
+        'minhas_aprovacoes',
+        'solicitacoes',
+        'meus_fluxos',
+        'minhas_regras',
+        'delegacoes',
+        'organizacao',
+      ];
+    case 'DIRETOR_CFO':
+    case 'DIRETOR':
+    case 'CFO':
+      // SoD (RN03): Diretor/CFO delibera alçadas e administra regras, sem emitir solicitações ordinárias
+      return [
+        'dashboard',
+        'minhas_aprovacoes',
+        'meus_fluxos',
+        'minhas_regras',
+        'trilha',
+        'motor_riscos',
+        'delegacoes',
+        'organizacao',
+      ];
+    case 'APROVADOR_N2':
+    case 'GERENTE':
+      // Gerente delibera alçadas de segundo nível e acompanha fluxos, sem editar regras corporativas nem emitir pedidos (SoD)
+      return ['dashboard', 'minhas_aprovacoes', 'meus_fluxos'];
+    case 'APROVADOR_N1':
+    case 'COORDENADOR':
+      return ['dashboard', 'minhas_aprovacoes'];
+    case 'ANALISTA':
+      return ['dashboard', 'minhas_aprovacoes'];
+    case 'AUDITOR':
+      return ['dashboard', 'trilha', 'motor_riscos'];
+    case 'SOLICITANTE':
+    default:
+      // Princípio do Menor Privilégio: emissão de solicitações e dashboard operacional
+      return ['dashboard', 'solicitacoes'];
+  }
+}
+
+export function mapearRoleParaCargoPadrao(role?: string): string {
+  const normalizada = (role || '').toUpperCase();
+  switch (normalizada) {
+    case 'SUPER_USER':
+      return 'Desenvolvedor (Super Admin)';
+    case 'ADMIN':
+    case 'ADMINISTRADOR':
+      return 'Administrador da Empresa';
+    case 'DIRETOR_CFO':
+    case 'DIRETOR':
+      return 'Diretor de Operações';
+    case 'CFO':
+      return 'Diretor Financeiro (CFO)';
+    case 'APROVADOR_N2':
+    case 'GERENTE':
+      return 'Gerente Departamental';
+    case 'APROVADOR_N1':
+    case 'COORDENADOR':
+      return 'Coordenador';
+    case 'ANALISTA':
+      return 'Analista';
+    case 'AUDITOR':
+      return 'Auditor de Riscos & Compliance';
+    case 'SOLICITANTE':
+    default:
+      return 'Analista de Operações';
+  }
+}
+
+export function mapearRoleParaLimitePadrao(role?: string): number {
+  const normalizada = (role || '').toUpperCase();
+  switch (normalizada) {
+    case 'SUPER_USER':
+      return 9999999;
+    case 'CFO':
+      return 1000000;
+    case 'DIRETOR_CFO':
+    case 'DIRETOR':
+      return 200000;
+    case 'APROVADOR_N2':
+    case 'GERENTE':
+      return 75000;
+    case 'APROVADOR_N1':
+    case 'COORDENADOR':
+    case 'ANALISTA':
+      return 15000;
+    case 'AUDITOR':
+    case 'SOLICITANTE':
+    default:
+      return 0;
   }
 }
 
@@ -311,6 +416,70 @@ function criarTenantsIniciais(): SaasClientTenant[] {
         password: '123456',
         profissaoId: 4,
       },
+      {
+        id: 'emp-seed-solicitante',
+        employeeCode: 'STP-0001',
+        fullName: 'Solicitante Startop',
+        email: 'solicitante@startop.com.br',
+        phone: '+55 (61) 99100-0001',
+        jobTitle: 'Analista de Operações',
+        role: 'SOLICITANTE',
+        departmentId: 'dep-op',
+        departmentName: 'Operações & Logística',
+        approvalLimit: 0,
+        status: 'ATIVO',
+        joinedAt: '01/01/2026',
+        password: '',
+        profissaoId: 2,
+      },
+      {
+        id: 'emp-seed-gerente',
+        employeeCode: 'STP-0002',
+        fullName: 'Gerente Startop',
+        email: 'gerente@startop.com.br',
+        phone: '+55 (61) 99100-0002',
+        jobTitle: 'Gerente Departamental',
+        role: 'GERENTE',
+        departmentId: 'dep-op',
+        departmentName: 'Operações & Logística',
+        approvalLimit: 75000,
+        status: 'ATIVO',
+        joinedAt: '01/01/2026',
+        password: '',
+        profissaoId: 5,
+      },
+      {
+        id: 'emp-seed-diretor',
+        employeeCode: 'STP-0003',
+        fullName: 'Diretor Startop',
+        email: 'diretor@startop.com.br',
+        phone: '+55 (61) 99100-0003',
+        jobTitle: 'Diretor de Operações',
+        role: 'DIRETOR',
+        departmentId: 'dep-op',
+        departmentName: 'Operações & Logística',
+        approvalLimit: 200000,
+        status: 'ATIVO',
+        joinedAt: '01/01/2026',
+        password: '',
+        profissaoId: 1,
+      },
+      {
+        id: 'emp-seed-cfo',
+        employeeCode: 'STP-0004',
+        fullName: 'CFO Startop',
+        email: 'cfo@startop.com.br',
+        phone: '+55 (61) 99100-0004',
+        jobTitle: 'Diretor Financeiro (CFO)',
+        role: 'CFO',
+        departmentId: 'dep-fin',
+        departmentName: 'Controladoria & Finanças',
+        approvalLimit: 1000000,
+        status: 'ATIVO',
+        joinedAt: '01/01/2026',
+        password: '',
+        profissaoId: 1,
+      },
     ],
     policies: {
       defaultCurrency: 'BRL',
@@ -447,11 +616,27 @@ function criarTenantsIniciais(): SaasClientTenant[] {
 
 function carregarTenantsSalvos(): SaasClientTenant[] {
   try {
-    const bruto = localStorage.getItem(STORAGE_KEY_TENANTS);
-    if (!bruto) return criarTenantsIniciais();
+    const bruto =
+      localStorage.getItem(STORAGE_KEY_TENANTS) ||
+      localStorage.getItem('alcadas.saas.tenants.v1');
+    const iniciais = criarTenantsIniciais();
+    if (!bruto) return iniciais;
     const parsed: unknown = JSON.parse(bruto);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return (parsed as SaasClientTenant[]).map((t) => ({
+      const lista = parsed as SaasClientTenant[];
+      const startop = lista.find((t) => t.tenantId === 'startop');
+      const startopInicial = iniciais.find((t) => t.tenantId === 'startop');
+      if (startop && startopInicial) {
+        for (const empPadrao of startopInicial.organization.employees) {
+          const existe = startop.organization.employees.some(
+            (e) => e.email.toLowerCase() === empPadrao.email.toLowerCase(),
+          );
+          if (!existe) {
+            startop.organization.employees.push(empPadrao);
+          }
+        }
+      }
+      return lista.map((t) => ({
         ...t,
         profissoes: (t.profissoes || criarProfissoesPadrao()).map((p) => {
           if (p.systemRole === 'APROVADOR_N2' || p.systemRole === 'DIRETOR_CFO') {
@@ -464,7 +649,7 @@ function carregarTenantsSalvos(): SaasClientTenant[] {
         }),
       }));
     }
-    return criarTenantsIniciais();
+    return iniciais;
   } catch {
     return criarTenantsIniciais();
   }
@@ -502,6 +687,71 @@ function lerContextoSessaoSalva(): {
   }
 }
 
+function criarPerfilInicial(ctx: { email: string; role: string; name: string }): UserProfile {
+  const emailLimpo = (ctx.email || '').trim().toLowerCase();
+  const isDev = emailLimpo === 'dev@alcadas.com' || ctx.role === 'SUPER_USER';
+  if (isDev) {
+    return {
+      fullName: 'Desenvolvedor',
+      displayName: 'Desenvolvedor',
+      cpf: '000.000.000-00',
+      bio: 'Conta de Acesso Geral de Desenvolvedor e Administração SaaS Multi-Tenant.',
+      avatarUrl: null,
+      avatarColor: '#0f172a',
+      email: 'dev@alcadas.com',
+      additionalEmails: [{ email: 'dev@alcadas.com', isPrimary: true, verified: true }],
+      phone: '+55 (61) 99999-0000',
+      location: 'Brasília, DF — Brasil',
+      timezone: 'America/Sao_Paulo (GMT-03:00)',
+      company: 'Startop Sistemas & Governança LTDA',
+      cnpj: '11.222.333/0001-81',
+      jobTitle: 'Desenvolvedor (Super Admin)',
+      department: 'Engenharia de Plataforma',
+      employeeId: 'DEV-0001',
+      roles: ['SUPER_USER', 'Desenvolvedor', 'Admin Geral'],
+      approvalLimit: 9999999,
+      costCenters: [],
+      activeDelegation: null,
+      signatureStyle: 'drawn',
+      certificateIssuer: 'ICP-Brasil · SHA-256 ECDSA Ativo',
+      lastAccess: new Date(),
+      isActive: true,
+      recentApprovals: [],
+    };
+  }
+  const emailEfetivo = emailLimpo || 'usuario@startop.com.br';
+  const nome = ctx.name || (emailLimpo ? emailLimpo.split('@')[0] : 'Usuário');
+  const cargo = mapearRoleParaCargoPadrao(ctx.role);
+  const limite = mapearRoleParaLimitePadrao(ctx.role);
+  return {
+    fullName: nome,
+    displayName: nome,
+    cpf: '000.000.000-00',
+    bio: '',
+    avatarUrl: null,
+    avatarColor: '#644ef3',
+    email: emailEfetivo,
+    additionalEmails: [{ email: emailEfetivo, isPrimary: true, verified: true }],
+    phone: '+55 (61) 99999-0000',
+    location: 'Brasília, DF — Brasil',
+    timezone: 'America/Sao_Paulo (GMT-03:00)',
+    company: 'Startop Enterprise',
+    cnpj: '11.222.333/0001-81',
+    jobTitle: cargo,
+    department: 'Operações & Logística',
+    employeeId: 'EMP-0001',
+    roles: [ctx.role || 'SOLICITANTE'],
+    approvalLimit: limite,
+    costCenters: [],
+    activeDelegation: null,
+    signatureStyle: 'drawn',
+    certificateIssuer: 'ICP-Brasil · SHA-256 ECDSA Ativo',
+    lastAccess: new Date(),
+    isActive: true,
+    recentApprovals: [],
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   private readonly http = inject(HttpClient, { optional: true });
@@ -528,35 +778,7 @@ export class SettingsService {
     return role === 'SUPER_USER' || email === 'dev@alcadas.com';
   });
 
-  readonly userProfile = signal<UserProfile>({
-    fullName: 'Desenvolvedor',
-    displayName: 'Desenvolvedor',
-    cpf: '000.000.000-00',
-    bio: 'Conta de Acesso Geral de Desenvolvedor e Administração SaaS Multi-Tenant.',
-    avatarUrl: null,
-    avatarColor: '#0f172a',
-    email: 'dev@alcadas.com',
-    additionalEmails: [
-      { email: 'dev@alcadas.com', isPrimary: true, verified: true },
-    ],
-    phone: '+55 (61) 99999-0000',
-    location: 'Brasília, DF — Brasil',
-    timezone: 'America/Sao_Paulo (GMT-03:00)',
-    company: 'Startop Sistemas & Governança LTDA',
-    cnpj: '11.222.333/0001-81',
-    jobTitle: 'Desenvolvedor (Super Admin)',
-    department: 'Engenharia de Plataforma',
-    employeeId: 'DEV-0001',
-    roles: ['SUPER_USER', 'Desenvolvedor', 'Admin Geral'],
-    approvalLimit: 9999999,
-    costCenters: [],
-    activeDelegation: null,
-    signatureStyle: 'drawn',
-    certificateIssuer: 'ICP-Brasil · SHA-256 ECDSA Ativo',
-    lastAccess: new Date(),
-    isActive: true,
-    recentApprovals: [],
-  });
+  readonly userProfile = signal<UserProfile>(criarPerfilInicial(this.initialCtx));
 
   readonly notifications = signal<NotificationChannelItem[]>([
     {
@@ -729,7 +951,16 @@ export class SettingsService {
   /**
    * Sincroniza o tenant ativo e os dados do perfil pessoal sempre que o usuário faz login ou troca de sessão.
    */
-  syncSessionContext(ctx: { email?: string; tenantId?: string; role?: string; name?: string } | null): void {
+  syncSessionContext(ctx: {
+    email?: string;
+    tenantId?: string;
+    role?: string;
+    name?: string;
+    profissaoNome?: string;
+    jobTitle?: string;
+    departmentName?: string;
+    approvalLimit?: number;
+  } | null): void {
     if (!ctx) {
       this.activeTenantId.set('startop');
       this.activeUserEmail.set('');
@@ -741,7 +972,15 @@ export class SettingsService {
     this.activeUserEmail.set(ctx.email || '');
     this.activeUserRole.set(ctx.role || '');
     if (ctx.email) {
-      this.sincronizarPerfilComColaboradorLogado(ctx.email, tenantId, ctx.name, ctx.role);
+      this.sincronizarPerfilComColaboradorLogado(
+        ctx.email,
+        tenantId,
+        ctx.name,
+        ctx.role,
+        ctx.profissaoNome || ctx.jobTitle,
+        ctx.departmentName,
+        ctx.approvalLimit,
+      );
     }
   }
 
@@ -787,10 +1026,7 @@ export class SettingsService {
       return match.profissao.funcionalidades;
     }
     const role = this.activeUserRole();
-    if (role === 'ADMIN' || role === 'DIRETOR_CFO') {
-      return [...TODAS_FUNCIONALIDADES_SISTEMA];
-    }
-    return [...TODAS_FUNCIONALIDADES_SISTEMA];
+    return obterFuncionalidadesPadraoPorRole(role);
   });
 
   /**
@@ -1341,6 +1577,9 @@ export class SettingsService {
     tenantId: string,
     name?: string,
     role?: string,
+    jobTitle?: string,
+    departmentName?: string,
+    approvalLimit?: number,
   ): void {
     const emailLimpo = email.trim().toLowerCase();
     if (emailLimpo === 'dev@alcadas.com' || role === 'SUPER_USER') {
@@ -1390,14 +1629,25 @@ export class SettingsService {
       return;
     }
 
+    const tenant = this.activeTenant();
     const nomeExibicao = name || email.split('@')[0] || 'Usuário';
+    const cargo = jobTitle || mapearRoleParaCargoPadrao(role);
+    const limite = approvalLimit !== undefined ? approvalLimit : mapearRoleParaLimitePadrao(role);
+    const depto = departmentName || 'Operações & Logística';
     this.userProfile.update((prev) => ({
       ...prev,
       fullName: nomeExibicao,
       displayName: nomeExibicao,
       email,
       additionalEmails: [{ email, isPrimary: true, verified: true }],
+      company: tenant.organization.legalName,
+      cnpj: tenant.organization.cnpj,
+      jobTitle: cargo,
+      department: depto,
+      employeeId: 'EMP-0001',
       roles: [role || 'SOLICITANTE'],
+      approvalLimit: limite,
+      costCenters: [depto],
       recentApprovals: [],
     }));
   }
