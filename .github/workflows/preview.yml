@@ -1,0 +1,58 @@
+name: Preview do Frontend (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ "main", "develop" ]
+    paths:
+      - 'apps/web/**'
+      - 'libs/**'
+      - 'firebase.json'
+      - 'package*.json'
+      - '.github/workflows/preview.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  preview:
+    name: Publicar Canal de Preview (Firebase Hosting)
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (v24)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Compilar Frontend em Modo Produção
+        run: npx nx build web --configuration=production
+
+      - name: Publicar Canal de Preview no Firebase Hosting
+        if: ${{ env.FIREBASE_SA != '' }}
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC }}"
+          projectId: alcadas-producao-f40ec
+          channelId: "pr-${{ github.event.number }}"
+          expires: 7d
+        env:
+          FIREBASE_SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC }}"
+
+      - name: Aviso de Service Account Ausente
+        if: ${{ env.FIREBASE_SA == '' }}
+        run: |
+          echo "::warning::O segredo FIREBASE_SERVICE_ACCOUNT (ou FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC) não está configurado no GitHub Secrets. O canal de preview não foi publicado. Configure o segredo no repositório para ativar deploys de preview."
+        env:
+          FIREBASE_SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_ALCADAS_PRODUCAO_F40EC }}"
