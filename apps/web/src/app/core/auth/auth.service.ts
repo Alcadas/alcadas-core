@@ -59,29 +59,31 @@ export class AuthService {
       return of(this.loginAsDeveloper());
     }
 
-    // 1. Verifica se é uma conta de Cliente / Funcionário gerenciada no SaaS Multi-Tenant
-    const contaTenant = this.settingsService.findAccountByEmail(emailLimpo);
-    if (contaTenant) {
-      if (contaTenant.tenant.status === 'SUSPENSO') {
-        return throwError(
-          () => new Error('O acesso desta empresa encontra-se temporariamente suspenso.'),
-        );
-      }
-      if (contaTenant.employee.status === 'INATIVO') {
-        return throwError(
-          () =>
-            new Error(
-              'Esta conta de colaborador está inativa. Contate o gestor da sua empresa.',
-            ),
-        );
-      }
-      const senhaEsperada = contaTenant.employee.password || '123456';
-      if (credenciais.password !== senhaEsperada) {
-        return throwError(() => new Error('E-mail ou senha incorretos.'));
-      }
-      const usuario = this.loginWithTenantAccount(emailLimpo);
-      if (usuario) {
-        return of(usuario);
+    // 1. Em desenvolvimento/testes locais, permite autenticar contas mock do SaaS Multi-Tenant
+    if (!this.config.production) {
+      const contaTenant = this.settingsService.findAccountByEmail(emailLimpo);
+      if (contaTenant) {
+        if (contaTenant.tenant.status === 'SUSPENSO') {
+          return throwError(
+            () => new Error('O acesso desta empresa encontra-se temporariamente suspenso.'),
+          );
+        }
+        if (contaTenant.employee.status === 'INATIVO') {
+          return throwError(
+            () =>
+              new Error(
+                'Esta conta de colaborador está inativa. Contate o gestor da sua empresa.',
+              ),
+          );
+        }
+        const senhaEsperada = contaTenant.employee.password || '123456';
+        if (credenciais.password !== senhaEsperada) {
+          return throwError(() => new Error('E-mail ou senha incorretos.'));
+        }
+        const usuario = this.loginWithTenantAccount(emailLimpo);
+        if (usuario) {
+          return of(usuario);
+        }
       }
     }
 
