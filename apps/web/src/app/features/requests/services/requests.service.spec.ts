@@ -71,6 +71,87 @@ describe('RequestsService', () => {
     expect(service.loadError()).toBe('Firestore indisponível.');
   });
 
+  describe('API acordando (cold start do Render)', () => {
+    const URL = '/api/solicitacoes?page=1&limit=50';
+    const responderComplementares = () => {
+      http.expectOne('/api/centros-custo').flush([]);
+      http.expectOne('/api/alcadas/tetos').flush([]);
+    };
+
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('avisa da demora depois de 3s e limpa o aviso quando a lista chega', () => {
+      service.load();
+      expect(service.demorando()).toBe(false);
+
+      jest.advanceTimersByTime(3_000);
+      expect(service.demorando()).toBe(true);
+      expect(service.loadState()).toBe('carregando');
+
+      responderCarga();
+      expect(service.demorando()).toBe(false);
+      expect(service.loadState()).toBe('pronto');
+    });
+
+    it('repete a busca quando a API ainda não responde e carrega sem virar erro', () => {
+      service.load();
+      responderComplementares();
+      http.expectOne(URL).error(new ProgressEvent('error')); // status 0: API dormindo
+      expect(service.loadState()).toBe('carregando');
+
+      jest.advanceTimersByTime(5_000);
+      http.expectOne(URL).flush({}, { status: 503, statusText: 'Service Unavailable' });
+      expect(service.loadState()).toBe('carregando');
+
+      jest.advanceTimersByTime(5_000);
+      http.expectOne(URL).flush([solicitacaoDaApi()]);
+      expect(service.loadState()).toBe('pronto');
+      expect(service.requests()).toHaveLength(1);
+    });
+
+    it('cancela a tentativa que passa de 90s e tenta de novo', () => {
+      service.load();
+      responderComplementares();
+      const primeira = http.expectOne(URL);
+
+      jest.advanceTimersByTime(90_000);
+      expect(primeira.cancelled).toBe(true);
+      expect(service.loadState()).toBe('carregando');
+
+      jest.advanceTimersByTime(5_000);
+      http.expectOne(URL).flush([solicitacaoDaApi()]);
+      expect(service.loadState()).toBe('pronto');
+    });
+
+    it('mostra o erro só depois de esgotar as 3 tentativas', () => {
+      service.load();
+      responderComplementares();
+      http.expectOne(URL).error(new ProgressEvent('error'));
+      jest.advanceTimersByTime(5_000);
+      http.expectOne(URL).error(new ProgressEvent('error'));
+      jest.advanceTimersByTime(5_000);
+      http.expectOne(URL).error(new ProgressEvent('error'));
+
+      expect(service.loadState()).toBe('erro');
+      expect(service.loadError()).toContain('conectar à API');
+      expect(service.demorando()).toBe(false);
+      jest.advanceTimersByTime(60_000);
+      http.expectNone(URL);
+    });
+
+    it('"Tentar novamente" cancela a carga anterior em vez de duplicar', () => {
+      service.load();
+      const anterior = http.expectOne(URL);
+      responderComplementares();
+
+      service.load();
+      expect(anterior.cancelled).toBe(true);
+      responderCarga();
+      expect(service.loadState()).toBe('pronto');
+    });
+  });
+
   it('T01: cria a solicitação e coloca no topo da lista', () => {
     service.load();
     responderCarga();
