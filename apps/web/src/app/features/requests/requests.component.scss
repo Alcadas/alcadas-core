@@ -927,10 +927,19 @@ $bg-page: #f8fafc;
     font-size: 0.75rem;
     color: $muted;
   }
+
+  // Aviso de cold start da API (Render gratuito leva ~1 min para acordar).
+  .empty-desc-aviso {
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    background: #fef3c7;
+    color: #b45309;
+    font-weight: 500;
+  }
 }
 
 /* ========================================================================= */
-/* 8. PAGINAÇÃO                                                              */
+/* 8. PAGINAÇÃO                                                             */
 /* ========================================================================= */
 .pagination-footer {
   display: flex;
