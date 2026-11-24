@@ -6,9 +6,10 @@ import {
   EloAuditoriaDto,
   SolicitacaoResponseDto,
 } from '@alcadas-core/models';
-import { Observable, Subject, Subscription, catchError, forkJoin, map, of, tap, timer } from 'rxjs';
+import { Observable, Subject, Subscription, catchError, finalize, forkJoin, map, of, tap, timer } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { APP_CONFIG } from '../../../core/config/app-config';
+import { LIMIAR_DE_DEMORA_MS, aguardarApiAcordar } from '../../../core/http/api-acordando';
 import { mensagemDeErroDaApi } from '../../../core/http/api-error';
 import { SettingsService } from '../../settings/services/settings.service';
 import { avaliarSolicitacaoNoFluxo } from '../../limits/services/limits-workflow.utils';
@@ -269,6 +270,9 @@ export class RequestsService {
   private readonly _tiers = signal<ApprovalTier[]>([]);
   private readonly _loadState = signal<LoadState>('carregando');
   private readonly _loadError = signal<string | null>(null);
+  /** Verdadeiro quando a carga passa de {@link LIMIAR_DE_DEMORA_MS} — em geral, a API acordando. */
+  private readonly _demorando = signal(false);
+  private cargaSubscription: Subscription | null = null;
 
   private readonly _statusEvents = new Subject<RequestStatusChangeEvent>();
   readonly statusEvents$ = this._statusEvents.asObservable();
@@ -334,6 +338,7 @@ export class RequestsService {
   readonly tiers = this._tiers.asReadonly();
   readonly loadState = this._loadState.asReadonly();
   readonly loadError = this._loadError.asReadonly();
+  readonly demorando = this._demorando.asReadonly();
 
   readonly stats = computed<RequestStats>(() => calcularIndicadores(this._requests()));
 
@@ -381,32 +386,51 @@ export class RequestsService {
       return;
     }
 
+    // "Tentar novamente" ou um novo acesso à tela cancelam a carga anterior em vez de somá-la.
+    this.cargaSubscription?.unsubscribe();
     this._loadState.set('carregando');
     this._loadError.set(null);
+    this._demorando.set(false);
+    const avisoDeDemora = timer(LIMIAR_DE_DEMORA_MS).subscribe(() => this._demorando.set(true));
 
-    forkJoin({
-      solicitacoes: this.http.get<SolicitacaoResponseDto[]>(`${this.apiBaseUrl}/solicitacoes`, {
-        params: { page: 1, limit: TAMANHO_DA_PAGINA_DA_API },
-      }),
-      centros: this.http.get<CostCenter[]>(`${this.apiBaseUrl}/centros-custo`).pipe(catchError(() => of([]))),
-      tetos: this.http.get<ApprovalTier[]>(`${this.apiBaseUrl}/alcadas/tetos`).pipe(catchError(() => of([]))),
-    }).subscribe({
-      next: ({ solicitacoes, centros, tetos }) => {
-        if (centros.length > 0) {
-          this._costCenters.set(centros.map((c) => ({ id: c.id, code: c.code, nome: c.name })));
-        } else if (this._costCenters().length === 0) {
-          this.syncCostCentersFromOrganization();
-        }
-        this._tiers.set(tetos);
-        this._requests.set(solicitacoes.map((dto) => paraRequestItem(dto, this.contexto())));
-        salvarRequestsNoStorage(this._requests());
-        this._loadState.set('pronto');
-      },
-      error: (erro: unknown) => {
-        this._loadError.set(mensagemDeErroDaApi(erro));
-        this._loadState.set('erro');
-      },
-    });
+    this.cargaSubscription = forkJoin({
+      solicitacoes: this.http
+        .get<SolicitacaoResponseDto[]>(`${this.apiBaseUrl}/solicitacoes`, {
+          params: { page: 1, limit: TAMANHO_DA_PAGINA_DA_API },
+        })
+        .pipe(aguardarApiAcordar()),
+      centros: this.http
+        .get<CostCenter[]>(`${this.apiBaseUrl}/centros-custo`)
+        .pipe(aguardarApiAcordar(), catchError(() => of([]))),
+      tetos: this.http
+        .get<ApprovalTier[]>(`${this.apiBaseUrl}/alcadas/tetos`)
+        .pipe(aguardarApiAcordar(), catchError(() => of([]))),
+    })
+      .pipe(
+        finalize(() => {
+          avisoDeDemora.unsubscribe();
+          this._demorando.set(false);
+        }),
+      )
+      .subscribe({
+        next: ({ solicitacoes, centros, tetos }) => {
+          if (centros.length > 0) {
+            this._costCenters.set(centros.map((c) => ({ id: c.id, code: c.code, nome: c.name })));
+          } else if (this._costCenters().length === 0) {
+            this.syncCostCentersFromOrganization();
+          }
+          this._tiers.set(tetos);
+          this._requests.set(solicitacoes.map((dto) => paraRequestItem(dto, this.contexto())));
+          salvarRequestsNoStorage(this._requests());
+          this._loadState.set('pronto');
+        },
+        error: (erro: unknown) => {
+          // Se o polling já trouxe a lista enquanto esta carga esperava, não troca dados por erro.
+          if (this._loadState() === 'pronto') return;
+          this._loadError.set(mensagemDeErroDaApi(erro));
+          this._loadState.set('erro');
+        },
+      });
   }
 
   /**
