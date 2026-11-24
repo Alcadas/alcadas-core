@@ -97,6 +97,26 @@ describe('RequestsComponent', () => {
       expect(component.filteredRequests()).toHaveLength(3);
     });
 
+    it('avisa que a API está iniciando quando a resposta demora e carrega sem recarregar a página', () => {
+      jest.useFakeTimers();
+      try {
+        iniciar();
+        expect(texto()).not.toContain('A API está iniciando');
+
+        jest.advanceTimersByTime(3_000);
+        fixture.detectChanges();
+        expect(texto()).toContain('Carregando…');
+        expect(texto()).toContain('A API está iniciando. Isso pode levar até 1 minuto.');
+        expect(texto()).not.toContain('Não foi possível carregar');
+
+        responderCarga();
+        expect(texto()).not.toContain('A API está iniciando');
+        expect(component.filteredRequests()).toHaveLength(3);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('mostra o estado vazio quando o tenant não tem solicitações', () => {
       iniciar();
       responderCarga([]);
