@@ -5,10 +5,12 @@
       <router-outlet></router-outlet>
     </main>
   </div>
+
+  <!-- O tour aponta para o menu e as telas internas: só existe com sessão ativa. -->
+  <app-welcome-modal></app-welcome-modal>
+  <app-tour-overlay></app-tour-overlay>
 } @else {
   <router-outlet></router-outlet>
 }
 
 <app-notificacoes></app-notificacoes>
-<app-welcome-modal></app-welcome-modal>
-<app-tour-overlay></app-tour-overlay>
