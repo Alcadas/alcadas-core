@@ -748,7 +748,7 @@ export class TourService {
   }
 
   navigateToTutorials(): void {
-    this.dismissWelcomeModal(false);
+    this.dismissWelcomeModal(true);
     void this.router.navigate(['/tutoriais']);
   }
 }
