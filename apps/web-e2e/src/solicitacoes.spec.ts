@@ -1,10 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 
 async function entrar(page: Page): Promise<void> {
-  // Marca o modal de boas-vindas como já visto, para ele não cobrir a tela durante o teste.
-  await page.addInitScript(() => {
-    window.localStorage.setItem('alcadas_has_seen_welcome_v1', 'true');
-  });
+  // O acesso de desenvolvedor não recebe o boas-vindas (#109), então nada cobre a tela durante o teste.
   await page.goto('/login');
   await page.locator('#email').fill('dev@alcadas.com');
   await page.locator('#password').fill('dev123456');
