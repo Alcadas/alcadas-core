@@ -74,6 +74,34 @@ describe('DelegationsComponent', () => {
     }
   });
 
+  describe('#114: sem acesso à conta de terceiros', () => {
+    const elemento = () => fixture.nativeElement as HTMLElement;
+
+    it('não mostra o botão de entrar como outro funcionário', () => {
+      expect(elemento().querySelector('[title*="Entrar como"]')).toBeNull();
+      const icones = Array.from(elemento().querySelectorAll('.material-symbols-rounded')).map((i) => i.textContent?.trim());
+      expect(icones).not.toContain('login');
+    });
+
+    it('não mostra a coluna nem o valor da senha dos funcionários', () => {
+      const cabecalhos = Array.from(elemento().querySelectorAll('th')).map((th) => th.textContent?.trim());
+      expect(cabecalhos).not.toContain('Senha');
+
+      // Nenhuma célula da tabela pode conter exatamente a senha de um funcionário.
+      const senhas = component.perfis.map((p) => p.senha).filter((s): s is string => !!s);
+      expect(senhas.length).toBeGreaterThan(0);
+      const celulas = Array.from(elemento().querySelectorAll('td')).map((td) => td.textContent?.trim());
+      for (const senha of senhas) {
+        expect(celulas).not.toContain(senha);
+      }
+    });
+
+    it('mantém as ações de ver permissões, editar e excluir', () => {
+      const titulos = Array.from(elemento().querySelectorAll('.col-acoes [title]')).map((b) => b.getAttribute('title'));
+      expect(titulos).toEqual(expect.arrayContaining(['Ver permissões', 'Gerenciar funcionário na Organização', 'Excluir']));
+    });
+  });
+
   it('deve gerar iniciais do nome corretamente', () => {
     expect(component.iniciais('Ana Souza')).toBe('AS');
     expect(component.iniciais('Carlos Lima')).toBe('CL');
