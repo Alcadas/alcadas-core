@@ -89,24 +89,7 @@
     }
   </div>
 
-  <!-- 2. Quick Search -->
-  <div class="search-section">
-    <div class="search-input-wrap">
-      <span class="material-symbols-rounded search-icon">search</span>
-      @if (!isCollapsed()) {
-        <input
-          type="text"
-          placeholder="Pesquisar..."
-          aria-label="Pesquisar ferramentas e workflows"
-        />
-        <div class="search-badges">
-          <kbd class="kbd-badge">/</kbd>
-        </div>
-      }
-    </div>
-  </div>
-
-  <!-- 3. Navigation Menu -->
+  <!-- 2. Navigation Menu -->
   <div class="sidebar-scrollable">
     <div class="menu-group">
       @if (!isCollapsed()) {
@@ -175,7 +158,7 @@
       </nav>
     </div>
 
-    <!-- 4. Departamentos & Centros de Custo -->
+    <!-- 3. Departamentos & Centros de Custo -->
     <div class="menu-group" data-tour="sidebar-departments">
       @if (!isCollapsed()) {
         <div class="group-title group-title-action">
@@ -221,7 +204,7 @@
     </div>
   </div>
 
-  <!-- 5. User & System Footer -->
+  <!-- 4. User & System Footer -->
   <div class="sidebar-footer" data-tour="sidebar-user">
   <div class="user-card" [class.user-card-collapsed]="isCollapsed()">
 
