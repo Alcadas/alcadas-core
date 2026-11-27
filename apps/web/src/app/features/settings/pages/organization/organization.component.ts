@@ -348,7 +348,8 @@ export class OrganizationComponent {
       approvalLimit: emp.approvalLimit,
       status: emp.status,
     });
-    this.employeePassword.set(emp.password || '123456');
+    // A senha atual nunca volta para a tela: campo vazio na edição mantém a senha existente.
+    this.employeePassword.set('');
     this.employeeError.set('');
     this.isEmployeeFormOpen.set(true);
   }
@@ -369,20 +370,20 @@ export class OrganizationComponent {
     const editingId = this.editingEmployeeId();
     const deptObj = this.org().departments.find((d) => d.id === val.departmentId);
     const departmentName = deptObj ? deptObj.name : 'Geral';
-    const password = this.employeePassword().trim() || '123456';
+    const novaSenha = this.employeePassword().trim();
 
     if (editingId) {
       this.settingsService.updateEmployee(editingId, {
         ...val,
         departmentName,
-        password,
+        ...(novaSenha ? { password: novaSenha } : {}),
       });
       this.showFeedback('Cadastro e credenciais do funcionário atualizados.');
     } else {
       this.settingsService.addEmployee({
         ...val,
         departmentName,
-        password,
+        password: novaSenha || '123456',
       });
       this.showFeedback('Funcionário registrado com sucesso e sincronizado com Delegações.');
     }
