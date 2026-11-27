@@ -116,14 +116,60 @@ describe('TourService', () => {
     expect(service.isTourActive()).toBe(false);
   });
 
-  it('lembra o boas-vindas como visto ao ir para a Central de Tutoriais (#109)', () => {
-    localStorage.removeItem('alcadas_has_seen_welcome_v1');
-    service.openWelcomeModal();
+  describe('boas-vindas por pessoa (#109)', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      jest.useFakeTimers();
+    });
 
-    service.navigateToTutorials();
+    afterEach(() => {
+      jest.useRealTimers();
+    });
 
-    expect(service.showWelcomeModal()).toBe(false);
-    expect(localStorage.getItem('alcadas_has_seen_welcome_v1')).toBe('true');
-    expect(router.navigate).toHaveBeenCalledWith(['/tutoriais']);
+    it('não abre nada sozinho ao ser criado, sem uma pessoa logada', () => {
+      jest.advanceTimersByTime(1_000);
+      expect(service.showWelcomeModal()).toBe(false);
+    });
+
+    it('oferece o boas-vindas a quem ainda não viu', () => {
+      service.offerWelcomeTo('startop:julia');
+      jest.advanceTimersByTime(600);
+      expect(service.showWelcomeModal()).toBe(true);
+    });
+
+    it('lembra só a pessoa que fechou; outra pessoa ainda recebe', () => {
+      service.offerWelcomeTo('startop:julia');
+      jest.advanceTimersByTime(600);
+      service.dismissWelcomeModal(true);
+
+      expect(service.hasSeenWelcome('startop:julia')).toBe(true);
+      expect(service.hasSeenWelcome('startop:mariana')).toBe(false);
+
+      service.offerWelcomeTo('startop:julia');
+      jest.advanceTimersByTime(600);
+      expect(service.showWelcomeModal()).toBe(false);
+
+      service.offerWelcomeTo('startop:mariana');
+      jest.advanceTimersByTime(600);
+      expect(service.showWelcomeModal()).toBe(true);
+    });
+
+    it('cancelar a oferta antes dos 600 ms não abre o modal', () => {
+      service.offerWelcomeTo('startop:julia');
+      service.cancelWelcomeOffer();
+      jest.advanceTimersByTime(600);
+      expect(service.showWelcomeModal()).toBe(false);
+    });
+
+    it('lembra como visto ao ir para a Central de Tutoriais', () => {
+      service.offerWelcomeTo('startop:julia');
+      jest.advanceTimersByTime(600);
+
+      service.navigateToTutorials();
+
+      expect(service.showWelcomeModal()).toBe(false);
+      expect(service.hasSeenWelcome('startop:julia')).toBe(true);
+      expect(router.navigate).toHaveBeenCalledWith(['/tutoriais']);
+    });
   });
 });
