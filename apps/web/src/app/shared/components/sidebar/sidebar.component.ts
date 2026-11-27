@@ -57,7 +57,6 @@ export class SidebarComponent {
   protected readonly sidebarService = inject(SidebarService);
 
   readonly isCollapsed = this.sidebarService.isCollapsed;
-  readonly searchQuery = signal('');
   readonly isTenantDropdownOpen = signal(false);
   private readonly pinnedIds = signal<Record<string, boolean>>({});
 
