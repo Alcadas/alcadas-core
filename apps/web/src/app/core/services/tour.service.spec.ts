@@ -115,4 +115,15 @@ describe('TourService', () => {
     service.nextStep();
     expect(service.isTourActive()).toBe(false);
   });
+
+  it('lembra o boas-vindas como visto ao ir para a Central de Tutoriais (#109)', () => {
+    localStorage.removeItem('alcadas_has_seen_welcome_v1');
+    service.openWelcomeModal();
+
+    service.navigateToTutorials();
+
+    expect(service.showWelcomeModal()).toBe(false);
+    expect(localStorage.getItem('alcadas_has_seen_welcome_v1')).toBe('true');
+    expect(router.navigate).toHaveBeenCalledWith(['/tutoriais']);
+  });
 });
