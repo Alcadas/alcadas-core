@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, DestroyRef, effect, inject, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TourService } from '../../../core/services/tour.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -362,6 +362,26 @@ export class WelcomeModalComponent {
   readonly tourService = inject(TourService);
   private readonly authService = inject(AuthService);
   private readonly settingsService = inject(SettingsService);
+
+  constructor() {
+    // Cada pessoa vê o boas-vindas no seu primeiro login; o acesso de desenvolvedor não vê (#109).
+    effect(() => {
+      const usuario = this.authService.currentUser();
+      const desenvolvedor = this.authService.isDeveloper();
+      untracked(() => {
+        if (!usuario || desenvolvedor) {
+          this.tourService.cancelWelcomeOffer();
+          return;
+        }
+        this.tourService.offerWelcomeTo(`${usuario.tenantId ?? ''}:${usuario.id || usuario.email}`);
+      });
+    });
+
+    inject(DestroyRef).onDestroy(() => {
+      this.tourService.cancelWelcomeOffer();
+      this.tourService.showWelcomeModal.set(false);
+    });
+  }
 
   primeiroNome(): string {
     const nomeCompleto =

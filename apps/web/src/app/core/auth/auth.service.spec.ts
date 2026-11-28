@@ -145,6 +145,20 @@ describe('AuthService', () => {
     expect(service.currentUser()?.role).toBe('SUPER_USER');
   });
 
+  it('marca isDeveloper só para a sessão do acesso de desenvolvedor (#109)', () => {
+    let usuario: unknown;
+    service.login({ email: 'gerente@startop.test', password: 'senha123' }).subscribe((u) => (usuario = u));
+    http.expectOne(URL_LOGIN).flush({ idToken, refreshToken: 'refresh-1', expiresIn: '3600' });
+    expect(usuario).toBeDefined();
+    expect(service.isDeveloper()).toBe(false);
+
+    service.loginAsDeveloper();
+    expect(service.isDeveloper()).toBe(true);
+
+    service.logout();
+    expect(service.isDeveloper()).toBe(false);
+  });
+
   it('recusa loginAsDeveloper quando está em produção (RNF09 / #38)', () => {
     TestBed.resetTestingModule();
     configurar({ production: true });

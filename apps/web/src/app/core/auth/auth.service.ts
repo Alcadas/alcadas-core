@@ -12,6 +12,7 @@ import { AuthSession, AuthUser, LoginCredentials } from './auth.models';
 import { lerClaimsDoJwt } from './jwt';
 
 const CHAVE_SESSAO = 'alcadas.sessao';
+const ID_USUARIO_DESENVOLVEDOR = 'dev-master';
 /** Renova o ID token quando faltar menos que isso para expirar. */
 const MARGEM_DE_RENOVACAO_MS = 60_000;
 
@@ -45,6 +46,8 @@ export class AuthService {
     const sessao = this.sessao();
     return sessao ? usuarioDoToken(sessao.idToken) : null;
   });
+  /** Sessão aberta pelo acesso de desenvolvedor (`loginAsDeveloper`). */
+  readonly isDeveloper = computed(() => this.currentUser()?.id === ID_USUARIO_DESENVOLVEDOR);
 
   login(credenciais: LoginCredentials): Observable<AuthUser> {
     const emailLimpo = credenciais.email.trim().toLowerCase();
@@ -370,8 +373,8 @@ function criarTokenDesenvolvedor(): string {
   const agora = Math.floor(Date.now() / 1000);
   const cabecalho = codificarBase64Url({ alg: 'none', typ: 'JWT' });
   const corpo = codificarBase64Url({
-    user_id: 'dev-master',
-    sub: 'dev-master',
+    user_id: ID_USUARIO_DESENVOLVEDOR,
+    sub: ID_USUARIO_DESENVOLVEDOR,
     email: 'dev@alcadas.com',
     name: 'Desenvolvedor',
     role: 'SUPER_USER',

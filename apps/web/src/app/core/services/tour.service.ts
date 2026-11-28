@@ -28,7 +28,8 @@ export interface TabTutorialGuide {
   }[];
 }
 
-const STORAGE_KEY_WELCOME_SEEN = 'alcadas_has_seen_welcome_v1';
+/** Lista das pessoas (empresa:id) que já viram o boas-vindas neste navegador. */
+const STORAGE_KEY_WELCOME_SEEN = 'alcadas_welcome_seen_users_v2';
 const STORAGE_KEY_COMPLETED_TOURS = 'alcadas_completed_tours_v1';
 
 @Injectable({
@@ -591,23 +592,31 @@ export class TourService {
     ],
   };
 
-  constructor() {
-    this.checkInitialWelcomeState();
+  /** Pessoa a quem o boas-vindas está sendo oferecido; é ela que fica marcada como "já viu". */
+  private welcomeUserKey: string | null = null;
+  private welcomeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Oferece o boas-vindas uma única vez para cada pessoa (#109). `userKey` identifica a pessoa
+   * (empresa + id), então outra conta no mesmo navegador também recebe o seu.
+   */
+  offerWelcomeTo(userKey: string): void {
+    this.cancelWelcomeOffer();
+    if (!userKey || this.hasSeenWelcome(userKey)) return;
+    this.welcomeUserKey = userKey;
+    // Aguarda breve inicialização da UI antes de exibir o welcome modal
+    this.welcomeTimer = setTimeout(() => this.showWelcomeModal.set(true), 600);
   }
 
-  private checkInitialWelcomeState(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      const hasSeen = localStorage.getItem(STORAGE_KEY_WELCOME_SEEN);
-      if (!hasSeen) {
-        // Aguarda breve inicialização da UI antes de exibir o welcome modal
-        setTimeout(() => {
-          this.showWelcomeModal.set(true);
-        }, 600);
-      }
-    } catch {
-      // Ignora erro de acesso ao localStorage
-    }
+  /** Cancela um boas-vindas ainda não exibido (ex.: logout antes dos 600 ms). */
+  cancelWelcomeOffer(): void {
+    clearTimeout(this.welcomeTimer);
+    this.welcomeTimer = undefined;
+    this.welcomeUserKey = null;
+  }
+
+  hasSeenWelcome(userKey: string): boolean {
+    return this.readWelcomeSeenUsers().includes(userKey);
   }
 
   openWelcomeModal(): void {
@@ -616,12 +625,25 @@ export class TourService {
 
   dismissWelcomeModal(neverShowAgain = true): void {
     this.showWelcomeModal.set(false);
-    if (neverShowAgain && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY_WELCOME_SEEN, 'true');
-      } catch {
-        // Ignora
+    const userKey = this.welcomeUserKey;
+    if (!neverShowAgain || !userKey || typeof window === 'undefined') return;
+    try {
+      const vistos = this.readWelcomeSeenUsers();
+      if (!vistos.includes(userKey)) {
+        localStorage.setItem(STORAGE_KEY_WELCOME_SEEN, JSON.stringify([...vistos, userKey]));
       }
+    } catch {
+      // Ignora
+    }
+  }
+
+  private readWelcomeSeenUsers(): string[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const lista: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY_WELCOME_SEEN) ?? '[]');
+      return Array.isArray(lista) ? lista.filter((v): v is string => typeof v === 'string') : [];
+    } catch {
+      return [];
     }
   }
 
@@ -748,7 +770,7 @@ export class TourService {
   }
 
   navigateToTutorials(): void {
-    this.dismissWelcomeModal(false);
+    this.dismissWelcomeModal(true);
     void this.router.navigate(['/tutoriais']);
   }
 }
