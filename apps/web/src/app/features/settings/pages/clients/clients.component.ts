@@ -7,7 +7,6 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../../../../core/auth/auth.service';
 import { SettingsService } from '../../services/settings.service';
 import {
   EmployeeRoleType,
@@ -27,7 +26,6 @@ export class ClientsComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   readonly settingsService = inject(SettingsService);
-  readonly authService = inject(AuthService);
 
   readonly searchQuery = signal('');
   readonly isCreatingTenant = signal(false);
@@ -199,14 +197,6 @@ export class ClientsComponent {
       this.feedbackMessage.set(
         `Conta de acesso criada para ${created.fullName} (${created.email}) na empresa #${tenantId}.`,
       );
-    }
-  }
-
-  impersonateAccount(email: string): void {
-    const user = this.authService.loginWithTenantAccount(email);
-    if (user) {
-      const targetRoute = this.settingsService.getFirstAllowedRouteForCurrentUser();
-      void this.router.navigate([targetRoute]);
     }
   }
 

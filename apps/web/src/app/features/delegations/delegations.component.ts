@@ -1,6 +1,6 @@
 import { Component, effect, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import {
   SettingsService,
@@ -153,7 +153,7 @@ const ITENS_POR_PAGINA = 6;
           <div>
             <h3>Funcionários da Empresa e Controle de Acesso</h3>
             <p>
-              Vincule cada funcionário de <strong>{{ nomeEmpresaAtiva }}</strong> a uma função/profissão para definir as ferramentas liberadas e credenciais de login.
+              Vincule cada funcionário de <strong>{{ nomeEmpresaAtiva }}</strong> a uma função/profissão para definir as ferramentas liberadas.
             </p>
           </div>
           <span class="contador">{{ perfis.length }} funcionários</span>
@@ -169,7 +169,6 @@ const ITENS_POR_PAGINA = 6;
                   <th>Funcionário</th>
                   <th>E-mail de Login</th>
                   <th>Departamento</th>
-                  <th>Senha</th>
                   <th>Profissão / Nível de Acesso</th>
                   <th class="col-acoes">Ações</th>
                 </tr>
@@ -190,7 +189,6 @@ const ITENS_POR_PAGINA = 6;
                     </td>
                     <td><code>{{ perfil.email }}</code></td>
                     <td>{{ perfil.departamento || 'Geral' }}</td>
-                    <td><code>{{ perfil.senha || '123456' }}</code></td>
                     <td>
                       <select
                         class="select-profissao-inline"
@@ -204,16 +202,6 @@ const ITENS_POR_PAGINA = 6;
                       </select>
                     </td>
                     <td class="col-acoes">
-                      @if (authService) {
-                        <button
-                          type="button"
-                          class="btn-icone"
-                          title="Testar acesso / Entrar como este funcionário"
-                          (click)="simularAcessoPerfil(perfil)"
-                        >
-                          <span class="material-symbols-rounded">login</span>
-                        </button>
-                      }
                       <button type="button" class="btn-icone" title="Ver permissões" (click)="abrirVisualizacao(perfil)">
                         <span class="material-symbols-rounded">visibility</span>
                       </button>
@@ -616,8 +604,7 @@ const ITENS_POR_PAGINA = 6;
 })
 export class DelegationsComponent {
   private readonly settingsService = inject(SettingsService);
-  private readonly router = inject(Router);
-  protected readonly authService = inject(AuthService, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
 
   funcionalidades = FUNCIONALIDADES;
   profissoes: Profissao[] = [];
@@ -873,15 +860,6 @@ export class DelegationsComponent {
       this.exibirFeedback(
         `Acesso de ${perfil.nome} alterado para "${nomeProf}" na empresa ${this.nomeEmpresaAtiva}.`,
       );
-    }
-  }
-
-  simularAcessoPerfil(perfil: Perfil): void {
-    if (!this.authService) return;
-    const usuario = this.authService.loginWithTenantAccount(perfil.email);
-    if (usuario) {
-      const rota = this.settingsService.getFirstAllowedRouteForCurrentUser();
-      void this.router.navigate([rota]);
     }
   }
 

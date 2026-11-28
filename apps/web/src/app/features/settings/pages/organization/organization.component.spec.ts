@@ -75,6 +75,51 @@ describe('OrganizationComponent', () => {
     expect(component.isEmployeeFormOpen()).toBe(false);
   });
 
+  describe('#114: sem expor senha nem acesso à conta de terceiros', () => {
+    const elemento = () => fixture.nativeElement as HTMLElement;
+
+    it('a área de funcionários continua levando para Delegações', () => {
+      component.selectTab('employees');
+      fixture.detectChanges();
+
+      const link = elemento().querySelector('a[href="/configuracoes/delegacoes"]');
+      expect(link?.textContent).toContain('Controlar Acessos em Delegações');
+    });
+
+    it('não preenche a senha atual ao editar e mostra o campo mascarado', () => {
+      const emp = settingsService.organization().employees[0];
+      settingsService.updateEmployee(emp.id, { password: 'senha-secreta-1' });
+      component.selectTab('employees');
+      component.editEmployee(settingsService.organization().employees[0]);
+      fixture.detectChanges();
+
+      expect(component.employeePassword()).toBe('');
+      const campo = elemento().querySelector<HTMLInputElement>('#empPass');
+      expect(campo?.type).toBe('password');
+      expect(elemento().innerHTML).not.toContain('senha-secreta-1');
+    });
+
+    it('mantém a senha atual quando o campo fica em branco na edição', () => {
+      const emp = settingsService.organization().employees[0];
+      settingsService.updateEmployee(emp.id, { password: 'senha-secreta-1' });
+      component.editEmployee(settingsService.organization().employees[0]);
+      component.saveEmployee();
+
+      const salvo = settingsService.organization().employees.find((e) => e.id === emp.id);
+      expect(salvo?.password).toBe('senha-secreta-1');
+    });
+
+    it('troca a senha quando uma nova é informada na edição', () => {
+      const emp = settingsService.organization().employees[0];
+      component.editEmployee(emp);
+      component.employeePassword.set('nova-senha-2');
+      component.saveEmployee();
+
+      const salvo = settingsService.organization().employees.find((e) => e.id === emp.id);
+      expect(salvo?.password).toBe('nova-senha-2');
+    });
+  });
+
   it('deve atualizar as políticas de governança do projeto', () => {
     component.policiesForm.patchValue({
       autoApproveBelow: 1000,
