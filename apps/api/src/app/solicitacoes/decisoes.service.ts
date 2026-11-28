@@ -73,7 +73,9 @@ export class DecisoesService {
       alteracoes: (solicitacao) => {
         const etapaAtual = solicitacao.etapaAtual ?? 1;
         const totalEtapas = solicitacao.totalEtapas ?? 1;
-        const isAvanco = etapaAtual < totalEtapas;
+        const ehAprovadorNivelFinal =
+          user.role === 'DIRETOR_CFO' || user.role === 'SUPER_USER' || alcada?.level === 'N3';
+        const isAvanco = etapaAtual < totalEtapas && !ehAprovadorNivelFinal;
 
         if (isAvanco) {
           const proximaEtapa = etapaAtual + 1;
@@ -94,6 +96,7 @@ export class DecisoesService {
         return {
           aprovadorId: user.userId,
           decididoPorId: user.userId,
+          ...(solicitacao.totalEtapas ? { etapaAtual: totalEtapas } : {}),
           status: 'APROVADA',
           ...(observacao ? { observacaoDecisao: observacao } : {}),
         };
@@ -101,7 +104,9 @@ export class DecisoesService {
       payload: (solicitacao) => {
         const etapaAtual = solicitacao.etapaAtual ?? 1;
         const totalEtapas = solicitacao.totalEtapas ?? 1;
-        const isAvanco = etapaAtual < totalEtapas;
+        const ehAprovadorNivelFinal =
+          user.role === 'DIRETOR_CFO' || user.role === 'SUPER_USER' || alcada?.level === 'N3';
+        const isAvanco = etapaAtual < totalEtapas && !ehAprovadorNivelFinal;
 
         if (isAvanco) {
           const proximaEtapa = etapaAtual + 1;
@@ -126,7 +131,7 @@ export class DecisoesService {
           cargo: user.role,
           nivelAlcada: alcada?.level ?? null,
           limiteAlcada: alcada?.maxAmount ?? null,
-          etapaAprovada: etapaAtual,
+          etapaAprovada: ehAprovadorNivelFinal && solicitacao.totalEtapas ? totalEtapas : etapaAtual,
           aprovacaoFinal: true,
           valor: solicitacao.valor,
           observacao: observacao ?? null,
@@ -384,13 +389,15 @@ export class DecisoesService {
       }
     }
 
-    const isEtapaIntermediaria =
-      (solicitacao.etapaAtual ?? 1) < (solicitacao.totalEtapas ?? 1) &&
-      solicitacao.aprovadorEsperadoPapel === user.role;
+    const isTriagemInicialN1 =
+      (solicitacao.etapaAtual ?? 1) === 1 &&
+      (solicitacao.totalEtapas ?? 1) > 1 &&
+      user.role === 'APROVADOR_N1' &&
+      solicitacao.aprovadorEsperadoPapel === 'APROVADOR_N1';
 
-    if (!isEtapaIntermediaria && !unlimited && maxAmount !== null && solicitacao.valor > maxAmount) {
+    if (!isTriagemInicialN1 && !unlimited && maxAmount !== null && solicitacao.valor > maxAmount) {
       throw new ForbiddenException(
-        `CA-03.1: O valor da solicitação (R$ ${solicitacao.valor.toFixed(2)}) ultrapassa o teto de alçada do aprovador (${level}: R$ ${maxAmount.toFixed(2)}). O pedido permanece PENDENTE para o nível superior.`,
+        `CA-01.2 / CA-03.1: O valor da solicitação (R$ ${solicitacao.valor.toFixed(2)}) ultrapassa o teto de alçada do aprovador (${level}: R$ ${maxAmount.toFixed(2)}). O pedido permanece PENDENTE para o nível superior.`,
       );
     }
 

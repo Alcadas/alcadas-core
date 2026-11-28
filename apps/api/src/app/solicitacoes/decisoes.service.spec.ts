@@ -285,6 +285,59 @@ describe('DecisoesService — decisões via máquina de estados', () => {
         aprovadorEsperadoNivel: 'N1',
       });
     });
+
+    it('CA-01.2 / BUG-005 (#107): pedido de R$ 5.000,01 bloqueia Gerente (N2) com 403 já na primeira tentativa e segue disponível ao Diretor/CFO', async () => {
+      await criarSolicitacaoComFluxo('sol-bug-005', 5000.01, 3);
+
+      // 1. Coordenador (N1) aprova triagem inicial (etapa 1 -> etapa 2)
+      const etapa1 = await service.aprovarSolicitacao(coordenador, 'sol-bug-005', { versao: 1 });
+      expect(etapa1).toMatchObject({
+        status: 'PENDENTE',
+        versao: 2,
+        etapaAtual: 2,
+        totalEtapas: 3,
+        aprovadorEsperadoPapel: 'APROVADOR_N2',
+      });
+
+      // 2. Gerente (N2, teto R$ 5.000,00) tenta aprovar -> 403 sem alterar status nem versão
+      await expect(service.aprovarSolicitacao(gerente, 'sol-bug-005', { versao: 2 })).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+
+      const aposBloqueio = await firestore.getTenantDocument<{ status: string; versao: number; etapaAtual: number }>(
+        TENANT_A,
+        'requests',
+        'sol-bug-005',
+      );
+      expect(aposBloqueio).toMatchObject({ status: 'PENDENTE', versao: 2, etapaAtual: 2 });
+
+      // 3. Diretor/CFO (N3) aprova diretamente com a versão preservada -> APROVADA
+      const diretor: AuthenticatedUser = {
+        userId: 'diretor-n3',
+        tenantId: TENANT_A,
+        role: 'DIRETOR_CFO',
+        level: 'N3',
+        maxApprovalLimit: null,
+      };
+      const aprovada = await service.aprovarSolicitacao(diretor, 'sol-bug-005', { versao: 2 });
+      expect(aprovada).toMatchObject({
+        status: 'APROVADA',
+        versao: 3,
+        etapaAtual: 3,
+        aprovadorId: 'diretor-n3',
+      });
+    });
+
+    it.each([
+      ['R$ 4.999,99 (abaixo do teto)', 4999.99],
+      ['R$ 5.000,00 (igual ao teto)', 5000],
+    ])('CA-01.2 (#107): Gerente (N2) continua aprovando %s após triagem N1', async (_rotulo, valor) => {
+      const id = `sol-bva-${valor}`;
+      await criarSolicitacaoComFluxo(id, valor, 2);
+      const etapa1 = await service.aprovarSolicitacao(coordenador, id, { versao: 1 });
+      const etapa2 = await service.aprovarSolicitacao(gerente, id, { versao: etapa1.versao });
+      expect(etapa2.status).toBe('APROVADA');
+    });
   });
 
   describe('Isolamento de Departamento / Centro de Custo (Cenário 2)', () => {
