@@ -8,7 +8,7 @@ Este documento detalha a configuração do **monitoramento externo de disponibil
 
 ```mermaid
 flowchart LR
-    UR["UptimeRobot (Free)\nIntervalo: 30 min | Timeout: 60s"] -->|GET /api/readyz| API["Render Web Service\nalcadas-core.onrender.com"]
+    UR["UptimeRobot (Free)\nIntervalo: 1h | Timeout: 60s"] -->|GET /api/readyz| API["Render Web Service\nalcadas-core.onrender.com"]
     API -->|1 leitura c/ cache 60s| FS["Cloud Firestore\n(Plano Spark)"]
     FS -->|HTTP 200 ok| API
     API -->|HTTP 503 ou Timeout| UR
@@ -32,11 +32,15 @@ flowchart LR
 | **Monitor Type** | `HTTP(s)` | Verificação de status HTTP (2xx = UP; 4xx/5xx/timeout = DOWN) |
 | **Friendly Name** | `Alçadas API — Produção (/api/readyz)` | Identificação clara nos e-mails de alerta |
 | **URL (or IP)** | `https://alcadas-core.onrender.com/api/readyz` | Endpoint oficial de readiness da API em produção |
-| **Monitoring Interval** | **`30 minutes`** *(ou `60 minutes` para economia máxima)* | Permite *spin-down* do Render entre checagens, mantendo consumo muito abaixo das 750h/mês |
+| **Monitoring Interval** | **`1 hour` (60 minutes)** *(ou `30 minutes`)* | Permite *spin-down* do Render entre checagens, mantendo consumo muito abaixo das 750h/mês |
 | **Monitor Timeout** | **`60 seconds`** | Absorve eventuais *cold starts* (30–50s) do Render Free sem gerar falsos alertas |
 | **Alert Contacts to Notify** | Selecionar todos os e-mails da equipe | Disparo automático em eventos `DOWN` e `UP` |
 
 4. Clique em **Create Monitor** e verifique se o status inicial aparece como **Up (HTTP 200)**.
+
+### Evidência do Monitor Ativo em Produção
+
+![Monitor UptimeRobot ativo em /api/readyz com status Up e checagem a cada 1 hora](./assets/uptimerobot-api-readyz-up.png)
 
 > **Alternativa equivalente (Custo Zero):** Caso a equipe deseje comparar ou manter redundância futura, o **Pulsetic** também oferece plano gratuito com monitoramento HTTP e alertas por e-mail.
 
@@ -49,12 +53,12 @@ O plano gratuito do **Render** oferece **750 horas mensais** compartilhadas entr
 | Intervalo no UptimeRobot | Comportamento no Render Free | Consumo Estimado no Render (mês de 31 dias) | Margem na Franquia (750h/mês) | Leituras/dia no Firestore (`/readyz`) |
 | :--- | :--- | :---: | :---: | :---: |
 | `5 minutos` | Mantém instância sempre acordada (sem *spin-down*) | ~744 horas/mês | ~6h *(estoura se houver 2º serviço)* | 288 leituras/dia (0,57%) |
-| **`30 minutos` (Adotado)** | Permite *spin-down* após 15 min em cada ciclo | **~384 horas/mês** | **~366h de folga** | **48 leituras/dia (< 0,1%)** |
-| `60 minutos` (Conservador) | Permite *spin-down* após 15 min por hora | ~192 horas/mês | ~558h de folga | 24 leituras/dia (< 0,05%) |
+| `30 minutos` | Permite *spin-down* após 15 min em cada ciclo | ~384 horas/mês | ~366h de folga | 48 leituras/dia (< 0,1%) |
+| **`60 minutos` / `1 hora` (Adotado)** | Permite *spin-down* após 15 min por hora | **~192 horas/mês** | **~558h de folga** | **24 leituras/dia (< 0,05%)** |
 
-### Por que adotamos o intervalo de 30 minutos?
-1. **Segurança contra suspensão da conta Render:** Mesmo que um segundo serviço de testes ou homologação seja criado na mesma conta Render, o consumo de ~384h/mês deixa quase metade da cota gratuita disponível.
-2. **Impacto desprezível no Firestore:** Apenas 48 leituras/dia (e protegidas pelo cache `READYZ_CACHE_TTL_MS=60000` de 60 segundos na API).
+### Por que adotamos o intervalo de 1 hora (60 minutos)?
+1. **Segurança máxima contra suspensão da conta Render:** O consumo estimado de ~192h/mês deixa ~558h de folga na franquia gratuita de 750h/mês, suportando com tranquilidade eventuais serviços adicionais na conta Render.
+2. **Impacto desprezível no Firestore:** Apenas 24 leituras/dia (e protegidas pelo cache `READYZ_CACHE_TTL_MS=60000` de 60 segundos na API).
 3. **Detecção confiável sem falsos positivos:** Combinado com timeout de **60 segundos**, o monitor aguarda o despertar (*cold start*) do contêiner no Render e alerta de forma precisa em indisponibilidades reais.
 
 ---
@@ -74,7 +78,13 @@ Para validar que os alertas por e-mail funcionam sem precisar derrubar o ambient
    - O painel do UptimeRobot marcará o monitor temporário como **Down (HTTP 404)**.
    - O e-mail cadastrado receberá a notificação **"Monitor is DOWN: Teste de Alerta — Alçadas"**.
 4. Capture as evidências (print do painel + print do e-mail recebido) para registro na Issue #53 / PR.
-5. **Exclua o monitor temporário** após a comprovação, mantendo ativo apenas o monitor oficial apontando para `/api/readyz` com intervalo de **30 minutos**.
+5. **Exclua o monitor temporário** após a comprovação, mantendo ativo apenas o monitor oficial apontando para `/api/readyz` com intervalo de **1 hora (60 minutos)**.
+
+### Evidência Real de Detecção de Indisponibilidade e Disparo de Alerta por E-mail
+
+Durante a validação em produção, o monitor detectou uma janela breve de `502 Bad Gateway` no proxy do Render, confirmou a falha em 4 regiões (Ashburn, Dallas, Ohio e N. Virginia) e disparou automaticamente o alerta por e-mail (`Email sent to Pedro Henrique — SUCCESS`), comprovando o Critério de Aceite 1 da Issue #53:
+
+![Evidência de detecção de indisponibilidade e envio de alerta por e-mail no UptimeRobot](./assets/uptimerobot-alerta-indisponibilidade.png)
 
 ---
 

@@ -220,9 +220,9 @@ Nenhum segredo ou chave privada é versionado no Git (bloqueado pelo **Gitleaks*
 A disponibilidade da API e do Firestore em produção é monitorada externamente pelo **UptimeRobot** (plano gratuito):
 
 - **Endpoint monitorado:** `https://alcadas-core.onrender.com/api/readyz` (retorna `HTTP 200 {"status":"ok","firestore":"ok"}` quando saudável e `HTTP 503` em caso de falha no banco).
-- **Intervalo de checagem:** **30 minutos** (com timeout de **60 segundos** para absorver *cold starts* do plano Free do Render sem falsos positivos).
+- **Intervalo de checagem:** **1 hora (60 minutos)** (com timeout de **60 segundos** para absorver *cold starts* do plano Free do Render sem falsos positivos).
 - **Alertas:** Notificação automática por e-mail para a equipe (*Alert Contacts*) em caso de indisponibilidade (`DOWN`) e recuperação (`UP`).
-- **Governança FinOps (ADR-011):** Como o Render Free hiberna após 15 minutos de ociosidade, o intervalo de 30 minutos permite *spin-down* entre checagens, consumindo aproximadamente **~384 horas/mês** — bem abaixo da franquia gratuita de **750 horas mensais** do Render (com folga segura caso exista outro serviço na conta) — e apenas **48 leituras/dia** no Cloud Firestore (< 0,1% da cota de 50.000 leituras/dia do plano Spark).
+- **Governança FinOps (ADR-011):** Como o Render Free hiberna após 15 minutos de ociosidade, o intervalo de 1 hora permite *spin-down* entre checagens, consumindo aproximadamente **~192 horas/mês** — muito abaixo da franquia gratuita de **750 horas mensais** do Render (folga de ~558h) — e apenas **24 leituras/dia** no Cloud Firestore (< 0,05% da cota de 50.000 leituras/dia do plano Spark).
 
 > Consulte o passo a passo completo de configuração, cálculo FinOps e teste de alerta em [`docs/cloud/monitoramento-uptime-rollback.md`](docs/cloud/monitoramento-uptime-rollback.md).
 
