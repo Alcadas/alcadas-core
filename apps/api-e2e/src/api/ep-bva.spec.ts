@@ -32,6 +32,13 @@ const TOKENS = {
     level: 'N2',
     maxApprovalLimit: 5000,
   }),
+  diretorCfo: criarToken({
+    uid: 'ep-bva-diretor',
+    tenantId: TENANT,
+    role: 'DIRETOR_CFO',
+    level: 'N3',
+    maxApprovalLimit: null,
+  }),
 };
 
 const comToken = (token: string) => ({
@@ -94,25 +101,34 @@ describe('[CP2] EP/BVA — US-01 a US-05', () => {
       expect(res.data.status).toBe('APROVADA');
     });
 
-    it('CT-01: R$ 5.000,01 (acima do teto) → Gerente não deixa APROVADA; segue para o nível superior', async () => {
+    it('CT-01: R$ 5.000,01 (acima do teto) → Gerente recebe 403 já na primeira tentativa, sem alterar status nem versão (CA-01.2 / #107)', async () => {
       const naEtapaDoGerente = await avancarAteGerente(5000.01);
       const res = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
         versao: naEtapaDoGerente.versao,
-      });
-      expect(res.data.status).not.toBe('APROVADA');
-      expect(res.data.aprovadorEsperadoPapel).toBe('DIRETOR_CFO');
-    });
-
-    it('CT-01: R$ 5.000,01 (acima do teto) → Gerente recebe 403 ao tentar aprovar no nível superior (CA-01.2 / CA-03.1)', async () => {
-      const naEtapaDoGerente = await avancarAteGerente(5000.01);
-      const etapa2 = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
-        versao: naEtapaDoGerente.versao,
-      });
-      // Na etapa 3 (Diretor), o Gerente não pode deliberar acima do seu teto
-      const res = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
-        versao: etapa2.data.versao,
       });
       expect(res.status).toBe(403);
+      expect(res.data).toMatchObject({ statusCode: 403 });
+
+      const atual = await axios.get(`/api/solicitacoes/${naEtapaDoGerente.id}`, comToken(TOKENS.diretorCfo));
+      expect(atual.status).toBe(200);
+      expect(atual.data).toMatchObject({
+        status: 'PENDENTE',
+        versao: naEtapaDoGerente.versao,
+      });
+    });
+
+    it('CT-01: R$ 5.000,01 (acima do teto) → após bloqueio do Gerente, pedido segue disponível para o Diretor/CFO aprovar (CA-01.2 / #107)', async () => {
+      const naEtapaDoGerente = await avancarAteGerente(5000.01);
+      const bloqueioGerente = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.gerenteN2, {
+        versao: naEtapaDoGerente.versao,
+      });
+      expect(bloqueioGerente.status).toBe(403);
+
+      const aprovacaoDiretor = await decidir(naEtapaDoGerente.id, 'aprovar', TOKENS.diretorCfo, {
+        versao: naEtapaDoGerente.versao,
+      });
+      expect(aprovacaoDiretor.status).toBe(200);
+      expect(aprovacaoDiretor.data.status).toBe('APROVADA');
     });
   });
 
